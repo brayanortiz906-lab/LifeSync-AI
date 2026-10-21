@@ -258,7 +258,8 @@ async def _error_global(request: Request, exc: Exception):
 # --------------------------------------------------------------------------- #
 # Sirve el frontend compilado (build) si existe
 # --------------------------------------------------------------------------- #
-FRONTEND_DIST = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
+from .config import FRONTEND_DIST  # noqa: E402  (ruta resuelta para .exe y repo)
+
 if FRONTEND_DIST.exists():
     app.mount("/assets", StaticFiles(directory=FRONTEND_DIST / "assets"), name="assets")
 

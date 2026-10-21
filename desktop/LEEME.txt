@@ -1,0 +1,51 @@
+=====================================================================
+  LifeAgente AI  -  Asistente Integral de Vida y Productividad
+  INSTALADOR LOCAL PARA WINDOWS
+=====================================================================
+
+QUE VAS A HACER
+---------------
+1. Copia "LifeAgente.exe" donde quieras (por ejemplo el Escritorio).
+2. Doble clic en "LifeAgente.exe".
+3. Aparece una ventana con los requisitos. Pulsa "Iniciar LifeAgente".
+4. Se abre el navegador con la app. Listo.
+
+NO NECESITAS INSTALAR NADA
+---------------------------
+El archivo .exe ya lleva dentro el motor de LifeAgente, la base de datos
+y la interfaz. Si algo falta (Docker, Node) la ventana te lo dice y te
+ofrece un boton "Instalar" que lo hace por ti.
+
+DONDE QUEDAN TUS DATOS
+-----------------------
+%APPDATA%\LifeAgente
+   |- lifesync.db          <- tu agenda, tareas, gastos y mantenimiento
+   |- secreto.txt          <- clave de cifrado de tus credenciales
+   |- respaldos\           <- copias automaticas de tu base de datos
+   `- logs\
+
+Puedes respaldar esa carpeta completa cuando quieras.
+
+CUANDO CIERRAS LA VENTANA
+-------------------------
+LifeAgente guarda una copia de tus datos y apaga el sistema por completo.
+No queda nada corriendo en segundo plano.
+
+COMO ENTRAR CON CUENTA Y TENER TUS DATOS EN LA NUBE
+----------------------------------------------------
+Desde la app, arriba a la derecha: "Acceder".
+  - Con tu correo y contrasena (siempre funciona).
+  - Con Google (si el que instalo la app lo configuro).
+Tus datos quedan guardados en el servidor y los ves en cualquier
+computador. Si conectas tu cuenta de Google, ademas se respaldan
+solos en tu Google Drive.
+
+PROBLEMAS FRECUENTES
+--------------------
+* "El puerto 8000 esta ocupado": quiza LifeAgente ya este corriendo.
+  Cierra la otra ventana o reinicia el equipo.
+* "No se encontro winget": actualiza Windows (o instala el App
+  Installer de Microsoft Store).
+* Desinstalar: borra la carpeta %APPDATA%\LifeAgente y el .exe.
+
+=====================================================================

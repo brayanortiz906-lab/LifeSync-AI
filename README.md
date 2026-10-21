@@ -31,6 +31,35 @@ reorganiza tu agenda ante imprevistos y registra lo que te pasa en lenguaje natu
 > (separado por comas). Sin ese origen el navegador bloquea la llamada y la app
 > cae en modo local.
 
+### 🖥️ Instalador local: un `.exe` y listo
+
+Para quien prefiera **no depender de la nube** (o no quiera entrar con cuenta),
+hay un instalador de Windows de un solo archivo:
+
+| Qué hace | Cómo |
+|---|---|
+| Revisa qué falta (Docker, Node, base de datos, puerto) | al abrir la ventana |
+| **Instala lo que falte** con un clic | botón «Instalar» (usa `winget`) |
+| **Crea la base de datos** | en `%APPDATA%\LifeAgente\lifesync.db` |
+| Arranca el sistema y abre el navegador | `http://127.0.0.1:8000` |
+| **Al cerrar la ventana**: copia los datos y apaga todo | nada queda corriendo |
+
+**No necesita instalar Python, Node ni Docker**: el `.exe` lleva dentro el
+motor, la API, el System Prompt y la interfaz ya compilada.
+
+```powershell
+# compilar el instalador (tarda unos minutos)
+powershell -ExecutionPolicy Bypass -File desktop\build.ps1
+# -> desktop\dist\LifeAgente.exe
+```
+
+También hay un arranque sin compilar: **`desktop/INICIAR.bat`** (crea el
+entorno, instala, compila, levanta y abre el navegador). Y el workflow
+`.github/workflows/build-installer.yml` publica el `.exe` como descarga
+gratuita en cada release.
+
+Detalle técnico: `docs/17-INSTALADOR-LOCAL.md`.
+
 ```
 ┌───────────────────────────────────────────┬──────────────────────┐
 │  MI AGENDA (vista inicial)                │  ACADÉMICO + BITÁCORA│

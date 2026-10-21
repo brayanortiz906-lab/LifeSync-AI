@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 .venv/
 venv/
+.venv-desktop/
 *.egg-info/
 
 # Node / frontend
@@ -10,6 +11,11 @@ node_modules/
 dist/
 .vite/
 *.tsbuildinfo
+
+# Instalador local (build del .exe)
+desktop/build/
+desktop/dist/
+desktop/*.manifest
 
 # Datos y secretos
 *.db
