@@ -49,7 +49,7 @@ jobs:
 
       - name: Comprobar el System Prompt maestro
         run: |
-          python -c "from app.config import settings; s = settings.system_prompt; assert 'CONTRATO JSON' in s and len(s) > 5000; print('System Prompt OK:', len(s), 'caracteres')"
+          python -c "from app.config import settings; s = settings.system_prompt; assert 'CONTRATO DE SALIDA' in s and 'REGISTRO EN CASCADA' in s and len(s) > 10000; print('System Prompt OK:', len(s), 'caracteres')"
 
   frontend:
     name: Frontend · build
