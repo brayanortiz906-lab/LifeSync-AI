@@ -1,0 +1,665 @@
+"""Orquestador del agente LifeSync.
+
+Flujo:
+   mensaje del usuario
+        │
+        ├─ 1. construir_contexto()  → estado real del usuario (eventos, tareas, gastos, mantenimiento)
+        ├─ 2. LLM (OpenAI / Gemini / mock) → JSON con categoría + acciones
+        ├─ 3. validar (Pydantic) → contrato estricto
+        └─ 4. aplicar_acciones() → escritura en la base de datos + plan de agenda
+
+Principio de diseño: el LLM decide QUÉ hacer; el código decide CUÁNDO y
+CÓMO (planificador determinista, validaciones, integridad referencial).
+"""
+from __future__ import annotations
+
+import json
+from datetime import date, datetime, timedelta
+from typing import Any
+
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
+from . import providers
+from .config import settings
+from .models import ChatMessage, Event, LogEntry, Maintenance, Task
+from .planner import Bloque, Interval, calcular_carga, replanificar
+from .schemas import AgentAction, AgentAlert, AgentResponse, ChatRequest, ChatResponse
+
+
+# --------------------------------------------------------------------------- #
+# Contexto
+# --------------------------------------------------------------------------- #
+def construir_contexto(db: Session, hoy: date | None = None) -> str:
+    hoy = hoy or date.today()
+    manana = hoy + timedelta(days=1)
+
+    eventos_hoy = db.scalars(
+        select(Event)
+        .where(Event.inicio >= datetime.combine(hoy, datetime.min.time()))
+        .where(Event.inicio < datetime.combine(manana, datetime.min.time()))
+        .order_by(Event.inicio)
+    ).all()
+
+    tareas = db.scalars(
+        select(Task).where(Task.estado != "completada").order_by(Task.fecha_entrega.asc().nullslast())
+    ).all()
+
+    gastos_mes = db.scalar(
+        select(func.coalesce(func.sum(LogEntry.monto), 0.0)).where(
+            func.strftime("%Y-%m", LogEntry.fecha) == hoy.strftime("%Y-%m")
+        )
+    ) or 0.0
+
+    mant = db.scalars(select(Maintenance).where(Maintenance.activo_flag.is_(True))).all()
+
+    ctx = {
+        "fecha_actual": hoy.isoformat(),
+        "dia_semana": hoy.strftime("%A"),
+        "moneda_por_defecto": settings.default_currency,
+        "jornada": {"inicio": settings.day_start, "fin": settings.day_end},
+        "eventos_hoy": [
+            {
+                "id": e.id, "titulo": e.titulo, "categoria": e.categoria,
+                "inicio": e.inicio.isoformat(timespec="minutes"),
+                "fin": e.fin.isoformat(timespec="minutes"),
+                "inamovible": e.inamovible,
+            }
+            for e in eventos_hoy
+        ],
+        "tareas_pendientes": [
+            {
+                "id": t.id, "titulo": t.titulo, "materia": t.materia,
+                "fecha_entrega": t.fecha_entrega.isoformat() if t.fecha_entrega else None,
+                "prioridad": t.prioridad, "minutos_estimados": t.minutos_estimados,
+            }
+            for t in tareas[:12]
+        ],
+        "gastos_mes": {"total": float(gastos_mes), "moneda": settings.default_currency},
+        "mantenimiento": [
+            {
+                "id": m.id, "activo": m.activo, "tarea": m.tarea,
+                "intervalo_dias": m.intervalo_dias,
+                "ultima_realizacion": m.ultima_realizacion.isoformat() if m.ultima_realizacion else None,
+                "proxima_fecha": m.proxima_fecha.isoformat() if m.proxima_fecha else None,
+            }
+            for m in mant
+        ],
+    }
+    return json.dumps(ctx, ensure_ascii=False, indent=2)
+
+
+# --------------------------------------------------------------------------- #
+# Utilidades de datos
+# --------------------------------------------------------------------------- #
+def _parse_dt(valor: Any, fallback: datetime | None = None) -> datetime | None:
+    if valor in (None, ""):
+        return fallback
+    if isinstance(valor, datetime):
+        return valor
+    if isinstance(valor, date):
+        return datetime.combine(valor, datetime.min.time())
+    texto = str(valor).strip().replace("Z", "")
+    for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(texto[: len(fmt) + 2].strip(), fmt)
+        except ValueError:
+            continue
+    try:
+        return datetime.fromisoformat(texto)
+    except ValueError:
+        return fallback
+
+
+def _parse_date(valor: Any, fallback: date | None = None) -> date | None:
+    if valor in (None, ""):
+        return fallback
+    if isinstance(valor, datetime):
+        return valor.date()
+    if isinstance(valor, date):
+        return valor
+    try:
+        return date.fromisoformat(str(valor)[:10])
+    except ValueError:
+        return fallback
+
+
+def _categoria_evento(valor: Any) -> str:
+    permitidas = {"trabajo", "clase", "estudio", "descanso", "personal", "salud", "social", "mantenimiento"}
+    v = str(valor or "personal").lower()
+    return v if v in permitidas else "personal"
+
+
+# --------------------------------------------------------------------------- #
+# Aplicación de acciones
+# --------------------------------------------------------------------------- #
+def _detectar_conflictos(db: Session, inicio: datetime, fin: datetime, excluir_id: int | None = None) -> list[dict]:
+    """Eventos que se solapan con el intervalo dado."""
+    q = select(Event).where(Event.inicio < fin).where(Event.fin > inicio)
+    if excluir_id:
+        q = q.where(Event.id != excluir_id)
+    return [
+        {"id": e.id, "titulo": e.titulo, "inicio": e.inicio.isoformat(timespec="minutes"),
+         "fin": e.fin.isoformat(timespec="minutes"), "inamovible": e.inamovible}
+        for e in db.scalars(q).all()
+    ]
+
+
+def aplicar_acciones(db: Session, acciones: list[AgentAction]) -> dict[str, Any]:
+    resumen: dict[str, Any] = {
+        "eventos_creados": [], "eventos_actualizados": [], "eventos_eliminados": 0,
+        "tareas_creadas": [], "tareas_actualizadas": [], "registros": [],
+        "mantenimientos": [], "estudio_programado": [], "plan": {},
+    }
+    plan_resultado: dict[str, Any] = {}
+
+    for accion in acciones:
+        tipo = accion.tipo
+        d = accion.datos or {}
+
+        # ---------------------------------------------------------------- CAL
+        if tipo in {"crear_evento", "actualizar_evento"}:
+            inicio = _parse_dt(d.get("inicio"))
+            fin = _parse_dt(d.get("fin"))
+            if inicio is None:
+                continue
+            if fin is None or fin <= inicio:
+                fin = inicio + timedelta(minutes=int(d.get("duracion_min") or 60))
+
+            if tipo == "crear_evento":
+                # Anti-duplicado: si ya existe un evento con el mismo título a la
+                # misma hora, se actualiza en vez de crear un gemelo.
+                titulo = str(d.get("titulo") or "Compromiso")[:160]
+                existente = db.scalars(
+                    select(Event).where(
+                        Event.titulo.ilike(titulo),
+                        Event.inicio >= inicio - timedelta(minutes=1),
+                        Event.inicio <= inicio + timedelta(minutes=1),
+                    )
+                ).first()
+                if existente is not None:
+                    existente.categoria = _categoria_evento(d.get("categoria") or existente.categoria)
+                    existente.fin = fin
+                    existente.inamovible = bool(d.get("inamovible", existente.inamovible))
+                    if d.get("notas") is not None:
+                        existente.notas = d["notas"]
+                    db.flush()
+                    resumen["eventos_actualizados"].append(existente.id)
+                    continue
+
+                conflictos = _detectar_conflictos(db, inicio, fin)
+                for c in conflictos:
+                    resumen.setdefault("conflictos", []).append(
+                        {"nuevo": str(d.get("titulo") or "Compromiso"), **c}
+                    )
+                ev = Event(
+                    titulo=titulo,
+                    categoria=_categoria_evento(d.get("categoria")),
+                    inicio=inicio, fin=fin,
+                    inamovible=bool(d.get("inamovible", False)),
+                    notas=d.get("notas") or None,
+                    fuente=str(d.get("fuente") or "chat"),
+                )
+                db.add(ev)
+                db.flush()
+                resumen["eventos_creados"].append(ev.id)
+            else:
+                ev = db.get(Event, d.get("id"))
+                if ev is None:
+                    continue
+                ev.titulo = str(d.get("titulo") or ev.titulo)[:160]
+                ev.categoria = _categoria_evento(d.get("categoria") or ev.categoria)
+                ev.inicio, ev.fin = inicio, fin
+                ev.inamovible = bool(d.get("inamovible", ev.inamovible))
+                if d.get("notas") is not None:
+                    ev.notas = d["notas"]
+                db.flush()
+                resumen["eventos_actualizados"].append(ev.id)
+
+        elif tipo == "eliminar_evento":
+            ev = db.get(Event, d.get("id"))
+            if ev is not None:
+                db.delete(ev)
+                resumen["eventos_eliminados"] += 1
+
+        elif tipo == "mover_bloque":
+            ev = db.get(Event, d.get("id"))
+            if ev is None:
+                continue
+            inicio = _parse_dt(d.get("inicio"))
+            fin = _parse_dt(d.get("fin"))
+            if inicio:
+                ev.inicio = inicio
+                ev.fin = fin or (inicio + timedelta(minutes=ev.duracion_min))
+                db.flush()
+                resumen["eventos_actualizados"].append(ev.id)
+
+        elif tipo == "replanificar_dia":
+            plan_resultado = ejecutar_replan(db, d, resumen)
+
+        # ---------------------------------------------------------------- ACA
+        elif tipo == "crear_tarea":
+            tarea = Task(
+                titulo=str(d.get("titulo") or "Tarea")[:220],
+                materia=d.get("materia"),
+                fecha_entrega=_parse_date(d.get("fecha_entrega")),
+                estado=str(d.get("estado") or "pendiente"),
+                prioridad=str(d.get("prioridad") or "media"),
+                minutos_estimados=int(d.get("minutos_estimados") or 60),
+                material=d.get("material") or None,
+                fuente=str(d.get("fuente") or "chat"),
+            )
+            db.add(tarea)
+            db.flush()
+            resumen["tareas_creadas"].append(tarea.id)
+
+        elif tipo == "actualizar_tarea":
+            tarea = db.get(Task, d.get("id"))
+            if tarea is None:
+                continue
+            cambios = d.get("cambios") or {}
+            for campo in ("titulo", "materia", "estado", "prioridad", "minutos_estimados", "resumen"):
+                if campo in cambios and cambios[campo] is not None:
+                    setattr(tarea, campo, cambios[campo])
+            if "fecha_entrega" in cambios:
+                tarea.fecha_entrega = _parse_date(cambios["fecha_entrega"])
+            db.flush()
+            resumen["tareas_actualizadas"].append(tarea.id)
+
+        elif tipo == "completar_tarea":
+            tarea = db.get(Task, d.get("id"))
+            if tarea is None:
+                continue
+            tarea.estado = "completada"
+            db.flush()
+            resumen["tareas_actualizadas"].append(tarea.id)
+
+        elif tipo == "resumir_material":
+            tarea_id = _resumir_material(db, d, resumen)
+
+        elif tipo == "programar_estudio":
+            inicio = _parse_dt(d.get("inicio"))
+            if inicio is None:
+                continue
+            fin = _parse_dt(d.get("fin")) or (inicio + timedelta(minutes=60))
+            ev = Event(
+                titulo=str(d.get("titulo") or "Estudio")[:160],
+                categoria="estudio", inicio=inicio, fin=fin, inamovible=False,
+                notas=d.get("material") or None, fuente="chat",
+            )
+            db.add(ev)
+            db.flush()
+            tarea_id = d.get("tarea_id")
+            if tarea_id:
+                tarea = db.get(Task, tarea_id)
+                if tarea is not None:
+                    tarea.tarea_id = ev.id
+            resumen["estudio_programado"].append(ev.id)
+
+        # ---------------------------------------------------------------- BIT
+        elif tipo == "registrar_gasto":
+            monto = d.get("monto")
+            try:
+                monto = float(monto) if monto is not None else None
+            except (TypeError, ValueError):
+                monto = None
+            fecha = _parse_date(d.get("fecha")) or date.today()
+            registro = LogEntry(
+                descripcion=str(d.get("descripcion") or "Gasto")[:255],
+                monto=monto,
+                moneda=str(d.get("moneda") or settings.default_currency),
+                categoria=str(d.get("categoria") or "otro"),
+                fecha=fecha,
+                notas=d.get("notas") or None,
+            )
+            db.add(registro)
+            db.flush()
+            if d.get("registrar_en_calendario"):
+                inicio = datetime.combine(fecha, datetime.min.time()).replace(hour=9)
+                ev = Event(
+                    titulo=registro.descripcion[:160], categoria="personal",
+                    inicio=inicio, fin=inicio + timedelta(minutes=int(d.get("duracion_min") or 30)),
+                    inamovible=False, fuente="chat",
+                )
+                db.add(ev)
+                db.flush()
+                registro.evento_id = ev.id
+            resumen["registros"].append(registro.id)
+
+        # ------------------------------------------------------------- MANTEN
+        elif tipo == "registrar_mantenimiento":
+            mant = _upsert_mantenimiento(db, d)
+            resumen["mantenimientos"].append(mant.id if mant else None)
+
+        elif tipo == "programar_mantenimiento":
+            fecha = _parse_date(d.get("fecha")) or (date.today() + timedelta(days=1))
+            d2 = {
+                "activo": d.get("activo", "otro"),
+                "tarea": d.get("tarea", "Mantenimiento"),
+                "intervalo_dias": d.get("intervalo_dias", 90),
+                "ultima_realizacion": None,
+                "proxima_fecha": fecha.isoformat(),
+                "costo_estimado": d.get("costo_estimado"),
+                "notas": d.get("notas"),
+            }
+            mant = _upsert_mantenimiento(db, d2)
+            if mant:
+                resumen["mantenimientos"].append(mant.id)
+            hora = str(d.get("hora") or "09:00")
+            hh, mm = (hora.split(":") + ["0"])[:2]
+            inicio = datetime.combine(fecha, datetime.min.time()).replace(hour=int(hh), minute=int(mm))
+            ev = Event(
+                titulo=f"{mant.activo}: {mant.tarea}"[:160], categoria="mantenimiento",
+                inicio=inicio, fin=inicio + timedelta(minutes=60), inamovible=False, fuente="chat",
+            )
+            db.add(ev)
+            db.flush()
+
+        elif tipo == "marcar_realizado":
+            mant = db.get(Maintenance, d.get("id"))
+            if mant is None:
+                continue
+            fecha = _parse_date(d.get("fecha")) or date.today()
+            mant.ultima_realizacion = fecha
+            mant.proxima_fecha = fecha + timedelta(days=mant.intervalo_dias)
+            if d.get("costo_real"):
+                db.add(LogEntry(
+                    descripcion=f"{mant.activo}: {mant.tarea}"[:255], monto=float(d["costo_real"]),
+                    moneda=settings.default_currency, categoria="mantenimiento", fecha=fecha,
+                ))
+            db.flush()
+            resumen["mantenimientos"].append(mant.id)
+
+    if plan_resultado:
+        resumen["plan"] = plan_resultado
+    return resumen
+
+
+def _upsert_mantenimiento(db: Session, d: dict[str, Any]) -> Maintenance | None:
+    activo = str(d.get("activo") or "otro")
+    tarea = str(d.get("tarea") or "Mantenimiento")
+    existente = db.scalars(
+        select(Maintenance).where(Maintenance.activo == activo, Maintenance.tarea == tarea)
+    ).first()
+    ultima = _parse_date(d.get("ultima_realizacion"))
+    intervalo = int(d.get("intervalo_dias") or 90)
+    if existente is None:
+        existente = Maintenance(activo=activo, tarea=tarea, intervalo_dias=intervalo)
+        db.add(existente)
+    existente.intervalo_dias = intervalo
+    if ultima:
+        existente.ultima_realizacion = ultima
+    proxima = _parse_date(d.get("proxima_fecha"))
+    if proxima:
+        existente.proxima_fecha = proxima
+    elif existente.ultima_realizacion:
+        existente.proxima_fecha = existente.ultima_realizacion + timedelta(days=intervalo)
+    if d.get("costo_estimado") is not None:
+        existente.costo_estimado = float(d["costo_estimado"])
+    if d.get("notas") is not None:
+        existente.notas = d["notas"]
+    db.flush()
+    return existente
+
+
+def ejecutar_replan(db: Session, d: dict[str, Any], resumen: dict[str, Any]) -> dict[str, Any]:
+    """Reorganiza los bloques flexibles de un día evitando solapes con los inamovibles."""
+    fecha = _parse_date(d.get("fecha")) or date.today()
+    dia_sig = fecha + timedelta(days=1)
+
+    dia = db.scalars(
+        select(Event)
+        .where(Event.inicio >= datetime.combine(fecha, datetime.min.time()))
+        .where(Event.inicio < datetime.combine(dia_sig, datetime.min.time()))
+        .order_by(Event.inicio)
+    ).all()
+
+    ocupados = [Interval(e.inicio, e.fin) for e in dia if e.inamovible]
+    flexibles = [e for e in dia if not e.inamovible]
+
+    specs = d.get("bloques_a_organizar") or []
+    bloques: list[Bloque] = []
+    nuevos: list[tuple[str, str, int, str]] = []  # (titulo, categoria, duracion, prioridad)
+
+    for spec in specs:
+        titulo = str(spec.get("titulo") or "Bloque").strip()
+        cat = _categoria_evento(spec.get("categoria") or "estudio")
+        dur = int(spec.get("duracion_min") or 60)
+        prio = str(spec.get("prioridad") or "media")
+        # Si ya existe un bloque flexible con ese título, se reutiliza (no duplicamos).
+        ya_existe = any(e.titulo.strip().lower() == titulo.lower() for e in flexibles)
+        if ya_existe:
+            continue
+        bloques.append(Bloque(titulo=titulo, duracion_min=dur, prioridad=prio, categoria=cat))
+        nuevos.append((titulo, cat, dur, prio))
+
+    # Los eventos flexibles existentes también se reubican (prioridad según categoría)
+    for ev in flexibles:
+        b = Bloque(
+            titulo=ev.titulo, duracion_min=ev.duracion_min,
+            prioridad="alta" if ev.categoria in {"clase", "trabajo"} else "media",
+            categoria=ev.categoria, origen_id=ev.id, inicio_original=ev.inicio,
+        )
+        bloques.append(b)
+
+    # Ancla: el evento inamovible más cercano a las 15:00 (el nuevo compromiso).
+    ancla = min((o.inicio for o in ocupados), key=lambda x: abs((x.hour * 60 + x.minute) - 900), default=None)
+
+    restr = d.get("restricciones") or {}
+    plan = replanificar(
+        dia=fecha,
+        ancla=ancla,
+        bloques=bloques,
+        ocupados=ocupados,
+        inicio_jornada=settings.day_start,
+        fin_jornada=settings.day_end,
+        no_antes_de=restr.get("no_antes_de"),
+        no_despues_de=restr.get("no_despues_de"),
+        prioridad_reubicacion=d.get("prioridad_reubicacion", "flexible"),
+    )
+
+    movidos = 0
+    for asig in plan.asignaciones:
+        ev_id = asig.get("id")
+        if not ev_id:
+            # Bloque nuevo propuesto por el agente -> se materializa como evento.
+            titulo = asig.get("titulo", "Bloque")
+            meta = next((n for n in nuevos if n[0].lower() == titulo.lower()), None)
+            if meta is None:
+                continue
+            _, cat, dur, _prio = meta
+            inicio = _parse_dt(asig["inicio"])
+            fin = _parse_dt(asig["fin"]) or (inicio + timedelta(minutes=dur))
+            if inicio is None:
+                continue
+            ev = Event(
+                titulo=titulo[:160], categoria=cat, inicio=inicio, fin=fin,
+                inamovible=False, fuente="chat", notas="Bloque sugerido por el agente.",
+            )
+            db.add(ev)
+            db.flush()
+            resumen["eventos_creados"].append(ev.id)
+            asig["id"] = ev.id
+            continue
+        ev = db.get(Event, ev_id)
+        if ev is None:
+            continue
+        nuevo_ini = _parse_dt(asig["inicio"])
+        nuevo_fin = _parse_dt(asig["fin"])
+        if nuevo_ini and nuevo_fin and (nuevo_ini, nuevo_fin) != (ev.inicio, ev.fin):
+            ev.inicio, ev.fin = nuevo_ini, nuevo_fin
+            movidos += 1
+            resumen["eventos_actualizados"].append(ev.id)
+    db.flush()
+
+    carga = calcular_carga([{"categoria": e.categoria, "duracion_min": e.duracion_min} for e in dia])
+    resultado = plan.as_dict()
+    resultado["movidos"] = movidos
+    resultado["carga"] = carga
+    resultado["fecha"] = fecha.isoformat()
+    return resultado
+
+
+def _resumir_material(db: Session, d: dict[str, Any], resumen: dict[str, Any]) -> int | None:
+    """Crea la tarea a partir del material y guarda resumen + preguntas."""
+    material = str(d.get("material") or "").strip()
+    titulo = str(d.get("titulo") or "Material de estudio")[:220]
+    materia = d.get("materia")
+    resumen_txt = d.get("resumen")
+    preguntas = d.get("preguntas_estudio") or []
+
+    if material and not resumen_txt:
+        resumen_txt = _resumen_local(material)
+    if material and not preguntas:
+        preguntas = _preguntas_locales(material)
+
+    tarea = Task(
+        titulo=titulo, materia=materia,
+        fecha_entrega=_parse_date(d.get("fecha_entrega")),
+        estado="pendiente", prioridad=str(d.get("prioridad") or "media"),
+        minutos_estimados=int(d.get("minutos_estudio") or 60),
+        resumen=resumen_txt, material=material[:20000] or None,
+        preguntas=json.dumps(preguntas, ensure_ascii=False),
+        fuente=str(d.get("fuente") or "manual"),
+    )
+    db.add(tarea)
+    db.flush()
+    resumen["tareas_creadas"].append(tarea.id)
+    return tarea.id
+
+
+def _resumen_local(material: str, max_frases: int = 5) -> str:
+    frases = [f.strip() for f in material.replace("\n", " ").split(".") if f.strip()]
+    resumen = ". ".join(frases[:max_frases])
+    if not resumen:
+        resumen = material[:400]
+    return (resumen[:1200] + ("..." if len(resumen) > 1200 else "")) + "."
+
+
+def _preguntas_locales(material: str, n: int = 4) -> list[str]:
+    palabras = [w for w in material.replace("\n", " ").split() if len(w) > 6]
+    claves = list(dict.fromkeys(palabras))[:n]
+    return [f"¿Qué explica {p.lower().strip('.,;:')}?" for p in claves] or ["¿Cuáles son las ideas principales?"]
+
+
+# --------------------------------------------------------------------------- #
+# Orquestación principal
+# --------------------------------------------------------------------------- #
+async def procesar_mensaje(db: Session, req: ChatRequest) -> ChatResponse:
+    app = _get_app_settings(db)
+    proveedor = (req.proveedor or app.proveedor or "mock").lower()
+    modelo = req.modelo or app.modelo or settings.default_openai_model
+    api_key = req.api_key
+
+    system_prompt = settings.system_prompt
+    contexto = construir_contexto(db) if req.usar_contexto else "{}"
+    user_prompt = (
+        f"CONTEXTO DEL USUARIO (JSON, estado actual de la app):\n{contexto}\n\n"
+        f"MENSAJE DEL USUARIO:\n{req.mensaje}\n\n"
+        "Responde SOLO con el JSON del contrato."
+    )
+
+    texto = await providers.complete(
+        system_prompt, user_prompt, proveedor=proveedor, api_key=api_key, modelo=modelo,
+        mensaje_original=req.mensaje,
+    )
+    crudo = providers.extract_json(texto)
+    agente = AgentResponse.model_validate(_normalizar(crudo))
+
+    # Persistir el mensaje del usuario
+    db.add(ChatMessage(rol="user", contenido=req.mensaje))
+
+    if not agente.requiere_confirmacion:
+        agente.resumen_estado = aplicar_acciones(db, agente.acciones)
+        # Salvaguarda del backend (independiente del proveedor): si el agente
+        # creó un evento que se solapa con otro, se le avisa al usuario.
+        conflictos = agente.resumen_estado.get("conflictos") or []
+        if conflictos:
+            nombres = ", ".join(
+                f"\"{c.get('titulo')}\" ({c.get('inicio', '')[11:16]})" for c in conflictos[:3]
+            )
+            agente.mensaje_usuario = (
+                f"{agente.mensaje_usuario} Ojo: eso se cruza con {nombres}. "
+                "Dime si quieres que reacomode esa franja."
+            )
+    else:
+        agente.resumen_estado = {"pendiente_confirmacion": True}
+
+    db.add(ChatMessage(
+        rol="assistant", contenido=agente.mensaje_usuario,
+        payload=json.dumps(agente.model_dump(), ensure_ascii=False, default=str),
+        categoria=agente.categoria,
+    ))
+    db.flush()
+
+    return ChatResponse(
+        agente=agente,
+        eventos=_eventos_rango(db, date.today(), 7),
+        tareas=db.scalars(select(Task).order_by(Task.estado, Task.fecha_entrega.asc().nullslast())).all(),
+        registros=db.scalars(select(LogEntry).order_by(LogEntry.fecha.desc(), LogEntry.id.desc()).limit(50)).all(),
+        plan=agente.resumen_estado.get("plan", {}),
+        proveedor=proveedor,
+        modelo=modelo,
+    )
+
+
+def _normalizar(crudo: dict[str, Any]) -> dict[str, Any]:
+    """Aguanta respuestas del modelo con campos faltantes o nombres alternativos."""
+    if not isinstance(crudo, dict):
+        return {}
+    cat = str(crudo.get("categoria") or crudo.get("categoría") or "CONVERSACION").upper()
+    mapa = {
+        "CALENDARIO": "CALENDARIO", "AGENDA": "CALENDARIO", "EVENTO": "CALENDARIO",
+        "TAREA_ACADEMICA": "TAREA_ACADEMICA", "TAREA": "TAREA_ACADEMICA", "ACADEMICA": "TAREA_ACADEMICA",
+        "BITACORA_GASTO": "BITACORA_GASTO", "GASTO": "BITACORA_GASTO", "BITACORA": "BITACORA_GASTO",
+        "MANTENIMIENTO": "MANTENIMIENTO",
+        "CONVERSACION": "CONVERSACION", "CONVERSACIÓN": "CONVERSACION", "OTRO": "CONVERSACION",
+    }
+    acciones = crudo.get("acciones") or crudo.get("actions") or []
+    norm_acc = []
+    for a in acciones:
+        if not isinstance(a, dict):
+            continue
+        norm_acc.append({
+            "tipo": str(a.get("tipo") or a.get("type") or "").lower(),
+            "datos": a.get("datos") or a.get("data") or a.get("payload") or {},
+            "motivo": a.get("motivo") or a.get("reason") or "",
+        })
+    alertas = []
+    for al in crudo.get("alertas") or crudo.get("alerts") or []:
+        if isinstance(al, dict):
+            alertas.append({
+                "tipo": str(al.get("tipo") or "general"),
+                "texto": str(al.get("texto") or al.get("text") or ""),
+                "prioridad": al.get("prioridad") if al.get("prioridad") in {"alta", "media", "baja"} else "media",
+            })
+    return {
+        "categoria": mapa.get(cat, "CONVERSACION"),
+        "intencion": str(crudo.get("intencion") or crudo.get("intention") or "")[:120],
+        "confianza": float(crudo.get("confianza") or crudo.get("confidence") or 0.0),
+        "mensaje_usuario": str(crudo.get("mensaje_usuario") or crudo.get("message") or "")[:2000],
+        "requiere_confirmacion": bool(crudo.get("requiere_confirmacion", False)),
+        "acciones": norm_acc,
+        "alertas": alertas,
+    }
+
+
+def _get_app_settings(db: Session):
+    from .models import AppSettings
+
+    app = db.get(AppSettings, 1)
+    if app is None:
+        app = AppSettings(id=1)
+        db.add(app)
+        db.flush()
+    return app
+
+
+def _eventos_rango(db: Session, desde: date, dias: int):
+    fin = desde + timedelta(days=dias)
+    return db.scalars(
+        select(Event)
+        .where(Event.inicio >= datetime.combine(desde, datetime.min.time()))
+        .where(Event.inicio < datetime.combine(fin, datetime.min.time()))
+        .order_by(Event.inicio)
+    ).all()
