@@ -3,9 +3,11 @@ import type { ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 
 export function Panel({
-  titulo, icono, acciones, children, className = '', cuerpoClass = '',
+  titulo, sub, icono, acciones, children, className = '', cuerpoClass = '',
 }: {
   titulo?: ReactNode
+  /** Texto corto que explica de que va el panel (una sola linea). */
+  sub?: ReactNode
   icono?: ReactNode
   acciones?: ReactNode
   children: ReactNode
@@ -17,12 +19,15 @@ export function Panel({
       className={`flex min-h-0 flex-col overflow-hidden rounded-2xl border border-white/8 bg-slate-900/60 shadow-xl shadow-black/30 backdrop-blur ${className}`}
     >
       {(titulo || acciones) && (
-        <header className="flex shrink-0 items-center justify-between gap-2 border-b border-white/8 px-5 py-3.5">
-          <div className="flex items-center gap-2 text-sm font-semibold tracking-tight text-slate-200">
-            {icono}
-            {titulo}
+        <header className="flex shrink-0 items-start justify-between gap-3 border-b border-white/8 px-5 py-3.5">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-sm font-semibold tracking-tight text-slate-200">
+              {icono}
+              {titulo}
+            </div>
+            {sub && <p className="mt-0.5 text-[11px] leading-relaxed text-slate-500">{sub}</p>}
           </div>
-          {acciones && <div className="flex items-center gap-1.5">{acciones}</div>}
+          {acciones && <div className="flex shrink-0 items-center gap-1.5">{acciones}</div>}
         </header>
       )}
       {/* Padding por defecto para que el contenido nunca quede pegado al borde
@@ -94,10 +99,12 @@ export function Vacio({ icono, texto, sub }: { icono?: ReactNode; texto: string;
 }
 
 export function Stat({
-  etiqueta, valor, tono = 'slate',
+  etiqueta, valor, sub, tono = 'slate',
 }: {
   etiqueta: string
   valor: ReactNode
+  /** Texto pequeno debajo del valor. */
+  sub?: ReactNode
   tono?: 'slate' | 'indigo' | 'emerald' | 'amber' | 'rose'
 }) {
   const tonos: Record<string, string> = {
@@ -111,6 +118,7 @@ export function Stat({
     <div className="rounded-xl border border-white/8 bg-white/4 px-4 py-3">
       <div className={`text-base font-bold tabular-nums ${tonos[tono]}`}>{valor}</div>
       <div className="text-[10px] font-medium uppercase tracking-wider text-slate-500">{etiqueta}</div>
+      {sub && <div className="mt-0.5 text-[10px] text-slate-500">{sub}</div>}
     </div>
   )
 }

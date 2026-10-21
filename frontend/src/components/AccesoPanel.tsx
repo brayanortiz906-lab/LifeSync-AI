@@ -9,8 +9,8 @@
  *       y sin subir nada a ningun servidor.
  */
 import { useEffect, useState } from 'react'
-import { Check, CircleAlert, Download, HardDriveDownload, LogIn, LogOut, Mail, ShieldCheck, User } from 'lucide-react'
-import { api, borrarToken, cuentas, guardarToken } from '../lib/api'
+import { Check, CircleAlert, Download, HardDriveDownload, KeyRound, LogIn, LogOut, Mail, ShieldCheck, User } from 'lucide-react'
+import { api, borrarToken, cuentas, guardarToken, permisos as apiPermisos } from '../lib/api'
 import type { Usuario } from '../types'
 import { Aviso, Boton, Campo, Modal } from './ui'
 
@@ -24,17 +24,25 @@ export default function AccesoPanel({
   onAbrirConexiones?: () => void
 }) {
   const [usuario, setUsuario] = useState<Usuario | null>(null)
-  const [paso, setPaso] = useState<'inicio' | 'correo' | 'codigo' | 'google'>('inicio')
+  const [paso, setPaso] = useState<'inicio' | 'correo' | 'codigo' | 'google' | 'password' | 'permisos'>('inicio')
   const [googleAuth, setGoogleAuth] = useState<{
+    user_code: string
+    verification_uri: string
+    device_code: string
+  } | null>(null)
+  const [permisosAuth, setPermisosAuth] = useState<{
     user_code: string
     verification_uri: string
     device_code: string
   } | null>(null)
   const [correo, setCorreo] = useState('')
   const [nombre, setNombre] = useState('')
+  const [password, setPassword] = useState('')
+  const [modoCorreo, setModoCorreo] = useState<'crear' | 'entrar'>('entrar')
   const [codigo, setCodigo] = useState('')
   const [codigoDePrueba, setCodigoDePrueba] = useState('')
   const [ocupado, setOcupado] = useState(false)
+  const [googleDisponible, setGoogleDisponible] = useState<boolean | null>(null)
   const [estado, setEstado] = useState<{ ok: boolean; texto: string } | null>(null)
 
   const cargar = async () => {
@@ -53,7 +61,13 @@ export default function AccesoPanel({
       setEstado(null)
       setCodigo('')
       setCodigoDePrueba('')
+      setPassword('')
       void cargar()
+      // ¿El servidor tiene el acceso con Google listo? (para no mostrar un error)
+      void cuentas
+        .googleDisponible()
+        .then((r) => setGoogleDisponible(r.disponible))
+        .catch(() => setGoogleDisponible(null))
     }
   }, [abierto])
 
@@ -109,6 +123,83 @@ export default function AccesoPanel({
       setEstado({ ok: true, texto: r.mensaje })
       if (r.codigo) setCodigoDePrueba(r.codigo)
       setPaso('codigo')
+    } catch (e) {
+      setEstado({ ok: false, texto: (e as Error).message })
+    } finally {
+      setOcupado(false)
+    }
+  }
+
+  /** Crea la cuenta con correo y contrasena (v19). */
+  const crearCuenta = async () => {
+    setOcupado(true)
+    setEstado(null)
+    try {
+      const r = await cuentas.registrar(correo, nombre, password)
+      setEstado({ ok: true, texto: r.mensaje })
+      if (r.codigo) setCodigoDePrueba(r.codigo)
+      setPaso('codigo')
+    } catch (e) {
+      setEstado({ ok: false, texto: (e as Error).message })
+    } finally {
+      setOcupado(false)
+    }
+  }
+
+  /** Entra con correo y contrasena (v19). */
+  const entrarConPassword = async () => {
+    setOcupado(true)
+    setEstado(null)
+    try {
+      const r = await cuentas.entrar(correo, password)
+      entrar(r.token, r.usuario)
+    } catch (e) {
+      const texto = (e as Error).message
+      setEstado({ ok: false, texto })
+      // Si falta confirmar el correo, seguimos al paso del codigo.
+      if (texto.toLowerCase().includes('codigo') || texto.toLowerCase().includes('confirma')) {
+        setPaso('codigo')
+      }
+    } finally {
+      setOcupado(false)
+    }
+  }
+
+  /** Pide TODOS los permisos de una vez (Drive, Calendar, correo) (v19). */
+  const pedirTodosLosPermisos = async () => {
+    setOcupado(true)
+    setEstado(null)
+    try {
+      const r = await apiPermisos.autorizar('google_cuenta')
+      setPermisosAuth({
+        user_code: r.user_code,
+        verification_uri: r.verification_uri,
+        device_code: r.device_code,
+      })
+      setPaso('permisos')
+    } catch (e) {
+      setEstado({ ok: false, texto: (e as Error).message })
+    } finally {
+      setOcupado(false)
+    }
+  }
+
+  /** Ya autorizo en el navegador: guardamos los permisos. */
+  const confirmarPermisos = async () => {
+    if (!permisosAuth) return
+    setOcupado(true)
+    setEstado(null)
+    try {
+      const r = await apiPermisos.terminar(permisosAuth.device_code)
+      if (r.ok) {
+        setPermisosAuth(null)
+        setEstado({
+          ok: true,
+          texto: 'Listo: autorizaste todo de una vez. LifeAgente ya puede trabajar solo.',
+        })
+      } else {
+        setEstado({ ok: false, texto: r.mensaje || 'Todavia falta que autorices en el navegador.' })
+      }
     } catch (e) {
       setEstado({ ok: false, texto: (e as Error).message })
     } finally {
@@ -216,25 +307,34 @@ export default function AccesoPanel({
               <div className="min-w-0 flex-1">
                 <div className="text-xs font-bold text-white">Continuar con Google</div>
                 <div className="text-[11px] leading-relaxed text-slate-400">
-                  Un clic y ya estas dentro. No necesitas claves ni archivos.
+                  {googleDisponible === false
+                    ? 'El acceso con Google todavia no esta activado en este servidor. Entra con tu correo: funciona igual de bien.'
+                    : 'Un clic y ya estas dentro. No necesitas claves ni archivos.'}
                 </div>
               </div>
               <LogIn size={15} className="mt-1 shrink-0 text-slate-500" />
             </button>
 
             <button
-              onClick={() => setPaso('correo')}
-              className="flex w-full items-start gap-3 rounded-2xl border border-white/10 bg-white/4 p-4 text-left transition hover:bg-white/8"
+              onClick={() => { setModoCorreo('entrar'); setPaso('password') }}
+              className="flex w-full items-start gap-3 rounded-2xl border border-indigo-500/30 bg-indigo-500/8 p-4 text-left transition hover:bg-indigo-500/14"
             >
-              <span className="grid h-11 w-11 place-items-center rounded-xl bg-white/6">
+              <span className="grid h-11 w-11 place-items-center rounded-xl bg-indigo-500/15">
                 <Mail size={17} className="text-indigo-300" />
               </span>
               <div className="min-w-0 flex-1">
-                <div className="text-xs font-bold text-white">Entrar con mi correo</div>
+                <div className="text-xs font-bold text-white">Entrar con mi correo y mi contrasena</div>
                 <div className="text-[11px] leading-relaxed text-slate-400">
-                  Google, Hotmail, Yahoo... cualquiera. Te enviamos un codigo de 6 digitos.
+                  Google, Hotmail, Yahoo... cualquiera. Escribes tu correo y tu contrasena y entras.
                 </div>
               </div>
+            </button>
+
+            <button
+              onClick={() => setPaso('correo')}
+              className="w-full rounded-xl border border-white/8 bg-white/2 px-3 py-2 text-left text-[11px] text-slate-400 transition hover:bg-white/5 hover:text-slate-200"
+            >
+              Prefiero un codigo de un solo uso en vez de contrasena
             </button>
 
             <div className="flex items-start gap-3 rounded-2xl border border-emerald-500/25 bg-emerald-500/8 p-4">
@@ -247,6 +347,107 @@ export default function AccesoPanel({
                   Sin cuenta y sin subir nada. Tus datos viven en tu computador y puedes
                   guardarlos como respaldo cuando quieras.
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {!conectado && paso === 'password' && (
+          <div className="space-y-3">
+            <button onClick={() => setPaso('inicio')} className="text-[11px] font-semibold text-slate-400 hover:text-white">
+              &larr; Volver
+            </button>
+            <div className="flex gap-2">
+              <Boton
+                variante={modoCorreo === 'entrar' ? 'primario' : 'secundario'}
+                onClick={() => setModoCorreo('entrar')}
+                className="flex-1"
+              >
+                Ya tengo cuenta
+              </Boton>
+              <Boton
+                variante={modoCorreo === 'crear' ? 'primario' : 'secundario'}
+                onClick={() => setModoCorreo('crear')}
+                className="flex-1"
+              >
+                Crear cuenta
+              </Boton>
+            </div>
+            <Campo etiqueta="Tu correo" ayuda="Con el que te registraste o te quieres registrar.">
+              <input
+                value={correo}
+                onChange={(e) => setCorreo(e.target.value)}
+                placeholder="tunombre@ejemplo.com"
+                type="email"
+                autoComplete="email"
+                className="ls-input"
+              />
+            </Campo>
+            {modoCorreo === 'crear' && (
+              <Campo etiqueta="Tu nombre (opcional)">
+                <input
+                  value={nombre}
+                  onChange={(e) => setNombre(e.target.value)}
+                  placeholder="Como te llamamos"
+                  className="ls-input"
+                />
+              </Campo>
+            )}
+            <Campo
+              etiqueta="Tu contrasena"
+              ayuda="Seis caracteres o mas. Solo la guardamos cifrada."
+            >
+              <input
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                type="password"
+                autoComplete={modoCorreo === 'crear' ? 'new-password' : 'current-password'}
+                className="ls-input"
+              />
+            </Campo>
+            <Boton
+              onClick={() => void (modoCorreo === 'crear' ? crearCuenta() : entrarConPassword())}
+              disabled={ocupado || !correo.includes('@') || password.length < 6}
+            >
+              {ocupado
+                ? 'Un momento…'
+                : modoCorreo === 'crear'
+                  ? 'Crear mi cuenta'
+                  : 'Entrar'}
+            </Boton>
+          </div>
+        )}
+
+        {!conectado && paso === 'permisos' && permisosAuth && (
+          <div className="space-y-3">
+            <div className="rounded-2xl border border-indigo-500/25 bg-indigo-500/8 p-4">
+              <div className="text-xs font-bold text-indigo-200">Autoriza todo de una vez</div>
+              <p className="mt-1.5 text-[11px] leading-relaxed text-slate-300">
+                Da permiso para guardar tus respaldos en Drive, leer tu calendario y avisarte por
+                correo. Tu contrasena nunca pasa por LifeAgente.
+              </p>
+              <div className="mt-3 select-all rounded-xl border border-indigo-500/30 bg-black/30 px-3 py-2 text-center font-mono text-lg font-bold tracking-widest text-indigo-100">
+                {permisosAuth.user_code}
+              </div>
+              <a
+                href={permisosAuth.verification_uri}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-3 inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-300 underline hover:text-indigo-200"
+              >
+                Abrir la pagina de autorizacion <LogIn size={11} />
+              </a>
+              <div className="mt-3 flex items-center gap-2">
+                <Boton onClick={() => void confirmarPermisos()} disabled={ocupado}>
+                  {ocupado ? 'Comprobando...' : 'Listo, ya autorice'}
+                </Boton>
+                <button
+                  onClick={() => { setPaso('inicio'); setPermisosAuth(null) }}
+                  className="text-[11px] font-semibold text-slate-400 hover:text-white"
+                >
+                  Ahora no
+                </button>
               </div>
             </div>
           </div>
@@ -345,6 +546,25 @@ export default function AccesoPanel({
 
         {conectado && (
           <div className="space-y-3">
+            <div className="rounded-2xl border border-indigo-500/25 bg-indigo-500/8 p-4">
+              <div className="flex items-start gap-3">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-indigo-500/15">
+                  <KeyRound size={16} className="text-indigo-300" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-bold text-indigo-100">Pedir todos los permisos de una vez</div>
+                  <div className="mt-1 text-[11px] leading-relaxed text-slate-300">
+                    Con un clic autorizas Drive, tu calendario y el correo. LifeAgente guarda tus
+                    respaldos, trae tu agenda y te avisa, sin que tengas que hacer nada.
+                  </div>
+                  <div className="mt-2.5">
+                    <Boton onClick={() => void pedirTodosLosPermisos()} disabled={ocupado}>
+                      {ocupado ? 'Abriendo…' : 'Autorizar todo'}
+                    </Boton>
+                  </div>
+                </div>
+              </div>
+            </div>
             <div className="grid gap-2 sm:grid-cols-2">
               <Boton variante="secundario" onClick={() => void descargarRespaldo()} disabled={ocupado}>
                 <Download size={13} />
@@ -362,7 +582,7 @@ export default function AccesoPanel({
           </div>
         )}
 
-        {estado && !estado.ok && estado.texto.toLowerCase().includes('google') && onAbrirConexiones && (
+        {estado && !estado.ok && onAbrirConexiones && (estado.texto.toLowerCase().includes('google') || estado.texto.toLowerCase().includes('acceso con')) && (
           <div className="rounded-2xl border border-white/10 bg-white/4 p-4">
             <div className="text-[11px] font-bold text-slate-200">¿Eres quien instala LifeAgente?</div>
             <p className="mt-1 text-[11px] leading-relaxed text-slate-400">

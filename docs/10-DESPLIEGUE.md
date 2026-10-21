@@ -69,6 +69,28 @@ En el panel de Render -> *Environment* -> anade:
 Guarda y Render reinicia el servicio. A partir de ahi el codigo llega al buzon
 de la persona y **no** se muestra en pantalla.
 
+## 3-bis. La via que SIEMPRE funciona: correo + contrasena
+
+**No necesitas configurar SMTP ni Google para que la gente pueda entrar.**
+LifeAgente tiene su propia via de acceso, siempre disponible:
+
+| Via | Que necesita del despliegue |
+|---|---|
+| **Correo + contrasena** | **nada** (la contrasena se guarda cifrada con PBKDF2 y la cuenta se confirma con un codigo) |
+| Codigo de un solo uso | SMTP (seccion 3) |
+| Google / Outlook / GitHub | `GOOGLE_CLIENT_ID` / `OUTLOOK_CLIENT_ID` / `GITHUB_CLIENT_ID` (seccion 4) |
+
+La contrasena se guarda con PBKDF2-HMAC-SHA256 (120.000 iteraciones, sal de 16
+bytes por usuario) y **nunca** se muestra ni se envia a ningun sitio. La cuenta se
+crea *pendiente de confirmar*: sin SMTP el codigo se ve en pantalla (modo
+desarrollo), con SMTP llega al buzon. En los dos casos **nadie queda dentro sin
+confirmar**.
+
+Si prefieres no operar SMTP, puedes dejar el despliegue tal cual y usar
+`correo + contrasena`: el unico requisito es que Render tenga `APP_SECRET_KEY`
+(ya lo genera el blueprint) para poder cifrar credenciales y tokens.
+Detalle: `docs/15-CUENTAS-Y-PANELES.md`.
+
 ## 4. "Entrar con Google" en la nube
 
 1. En https://console.cloud.google.com/apis/credentials crea un **ID de

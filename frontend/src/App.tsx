@@ -18,7 +18,7 @@
  *   - dentro del panel hay un boton para ocuparlo toda la pantalla
  */
 import { useEffect, useState } from 'react'
-import { AlertTriangle, CalendarCheck, KeyRound, LayoutGrid, MessageSquare, Plug, RefreshCw, Settings, ShieldCheck, Sparkles } from 'lucide-react'
+import { AlertTriangle, CalendarCheck, Folder, KeyRound, LayoutGrid, MessageSquare, Plug, RefreshCw, Settings, ShieldCheck, Sparkles } from 'lucide-react'
 import { useLifeSync } from './store/useLifeSync'
 import TopBar from './components/TopBar'
 import CalendarPanel from './components/CalendarPanel'
@@ -27,6 +27,7 @@ import LogbookPanel from './components/LogbookPanel'
 import ResponsibilityPanel from './components/ResponsibilityPanel'
 import AjustesPanel, { AsistenteBienvenida } from './components/AjustesPanel'
 import PermisosPanel from './components/PermisosPanel'
+import PanelesPanel from './components/PanelesPanel'
 import ContextoLateral from './components/ContextoLateral'
 import ChatFlotante from './components/ChatFlotante'
 import ResumenMovil from './components/ResumenMovil'
@@ -38,7 +39,7 @@ import { ESCRITORIO, useMediaQuery } from './lib/useMediaQuery'
 import { guardarToken, leerToken } from './lib/api'
 import type { Usuario } from './types'
 
-type Vista = 'agenda' | 'responsabilidad' | 'permisos' | 'ajustes'
+type Vista = 'agenda' | 'paneles' | 'responsabilidad' | 'permisos' | 'ajustes'
 
 export default function App() {
   const cargarTodo = useLifeSync((s) => s.cargarTodo)
@@ -71,6 +72,9 @@ export default function App() {
     // El badge de aprobaciones pendientes debe ser correcto aunque el usuario
     // nunca abra el panel de Responsabilidad.
     void cargarResponsable()
+    // Los paneles (v19) se cargan siempre: el selector de la barra superior
+    // los necesita aunque la persona no abra la vista de Paneles.
+    void useLifeSync.getState().cargarPaneles()
   }, [cargarTodo, cargarResponsable])
 
   // Atajo Ctrl/Cmd + K: abre o cierra el chat flotante.
@@ -90,6 +94,7 @@ export default function App() {
 
   const pestanas: Array<{ id: Vista; texto: string; icono: typeof LayoutGrid; color: string }> = [
     { id: 'agenda', texto: 'Mi agenda', icono: LayoutGrid, color: 'emerald' },
+    { id: 'paneles', texto: 'Paneles', icono: Folder, color: 'sky' },
     { id: 'responsabilidad', texto: 'Responsabilidad', icono: ShieldCheck, color: 'rose' },
     { id: 'permisos', texto: 'Permisos', icono: KeyRound, color: 'amber' },
     { id: 'ajustes', texto: 'Ajustes', icono: Settings, color: 'indigo' },
@@ -113,6 +118,8 @@ export default function App() {
         onAbrirConexiones={() => setConexionesAbiertas(true)}
         onCerrarConexiones={() => setConexionesAbiertas(false)}
         onAbrirMenu={() => setMenuMovilAbierto(true)}
+        panelId={useLifeSync((s) => s.panelId)}
+        onCambiarPanel={(id) => void useLifeSync.getState().seleccionarPanel(id)}
       />
 
       {/* Navegacion principal: agenda / responsabilidad / ajustes */}
@@ -221,6 +228,14 @@ export default function App() {
               <ResumenMovil onAbrirMas={() => setMenuMovilAbierto(true)} />
             </div>
           )}
+        </main>
+      )}
+
+      {vista === 'paneles' && (
+        <main className="ls-scroll flex-1 p-3 sm:p-4">
+          <div className="mx-auto w-full max-w-[1100px]">
+            <PanelesPanel />
+          </div>
         </main>
       )}
 

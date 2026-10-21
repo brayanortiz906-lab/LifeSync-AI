@@ -127,7 +127,7 @@ Detalle completo en [`docs/06-CONE-XIONES.md`](docs/06-CONE-XIONES.md).
 
 ### Verificación automática
 
-Con el backend corriendo, `backend/smoke.py` comprueba los 85 casos de uso contra la
+Con el backend corriendo, `backend/smoke.py` comprueba los 92 casos de uso contra la
 base de datos real (calendario, bitácora, tareas, mantenimiento, multi-intención,
 cascadas de registro automático, el sistema de IA responsable, el centro de conexiones
 y los permisos con piloto automático):
@@ -342,7 +342,7 @@ imagen de Python 3.12 que corre la API. La base SQLite vive en el volumen `/data
 
 ### 1-bis.4 Automatización (CI)
 
-`.github/workflows/ci.yml` corre en cada push: levanta la API, ejecuta los **85 casos** de
+`.github/workflows/ci.yml` corre en cada push: levanta la API, ejecuta los **92 casos** de
 `backend/smoke.py` (que incluyen el chat multi-intención, las cascadas, el sistema responsable,
 el centro de conexiones y los permisos con piloto automático) y compila el frontend con
 `tsc -b && vite build`. La insignia de arriba refleja el estado real del último push.
@@ -354,7 +354,7 @@ el centro de conexiones y los permisos con piloto automático) y compila el fron
 ```
 .
 ├── .github/workflows/
-│   ├── ci.yml                   ← CI: 85 casos del smoke test + build del frontend
+│   ├── ci.yml                   ← CI: 92 casos del smoke test + build del frontend
 │   └── deploy-pages.yml         ← Publica la interfaz en GitHub Pages
 ├── .devcontainer/               ← Codespaces: Python 3.12 + Node 20 preinstalados
 ├── Dockerfile                   ← Multi-stage: Node 20 compila, Python 3.12 sirve
@@ -377,7 +377,8 @@ el centro de conexiones y los permisos con piloto automático) y compila el fron
 │   │   ├── agent.py             ← Orquestador: contexto → LLM → política → acciones
 │   │   ├── policy.py            ← Motor de gobierno: reglas, riesgo, PII, auditoría
 │   │   ├── permisos.py           ← Permisos de la cuenta + piloto automático
-│   │   ├── connections.py       ← Catálogo de proveedores, motores locales, verificación
+│   │   ├── paneles.py          ← Paneles del usuario, miembros y niveles (ver/editar)
+│   │   │   ├── connections.py       ← Catálogo de proveedores, motores locales, verificación
 │   │   ├── security.py          ← Cifrado Fernet de las credenciales
 │   │   ├── seed.py              ← Datos de demostración
 │   │   └── routers/
@@ -385,11 +386,12 @@ el centro de conexiones y los permisos con piloto automático) y compila el fron
 │   │       ├── agent.py         ← /api/agent/chat, /ingest, /settings
 │   │       ├── conexiones.py    ← /api/conexiones/* (catálogo, locales, activar, verificar)
 │   │       ├── permisos.py      ← /api/permisos/* (autorizar, piloto, respaldo, calendario)
+│   │   │       ├── paneles.py       ← /api/paneles/* (crear, compartir, miembros, datos)
 │   │       └── responsabilidad.py ← /api/responsabilidad/* (política, auditoría,
 │   │                                 aprobaciones, redacción, cumplimiento)
 │   ├── requirements.txt
 │   ├── run.py
-│   └── smoke.py                 ← 85 verificaciones end-to-end contra la BD real
+│   └── smoke.py                 ← 92 verificaciones end-to-end contra la BD real
 ├── frontend/
 │   └── src/
 │       ├── App.tsx              ← Layout: agenda (vista inicial) + responsabilidad +
@@ -446,6 +448,7 @@ el centro de conexiones y los permisos con piloto automático) y compila el fron
 | [docs/12-PERMISOS-Y-NUBE.md](docs/12-PERMISOS-Y-NUBE.md) | Permisos de la cuenta, piloto automático y cómo trabaja sin que abras la app |
 | [docs/13-MOTOR-LOCAL.md](docs/13-MOTOR-LOCAL.md) | El motor de reglas: la app funciona sin IA, sin claves y sin servidor |
 | [docs/14-RESPONSIVE.md](docs/14-RESPONSIVE.md) | Diseño responsivo: 3 columnas en pantallas grandes, menu desplegable en el móvil y un solo scroll |
+| [docs/15-CUENTAS-Y-PANELES.md](docs/15-CUENTAS-Y-PANELES.md) | Cuentas que siempre funcionan (correo + contraseña) y paneles con permiso de acceso |
 
 ---
 
@@ -572,6 +575,48 @@ con tu correo (codigo de 6 digitos) o seguir en el equipo (modo local).
 Comparativa de servicios de autenticacion ya existentes (Firebase, Supabase,
 Clerk) y por que el sistema propio sigue siendo la mejor opcion aqui:
 `docs/11-AUTENTICACION.md`.
+
+### Entra con tu correo y tu contrasena (funciona siempre)
+
+El mensaje que antes decia *"esta copia no tiene el acceso con esa cuenta
+configurado"* **ya no aparece**. Ahora hay una via que **siempre** funciona, sin
+que nadie tenga que configurar nada:
+
+| Como entras | Que necesitas |
+|---|---|
+| **Correo + contrasena** | nada mas: escribes tu correo y tu contrasena |
+| Codigo de un solo uso | un servidor de correo (SMTP) en el despliegue |
+| Google / Outlook / GitHub | un ID de cliente OAuth (lo activa quien instala) |
+| Sin cuenta | nada: modo local en tu navegador |
+
+Tu contrasena **nunca** se guarda en claro (PBKDF2 con 120.000 iteraciones y sal
+por usuario) y la cuenta se crea **pendiente de confirmar** con un codigo (si no
+hay SMTP, el codigo se ve en pantalla, para que nadie quede con una cuenta sin
+verificar). La tarjeta de Google, si no esta activada, lo dice de forma amable:
+*"El acceso con Google todavia no esta activado en este servidor. Entra con tu
+correo: funciona igual de bien."*
+
+Ademas, desde la misma pantalla de cuenta puedes pulsar **"Pedir todos los
+permisos de una vez"** (Drive + Calendar + correo en un solo paso).
+
+### Paneles: cada espacio con su propia puerta
+
+Un **panel** es un espacio de trabajo ("Universidad", "Mi trabajo", "La casa") con
+su propia agenda y **su lista de acceso**. Tu eliges a quien le abres la puerta:
+
+| Accion | Quien puede |
+|---|---|
+| Ver el contenido | el dueno y los miembros con permiso |
+| Compartir por correo (nivel "solo ver" o "editar") | solo el dueno |
+| Quitar el acceso | solo el dueno |
+| Borrar el panel | solo el dueno |
+
+Si alguien intenta abrir un panel ajeno sin permiso, la API responde **403** con
+un mensaje claro (no un error raro ni una pantalla vacia). En la interfaz hay una
+pestana **Paneles** y un selector de panel en la barra superior (tus paneles y los
+compartidos, marcados con "(compartido)").
+
+Detalle tecnico: `docs/15-CUENTAS-Y-PANELES.md`.
 
 ### Tu cuenta, tus datos y el sistema que trabaja solo
 

@@ -86,6 +86,15 @@ def _migrar_sqlite() -> None:
             "app_settings", "policy_settings",
         ):
             _asegurar_columnas(conn, _tabla, {"usuario_id": "INTEGER DEFAULT 1"})
+        # Paneles (v19): cada dato pertenece a un panel (NULL = panel personal).
+        for _tabla in (
+            "events", "tasks", "log_entries", "maintenance_items", "chat_messages",
+        ):
+            _asegurar_columnas(conn, _tabla, {"panel_id": "INTEGER DEFAULT NULL"})
+        # Cuentas (v19): hash de la contrasena para entrar sin codigo.
+        _asegurar_columnas(
+            conn, "usuarios", {"password_hash": "VARCHAR(200) DEFAULT ''"}
+        )
 
         filas = conn.exec_driver_sql("PRAGMA foreign_key_list(tasks)").fetchall()
         if not filas:
@@ -109,6 +118,8 @@ def _migrar_sqlite() -> None:
                     preguntas TEXT,
                     fuente VARCHAR(32) NOT NULL,
                     tarea_id INTEGER,
+                    panel_id INTEGER,
+                    usuario_id INTEGER DEFAULT 1,
                     creado_en DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
                     PRIMARY KEY (id),
                     FOREIGN KEY(tarea_id) REFERENCES events (id)
@@ -119,10 +130,10 @@ def _migrar_sqlite() -> None:
                 """
                 INSERT INTO tasks (id, titulo, materia, fecha_entrega, estado, prioridad,
                                    minutos_estimados, resumen, material, preguntas,
-                                   fuente, tarea_id, creado_en)
+                                   fuente, tarea_id, panel_id, usuario_id, creado_en)
                 SELECT id, titulo, materia, fecha_entrega, estado, prioridad,
                        minutos_estimados, resumen, material, preguntas,
-                       fuente, tarea_id, creado_en
+                       fuente, tarea_id, panel_id, usuario_id, creado_en
                 FROM tasks_old
                 """
             )

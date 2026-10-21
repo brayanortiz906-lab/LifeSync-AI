@@ -1,13 +1,14 @@
 /** Estado global de LifeSync AI (Zustand). */
 import { create } from 'zustand'
-import { api, guardarApiKeyLocal, leerApiKeyLocal } from '../lib/api'
+import { api, guardarApiKeyLocal, leerApiKeyLocal, paneles as apiPaneles } from '../lib/api'
 import { aIso } from '../lib/format'
 import { analizarLocal } from '../lib/motorLocal'
 import type { DatoLocal } from '../lib/motorLocal'
 import { materializarPlantilla, PLANTILLAS } from '../lib/plantillas'
 import type {
   Ajustes, Aprobacion, Dashboard, EntradaAuditoria, Evento, Mantenimiento, MensajeChat,
-  Politica, Registro, RegistroDetallado, ReporteCumplimiento, ResumenAuditoria, RespuestaAgente, Tarea,
+  Panel, Politica, Registro, RegistroDetallado, ReporteCumplimiento, ResumenAuditoria,
+  RespuestaAgente, Tarea,
 } from '../types'
 
 /** Clave de localStorage donde viven los datos del modo local (sin servidor). */
@@ -250,6 +251,12 @@ interface Estado {
   /** Modo local: la API no esta disponible; todo se guarda en este navegador. */
   modoLocal: boolean
 
+  // --- Paneles (v19) --------------------------------------------------------
+  /** Paneles propios y los que otras personas te compartieron. */
+  paneles: Panel[]
+  /** Panel abierto ahora mismo (null = todo). */
+  panelId: number | null
+
   cargarTodo: () => Promise<void>
   activarModoPrueba: () => void
   salirModoPrueba: () => void
@@ -276,6 +283,14 @@ interface Estado {
   guardarPolitica: (datos: Partial<Politica>) => Promise<void>
   decidirAprobacion: (id: number, aprobar: boolean, nota?: string) => Promise<void>
   purgarAuditoria: (dias?: number) => Promise<void>
+
+  // --- Paneles (v19) --------------------------------------------------------
+  cargarPaneles: () => Promise<void>
+  seleccionarPanel: (id: number | null) => Promise<void>
+  crearPanel: (datos: { nombre: string; tipo?: string; color?: string; descripcion?: string; mover_personal?: boolean }) => Promise<void>
+  compartirPanel: (id: number, correo: string, nivel: 'ver' | 'editar') => Promise<void>
+  quitarAcceso: (id: number, usuarioId: number) => Promise<void>
+  borrarPanel: (id: number) => Promise<void>
 }
 
 export const useLifeSync = create<Estado>((set, get) => ({
@@ -301,6 +316,79 @@ export const useLifeSync = create<Estado>((set, get) => ({
   cargandoResponsable: false,
   modoPrueba: false,
   modoLocal: false,
+  paneles: [],
+  panelId: null,
+
+  async cargarPaneles() {
+    try {
+      const r = await apiPaneles.lista()
+      set({ paneles: r.paneles })
+    } catch {
+      /* sin paneles (o sin API): la app sigue igual */
+    }
+  },
+
+  async seleccionarPanel(id) {
+    set({ panelId: id })
+    const panel = get().paneles.find((p) => p.id === id)
+    if (id && panel && !panel.es_propio) {
+      // Panel compartido: el contenido lo da el dueño (403 si no hay permiso).
+      try {
+        const d = await apiPaneles.datos(id)
+        set({
+          eventos: d.eventos as Evento[],
+          tareas: d.tareas as Tarea[],
+          registros: d.registros as Registro[],
+          mantenimiento: d.mantenimiento as Mantenimiento[],
+          dashboard: null,
+          error: null,
+        })
+      } catch (e) {
+        set({ error: (e as Error).message })
+      }
+      return
+    }
+    await get().cargarTodo()
+  },
+
+  async crearPanel(datos) {
+    try {
+      await apiPaneles.crear(datos)
+      await get().cargarPaneles()
+      await get().cargarTodo()
+    } catch (e) {
+      set({ error: (e as Error).message })
+    }
+  },
+
+  async compartirPanel(id, correo, nivel) {
+    try {
+      await apiPaneles.compartir(id, correo, nivel)
+      await get().cargarPaneles()
+    } catch (e) {
+      set({ error: (e as Error).message })
+    }
+  },
+
+  async quitarAcceso(id, usuarioId) {
+    try {
+      await apiPaneles.quitarAcceso(id, usuarioId)
+      await get().cargarPaneles()
+    } catch (e) {
+      set({ error: (e as Error).message })
+    }
+  },
+
+  async borrarPanel(id) {
+    try {
+      await apiPaneles.borrar(id)
+      if (get().panelId === id) set({ panelId: null })
+      await get().cargarPaneles()
+      await get().cargarTodo()
+    } catch (e) {
+      set({ error: (e as Error).message })
+    }
+  },
 
   activarModoPrueba() {
     set({ modoPrueba: true, modoLocal: false, ...datosDePrueba() })
@@ -383,8 +471,13 @@ export const useLifeSync = create<Estado>((set, get) => ({
         aIso(new Date()),
         aIso(new Date(Date.now() + 14 * 864e5)),
       )
+      // Si hay un panel abierto, enseñamos solo lo de ese panel (v19).
+      const pid = get().panelId
+      const enPanel = <T extends { panel_id?: number | null }>(filas: T[]): T[] =>
+        pid ? filas.filter((f) => (f.panel_id ?? null) === pid) : filas
       set({
-        dashboard, tareas, registros, mantenimiento, eventos, cargando: false,
+        dashboard, tareas: enPanel(tareas), registros: enPanel(registros),
+        mantenimiento: enPanel(mantenimiento), eventos: enPanel(eventos), cargando: false,
         proveedor: ajustes.proveedor,
         modelo: ajustes.modelo,
         ajustes,

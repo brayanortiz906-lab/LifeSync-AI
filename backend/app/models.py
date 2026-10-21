@@ -41,6 +41,8 @@ class Event(Base):
     notas: Mapped[str | None] = mapped_column(Text, default=None)
     fuente: Mapped[str] = mapped_column(String(32), default="chat")
     color: Mapped[str | None] = mapped_column(String(16), default=None)
+    #: Panel (espacio de trabajo) al que pertenece este bloque (v19).
+    panel_id: Mapped[int | None] = mapped_column(Integer, default=None, index=True)
     creado_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     @property
@@ -62,6 +64,8 @@ class Task(Base):
     material: Mapped[str | None] = mapped_column(Text, default=None)
     preguntas: Mapped[str | None] = mapped_column(Text, default=None)  # JSON: list[str]
     fuente: Mapped[str] = mapped_column(String(32), default="manual")
+    #: Panel (espacio de trabajo) al que pertenece esta tarea (v19).
+    panel_id: Mapped[int | None] = mapped_column(Integer, default=None, index=True)
     # Evento de calendario que respalda esta tarea (bloque de estudio).
     tarea_id: Mapped[int | None] = mapped_column(ForeignKey("events.id"), default=None)
     creado_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
@@ -78,6 +82,8 @@ class LogEntry(Base):
     fecha: Mapped[date] = mapped_column(Date, index=True)
     evento_id: Mapped[int | None] = mapped_column(ForeignKey("events.id"), default=None)
     notas: Mapped[str | None] = mapped_column(Text, default=None)
+    #: Panel (espacio de trabajo) al que pertenece este registro (v19).
+    panel_id: Mapped[int | None] = mapped_column(Integer, default=None, index=True)
     creado_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
@@ -93,6 +99,8 @@ class Maintenance(Base):
     costo_estimado: Mapped[float | None] = mapped_column(Float, default=None)
     notas: Mapped[str | None] = mapped_column(Text, default=None)
     activo_flag: Mapped[bool] = mapped_column(Boolean, default=True)
+    #: Panel (espacio de trabajo) al que pertenece este mantenimiento (v19).
+    panel_id: Mapped[int | None] = mapped_column(Integer, default=None, index=True)
     creado_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
@@ -104,6 +112,8 @@ class ChatMessage(Base):
     contenido: Mapped[str] = mapped_column(Text)
     payload: Mapped[str | None] = mapped_column(Text, default=None)  # JSON crudo del agente
     categoria: Mapped[str | None] = mapped_column(String(32), default=None)
+    #: Panel (espacio de trabajo) al que pertenece este mensaje (v19).
+    panel_id: Mapped[int | None] = mapped_column(Integer, default=None, index=True)
     creado_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
@@ -272,6 +282,41 @@ class PermisosCuenta(Base):
 
 
 # --------------------------------------------------------------------------- #
+# PANELES (v19): espacios de trabajo con acceso por persona
+# --------------------------------------------------------------------------- #
+class Panel(Base):
+    """Un panel (espacio de trabajo) con su propio contenido.
+
+    Cada panel tiene un dueño y puede compartirse con otras cuentas con dos
+    niveles: "ver" (solo mirar) y "editar" (además puede agregar cosas).
+    Nadie ve un panel ajeno sin permiso explícito.
+    """
+
+    __tablename__ = "paneles"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    nombre: Mapped[str] = mapped_column(String(80), index=True)
+    tipo: Mapped[str] = mapped_column(String(32), default="agenda", index=True)
+    color: Mapped[str] = mapped_column(String(16), default="indigo")
+    descripcion: Mapped[str | None] = mapped_column(Text, default=None)
+    creado_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class PermisoPanel(Base):
+    """Permiso de acceso de una persona a un panel (v19)."""
+
+    __tablename__ = "permisos_panel"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    panel_id: Mapped[int] = mapped_column(Integer, index=True)
+    #: Persona a quien se le da acceso (no es el dueño).
+    usuario_id: Mapped[int] = mapped_column(Integer, index=True)
+    #: "ver" o "editar".
+    nivel: Mapped[str] = mapped_column(String(16), default="ver", index=True)
+    creado_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+# --------------------------------------------------------------------------- #
 # Multiusuario (v11)
 # --------------------------------------------------------------------------- #
 # Cada fila pertenece a una persona. El id 1 es el "usuario local": el que
@@ -283,5 +328,6 @@ from sqlalchemy import Column  # noqa: E402  (import local para no tocar el bloq
 for _modelo in (
     Event, Task, LogEntry, Maintenance, ChatMessage, ConexionIA,
     AuditLog, ApprovalRequest, AppSettings, PolicySettings, PermisosCuenta,
+    Panel,
 ):
     _modelo.usuario_id = Column(Integer, default=1, index=True)

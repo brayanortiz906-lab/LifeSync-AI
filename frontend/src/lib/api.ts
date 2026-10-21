@@ -1,7 +1,8 @@
 /** Cliente HTTP de la API de LifeSync AI. */
 import type {
-  Ajustes, Aprobacion, AutorizacionCuenta, CatalogoModelos, Conexion, Dashboard, EntradaAuditoria, EstadoGoogle,
-  EstadoPermisos, Permiso,
+  Ajustes, Aprobacion, AutorizacionCuenta, CatalogoModelos, Conexion, Dashboard, DatosPanel,
+  EntradaAuditoria, EstadoGoogle,
+  EstadoPermisos, MiembroPanel, Panel, Permiso,
   PerfilCuenta, Respaldo, ResultadoCodigo, ResultadoSesion, Usuario,
   Evento, HistorialMsg, Mantenimiento, MotorLocal, Politica, ProveedorCatalogo, Registro,
   ReporteCumplimiento, ResumenAuditoria, RespuestaAgente, ResultadoAutorizacion, Tarea,
@@ -263,6 +264,21 @@ export const api = {
 /** Endpoints de acceso y respaldo (v11). */
 export const cuentas = {
   yo: () => request<PerfilCuenta>('/cuentas/yo'),
+  /** Crea la cuenta con correo y contrasena (v19). */
+  registrar: (correo: string, nombre: string, password: string) =>
+    request<ResultadoCodigo>('/cuentas/registro', {
+      method: 'POST',
+      body: JSON.stringify({ correo, nombre, password }),
+    }),
+  /** Entra con correo y contrasena (v19). */
+  entrar: (correo: string, password: string) =>
+    request<ResultadoSesion>('/cuentas/entrar', {
+      method: 'POST',
+      body: JSON.stringify({ correo, password }),
+    }),
+  /** ¿El servidor tiene el acceso con Google activado? (v19) */
+  googleDisponible: () =>
+    request<{ ok: boolean; disponible: boolean; mensaje: string }>('/cuentas/google/disponible'),
   pedirCodigo: (correo: string, nombre = '') =>
     request<ResultadoCodigo>('/cuentas/codigo', {
       method: 'POST',
@@ -348,4 +364,51 @@ export const permisos = {
       '/permisos/importar-calendario',
       { method: 'POST' },
     ),
+}
+
+/** Endpoints de paneles: espacios de trabajo con acceso por persona (v19). */
+export const paneles = {
+  /** Tus paneles y los que otras personas te compartieron. */
+  lista: () => request<{ ok: boolean; paneles: Panel[] }>('/paneles'),
+
+  /** Tipos sugeridos al crear un panel. */
+  tipos: () =>
+    request<{ tipos: { id: string; nombre: string; color: string }[]; niveles: string[] }>(
+      '/paneles/tipos',
+    ),
+
+  /** Crea un panel a tu nombre. */
+  crear: (datos: { nombre: string; tipo?: string; color?: string; descripcion?: string }) =>
+    request<{ ok: boolean; panel: Panel }>('/paneles', {
+      method: 'POST',
+      body: JSON.stringify(datos),
+    }),
+
+  /** Renombra o colorea un panel (solo el dueño). */
+  editar: (id: number, datos: { nombre?: string; color?: string; descripcion?: string }) =>
+    request<{ ok: boolean }>(`/paneles/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(datos),
+    }),
+
+  /** Borra el panel (su contenido vuelve a tu panel personal). */
+  borrar: (id: number) => request<{ ok: boolean }>(`/paneles/${id}`, { method: 'DELETE' }),
+
+  /** Quien tiene acceso. */
+  miembros: (id: number) =>
+    request<{ ok: boolean; miembros: MiembroPanel[] }>(`/paneles/${id}/miembros`),
+
+  /** Da acceso a otra persona por correo. */
+  compartir: (id: number, correo: string, nivel: 'ver' | 'editar' = 'ver') =>
+    request<{ ok: boolean }>(`/paneles/${id}/compartir`, {
+      method: 'POST',
+      body: JSON.stringify({ correo, nivel }),
+    }),
+
+  /** Quita el acceso de una persona. */
+  quitarAcceso: (id: number, usuarioId: number) =>
+    request<{ ok: boolean }>(`/paneles/${id}/compartir/${usuarioId}`, { method: 'DELETE' }),
+
+  /** Contenido del panel (403 si no tienes permiso). */
+  datos: (id: number) => request<DatosPanel>(`/paneles/${id}/datos`),
 }

@@ -18,6 +18,8 @@ export interface Evento {
   notas: string | null
   fuente: string
   duracion_min: number
+  /** Panel al que pertenece (v19). */
+  panel_id?: number | null
 }
 
 export interface Tarea {
@@ -32,6 +34,8 @@ export interface Tarea {
   material: string | null
   preguntas: string[]
   fuente: string
+  /** Panel al que pertenece (v19). */
+  panel_id?: number | null
 }
 
 export interface Registro {
@@ -42,6 +46,8 @@ export interface Registro {
   categoria: CategoriaGasto
   fecha: string
   notas: string | null
+  /** Panel al que pertenece (v19). */
+  panel_id?: number | null
 }
 
 export interface Mantenimiento {
@@ -55,6 +61,8 @@ export interface Mantenimiento {
   notas: string | null
   dias_restantes: number | null
   vencido: boolean
+  /** Panel al que pertenece (v19). */
+  panel_id?: number | null
 }
 
 export interface Alerta {
@@ -336,6 +344,44 @@ export interface Usuario {
   metodo: string
   verificado: boolean
   es_local: boolean
+}
+
+/** Nivel de acceso de una persona a un panel (v19). */
+export type RolPanel = 'dueno' | 'editar' | 'lector'
+
+/** Un panel: espacio de trabajo con su propio contenido (v19). */
+export interface Panel {
+  id: number
+  nombre: string
+  tipo: string
+  color: string
+  descripcion: string
+  rol: RolPanel
+  es_propio: boolean
+  miembros: number
+  eventos: number
+  tareas: number
+}
+
+/** Persona con acceso a un panel (v19). */
+export interface MiembroPanel {
+  usuario_id: number
+  correo: string
+  nombre: string
+  nivel: 'ver' | 'editar'
+  creado_en: string
+}
+
+/** Contenido de un panel (v19). */
+export interface DatosPanel {
+  ok: boolean
+  panel_id: number
+  nombre: string
+  rol: RolPanel
+  eventos: Evento[]
+  tareas: Tarea[]
+  registros: Registro[]
+  mantenimiento: Mantenimiento[]
 }
 
 export interface PerfilCuenta {

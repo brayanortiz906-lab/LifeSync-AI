@@ -40,7 +40,7 @@ def pedir(metodo: str, ruta: str, cuerpo: dict | None = None, token: str = "") -
         raise RuntimeError(f"{metodo} {ruta} -> {exc.code}: {exc.read().decode('utf-8')}") from exc
 
 
-def pedir_suave(metodo: str, ruta: str, cuerpo: dict | None = None) -> tuple[int, object]:
+def pedir_suave(metodo: str, ruta: str, cuerpo: dict | None = None, token: str = "") -> tuple[int, object]:
     """Igual que `pedir`, pero sin lanzar error: devuelve (codigo, cuerpo)."""
     datos = json.dumps(cuerpo).encode("utf-8") if cuerpo is not None else None
     req = urllib.request.Request(
@@ -49,6 +49,8 @@ def pedir_suave(metodo: str, ruta: str, cuerpo: dict | None = None) -> tuple[int
         method=metodo,
         headers={"Content-Type": "application/json; charset=utf-8"},
     )
+    if token:
+        req.add_header("Authorization", f"Bearer {token}")
     try:
         with urllib.request.urlopen(req, timeout=60) as r:
             crudo = r.read()
@@ -182,7 +184,11 @@ def main() -> int:
     _msg = str((_r or {}).get("detail", ""))
     check(
         "[CUENTA] el acceso con Google pide configuracion solo si falta (nunca al usuario final)",
-        isinstance(_r, dict) and ("no tiene el acceso con" in _msg or "user_code" in _r),
+        isinstance(_r, dict) and (
+            "no tiene el acceso con" in _msg
+            or "no esta activado en este servidor" in _msg
+            or "user_code" in _r
+        ),
         f"respuesta={_msg[:80] or 'device flow listo'}",
     )
 
@@ -532,7 +538,13 @@ def main() -> int:
         detalle_perm = str(cuerpo_perm.get("detail") or "")
     check(
         "[PERMISOS] sin configuracion avisa en palabras claras",
-        codigo_perm in (200, 400) and ("configurado" in detalle_perm or codigo_perm == 200),
+        codigo_perm in (200, 400)
+        and (
+            "configurado" in detalle_perm
+            or "activado" in detalle_perm
+            or "no esta" in detalle_perm
+            or codigo_perm == 200
+        ),
         f"codigo={codigo_perm}",
     )
 
@@ -562,6 +574,73 @@ def main() -> int:
         )
     else:
         check("[CUENTA] cada persona tiene su propia politica (sin colision)", False, "no se pudo crear la cuenta")
+
+    # ------------------------------------------------------------------ #
+    # v19: acceso con contrasena + paneles con permisos
+    # ------------------------------------------------------------------ #
+    print("\nCUENTAS CON CONTRASENA Y PANELES (v19)")
+    cod, r = pedir_suave("GET", "/api/cuentas/google/disponible")
+    check(
+        "[CUENTA] el acceso con Google avisa si esta disponible (sin callejon)",
+        cod == 200 and "disponible" in (r if isinstance(r, dict) else {}),
+        f"-> cod={cod}",
+    )
+    correo_v19 = f"smoke.v19.{int(time.time())}@example.com"
+    reg = pedir("POST", "/api/cuentas/registro", {"correo": correo_v19, "nombre": "V19", "password": "clave123"})
+    check(
+        "[CUENTA] se puede crear la cuenta con correo y contrasena",
+        isinstance(reg, dict) and reg.get("ok") is True,
+        f"correo={correo_v19}",
+    )
+    cod, r = pedir_suave("POST", "/api/cuentas/entrar", {"correo": correo_v19, "password": "mala"})
+    check("[CUENTA] la contrasena incorrecta no deja entrar", cod == 401, f"-> cod={cod}")
+    cod, r = pedir_suave("POST", "/api/cuentas/entrar", {"correo": correo_v19, "password": "clave123"})
+    check(
+        "[CUENTA] si falta confirmar el correo te lo dice (no te deja fuera)",
+        cod in (200, 403),
+        f"-> cod={cod}",
+    )
+    token_v19 = ""
+    codigo_v19 = (reg or {}).get("codigo") if isinstance(reg, dict) else None
+    if codigo_v19:
+        ver = pedir("POST", "/api/cuentas/verificar", {"correo": correo_v19, "codigo": codigo_v19})
+        token_v19 = (ver or {}).get("token", "") if isinstance(ver, dict) else ""
+    check("[CUENTA] con el codigo verificado entras con tu token", bool(token_v19))
+    if token_v19:
+        panel = pedir("POST", "/api/paneles", {"nombre": "Universidad", "tipo": "academia"}, token_v19)
+        panel_id = (panel or {}).get("panel", {}).get("id") if isinstance(panel, dict) else None
+        check("[PANEL] se puede crear un panel", bool(panel_id), f"-> id={panel_id}")
+        lista = pedir("GET", "/api/paneles", token=token_v19)
+        check(
+            "[PANEL] el panel aparece en tu lista",
+            isinstance(lista, dict) and any(p.get("id") == panel_id for p in lista.get("paneles", [])),
+        )
+        cod, r = pedir_suave("GET", f"/api/paneles/{panel_id}/datos", token=token_v19)
+        check("[PANEL] puedes ver el contenido de tu panel", cod == 200, f"-> cod={cod}")
+        # Una persona sin permiso no puede ver el panel.
+        correo_ajeno = f"smoke.v19b.{int(time.time())}@example.com"
+        reg2 = pedir("POST", "/api/cuentas/registro", {"correo": correo_ajeno, "nombre": "Ajena", "password": "clave456"})
+        codigo2 = (reg2 or {}).get("codigo") if isinstance(reg2, dict) else None
+        token_ajeno = ""
+        if codigo2:
+            ver2 = pedir("POST", "/api/cuentas/verificar", {"correo": correo_ajeno, "codigo": codigo2})
+            token_ajeno = (ver2 or {}).get("token", "") if isinstance(ver2, dict) else ""
+        if token_ajeno:
+            cod, r = pedir_suave("GET", f"/api/paneles/{panel_id}/datos", token=token_ajeno)
+            check("[PANEL] sin permiso NO puedes ver el panel de otra persona", cod == 403, f"-> cod={cod}")
+            comp = pedir("POST", f"/api/paneles/{panel_id}/compartir", {"correo": correo_ajeno, "nivel": "ver"}, token_v19)
+            check(
+                "[PANEL] puedes compartir el panel por correo",
+                isinstance(comp, dict) and comp.get("ok") is True,
+            )
+            cod, r = pedir_suave("GET", f"/api/paneles/{panel_id}/datos", token=token_ajeno)
+            check("[PANEL] con permiso SI puedes ver el panel", cod == 200, f"-> cod={cod}")
+            cod, r = pedir_suave("DELETE", f"/api/paneles/{panel_id}/compartir/0")
+            check("[PANEL] quitar el acceso responde", cod in (200, 403, 404), f"-> cod={cod}")
+        else:
+            check("[PANEL] sin permiso NO puedes ver el panel de otra persona", False, "no se pudo crear la cuenta ajena")
+        cod, r = pedir_suave("DELETE", f"/api/paneles/{panel_id}", token=token_v19)
+        check("[PANEL] se puede borrar el panel", cod == 200, f"-> cod={cod}")
 
     print("=" * 70)
     if fallos:

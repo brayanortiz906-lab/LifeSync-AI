@@ -26,10 +26,12 @@ from ..cuentas import (
     USUARIO_LOCAL,
     client_id_de,
     entrar_con_cuenta,
+    entrar_con_password,
     cerrar_sesion,
     crear_sesion,
     entrar_con_cuenta,
     enviar_codigo,
+    registrar_con_password,
     snapshot,
     solicitar_codigo,
     usuario_actual,
@@ -79,6 +81,17 @@ class CuentaGoogleIn(BaseModel):
 
     proveedor: str = "google_cuenta"
     device_code: str = ""
+
+
+class RegistroIn(BaseModel):
+    correo: str = ""
+    nombre: str = ""
+    password: str = ""
+
+
+class EntrarIn(BaseModel):
+    correo: str = ""
+    password: str = ""
 
 
 def _perfil(usuario) -> dict:
@@ -193,6 +206,84 @@ def google_terminar(payload: CuentaGoogleIn, db: Session = Depends(get_db, scope
 def yo(usuario=Depends(usuario_actual)):
     """Quién es la persona de esta petición."""
     return {"ok": True, "usuario": _perfil(usuario)}
+
+
+# --------------------------------------------------------------------------- #
+# Acceso con correo y contrasena (v19): sin esperas y sin limitaciones
+# --------------------------------------------------------------------------- #
+@router.post("/registro")
+def registro(payload: RegistroIn, db: Session = Depends(get_db, scope="function")):
+    """Crea tu cuenta con correo y contrasena y manda el codigo de verificacion.
+
+    La contrasena sirve desde el primer momento; el codigo solo confirma que
+    ese correo es tuyo (si el servidor no tiene SMTP configurado, el codigo
+    se devuelve aqui para que puedas probarlo sin esperas).
+    """
+    usuario, codigo, modo = registrar_con_password(
+        db, payload.correo, payload.nombre, payload.password
+    )
+    respuesta = {
+        "ok": True,
+        "modo": modo,
+        "correo": usuario.correo,
+        "mensaje": (
+            "Cuenta creada. Te enviamos un codigo de 6 digitos para confirmar tu correo."
+            if modo == "smtp"
+            else "Cuenta creada. Este servidor todavia no envia correos: te mostramos el codigo aqui."
+        ),
+    }
+    if modo == "consola":
+        respuesta["codigo"] = codigo
+    return respuesta
+
+
+@router.post("/entrar")
+def entrar(payload: EntrarIn, db: Session = Depends(get_db, scope="function")):
+    """Entra con tu correo y tu contrasena."""
+    usuario, situacion = entrar_con_password(db, payload.correo, payload.password)
+    if situacion == "no_existe":
+        raise HTTPException(
+            status_code=404,
+            detail="No encontramos esa cuenta. Creala con el boton de arriba.",
+        )
+    if situacion == "mal_password":
+        raise HTTPException(
+            status_code=401, detail="La contrasena no es correcta. Intentalo otra vez."
+        )
+    if situacion == "sin_verificar":
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Tu cuenta existe pero falta confirmar el correo. "
+                "Te reenviamos el codigo: escribelo para entrar."
+            ),
+        )
+    token = crear_sesion(db, usuario, "correo")
+    return {"ok": True, "token": token, "usuario": _perfil(usuario)}
+
+
+@router.get("/google/disponible")
+def google_disponible(db: Session = Depends(get_db, scope="function")):
+    """¿Este servidor tiene el acceso con Google activado?
+
+    Así la interfaz no le muestra un error a la persona: si no está, le
+    ofrece entrar con su correo (que funciona siempre).
+    """
+    try:
+        client_id_de(db, "google_cuenta")
+        disponible = True
+    except HTTPException:
+        disponible = False
+    return {
+        "ok": True,
+        "disponible": disponible,
+        "mensaje": (
+            "Puedes entrar con Google con un solo clic."
+            if disponible
+            else "El acceso con Google todavia no esta activado en este servidor. "
+            "Entra con tu correo y tu contrasena: funciona igual de bien."
+        ),
+    }
 
 
 @router.post("/salir")

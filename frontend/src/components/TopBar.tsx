@@ -1,6 +1,6 @@
 /** Barra superior: marca, navegación de fecha, KPIs y conexiones de IA. */
 import { useState } from 'react'
-import { CalendarDays, ChevronLeft, ChevronRight, Menu, MessageSquare, Plug, Sparkles, Trash2, User } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, LayoutGrid, Menu, MessageSquare, Plug, Sparkles, Trash2, User } from 'lucide-react'
 import { useLifeSync } from '../store/useLifeSync'
 import { duracionLegible, etiquetaDia, monto } from '../lib/format'
 import { Boton, Chip } from './ui'
@@ -10,7 +10,7 @@ import ConexionesPanel from './ConexionesPanel'
 export default function TopBar({
   fecha, onCambiarFecha, onAbrirChat, chatAbierto,
   conexionesAbiertas, onAbrirConexiones, onCerrarConexiones, onAbrirAcceso, usuario,
-  onAbrirMenu,
+  onAbrirMenu, panelId, onCambiarPanel,
 
 }: {
   fecha: Date
@@ -26,11 +26,15 @@ export default function TopBar({
   onCerrarConexiones?: () => void
   /** Abre el menu movil con lo que no cabe en pantallas pequeñas. */
   onAbrirMenu?: () => void
+  /** Panel abierto ahora mismo (v19). */
+  panelId?: number | null
+  onCambiarPanel?: (id: number | null) => void
 }) {
   const dashboard = useLifeSync((s) => s.dashboard)
   const proveedor = useLifeSync((s) => s.proveedor)
   const apiKey = useLifeSync((s) => s.apiKey)
   const limpiarChat = useLifeSync((s) => s.limpiarChat)
+  const paneles = useLifeSync((s) => s.paneles)
   const [conexionesInternas, setConexionesInternas] = useState(false)
 
   const conexiones = conexionesAbiertas ?? conexionesInternas
@@ -78,6 +82,27 @@ export default function TopBar({
           Hoy
         </Boton>
       </div>
+
+      {/* Selector de panel (v19): cada panel es un espacio de trabajo. */}
+      {onCambiarPanel && (
+        <label className="flex items-center gap-1.5 rounded-xl border border-white/8 bg-white/4 px-2.5 py-1.5">
+          <LayoutGrid size={13} className="text-indigo-400" />
+          <select
+            value={panelId ?? ''}
+            onChange={(e) => onCambiarPanel(e.target.value ? Number(e.target.value) : null)}
+            className="max-w-[130px] cursor-pointer bg-transparent text-[11px] font-semibold text-slate-200 outline-none"
+            title="Elige el panel que estas viendo"
+          >
+            <option value="">Todo</option>
+            {paneles.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.nombre}
+                {p.es_propio ? '' : ' (compartido)'}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
 
       {/* Movil: lo que no cabe en la barra se abre desde aqui. */}
       <div className="ml-auto flex items-center gap-1 lg:hidden">

@@ -21,6 +21,7 @@ import os
 import secrets
 import smtplib
 import ssl
+from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import datetime, timedelta
 from email.message import EmailMessage
@@ -30,7 +31,7 @@ from sqlalchemy import Boolean, Column, DateTime, Integer, String, event, select
 from sqlalchemy.orm import Session as SASession
 
 from .config import settings
-from .connections import normalizar_proveedor
+from .connections import normalizar_proveedor, obtener_proveedor
 from .database import Base, get_db
 from .models import (
     AppSettings,
@@ -75,6 +76,9 @@ class Usuario(Base):
     codigo_hash = Column(String(64), default="")
     codigo_expira = Column(DateTime, nullable=True)
     intentos = Column(Integer, default=0)
+    #: Hash de la contrasena (pbkdf2). Vacio si la persona entro con Google
+    #: o con un codigo de un solo uso.
+    password_hash = Column(String(200), default="")
     creado_en = Column(DateTime, default=datetime.now)
     ultimo_acceso = Column(DateTime, nullable=True)
 
@@ -151,6 +155,104 @@ def establecer_usuario(usuario_id: int | None) -> None:
 # --------------------------------------------------------------------------- #
 def _hash(texto: str) -> str:
     return hashlib.sha256(texto.encode("utf-8")).hexdigest()
+
+
+# --------------------------------------------------------------------------- #
+# Contrasenas (v19): la persona pone su correo y su contrasena, sin esperas
+# --------------------------------------------------------------------------- #
+_ITERACIONES_PBKDF2 = 120_000
+
+
+def hash_password(password: str) -> str:
+    """Guarda la contrasena como un hash con sal (nunca en texto plano)."""
+    sal = os.urandom(16)
+    derivado = hashlib.pbkdf2_hmac(
+        "sha256", password.encode("utf-8"), sal, _ITERACIONES_PBKDF2
+    )
+    return f"pbkdf2${_ITERACIONES_PBKDF2}${sal.hex()}${derivado.hex()}"
+
+
+def verificar_password(password: str, guardado: str) -> bool:
+    """Comprueba una contrasena contra su hash (comparacion en tiempo constante)."""
+    if not guardado or not password:
+        return False
+    try:
+        _, iteraciones, sal_hex, esperado = guardado.split("$")
+        derivado = hashlib.pbkdf2_hmac(
+            "sha256", password.encode("utf-8"), bytes.fromhex(sal_hex), int(iteraciones)
+        )
+    except (ValueError, TypeError):
+        return False
+    return secrets.compare_digest(derivado.hex(), esperado)
+
+
+def registrar_con_password(
+    db: SASession, correo: str, nombre: str, password: str
+) -> tuple[Usuario, str, str]:
+    """Crea la cuenta con contrasena y manda el codigo de verificacion.
+
+    Devuelve (usuario, codigo, modo_envio). La contrasena sirve para entrar
+    desde la primera vez; el codigo confirma que el correo es de la persona.
+    """
+    correo = correo.strip().lower()
+    if "@" not in correo or "." not in correo.split("@")[-1]:
+        raise HTTPException(status_code=400, detail="Ese correo no parece válido.")
+    if len(password or "") < 6:
+        raise HTTPException(
+            status_code=400,
+            detail="La contrasena necesita al menos 6 caracteres.",
+        )
+    usuario = _buscar_o_crear(db, correo, nombre, "email")
+    usuario.password_hash = hash_password(password)
+    codigo = generar_codigo()
+    usuario.codigo_hash = _hash(codigo)
+    usuario.codigo_expira = datetime.now() + timedelta(minutes=15)
+    usuario.intentos = 0
+    db.flush()
+    modo = enviar_codigo(correo, codigo, usuario.nombre)
+    return usuario, codigo, modo
+
+
+def entrar_con_password(
+    db: SASession, correo: str, password: str
+) -> tuple[Usuario | None, str]:
+    """Entra con correo y contrasena.
+
+    Devuelve (usuario, situacion) donde situacion es "ok", "no_existe",
+    "mal_password" o "sin_verificar". Si la cuenta existe pero no esta
+    verificada, se le reenvia el codigo (la persona no se queda afuera).
+    """
+    correo = correo.strip().lower()
+    usuario = db.scalars(select(Usuario).where(Usuario.correo == correo)).first()
+    if usuario is None:
+        return None, "no_existe"
+    if not verificar_password(password, usuario.password_hash or ""):
+        return None, "mal_password"
+    if not usuario.verificado:
+        codigo = generar_codigo()
+        usuario.codigo_hash = _hash(codigo)
+        usuario.codigo_expira = datetime.now() + timedelta(minutes=15)
+        usuario.intentos = 0
+        db.flush()
+        enviar_codigo(correo, codigo, usuario.nombre)
+        return usuario, "sin_verificar"
+    usuario.ultimo_acceso = datetime.now()
+    db.flush()
+    return usuario, "ok"
+
+
+@contextmanager
+def como_usuario(usuario_id: int):
+    """Ejecuta un bloque viendo los datos de otra persona (paneles compartidos).
+
+    El filtro de aislamiento usa un contextvar: cambiandolo temporalmente se
+    leen los datos del dueño de un panel que nos fue compartido.
+    """
+    token = _actual.set(usuario_id)
+    try:
+        yield
+    finally:
+        _actual.reset(token)
 
 
 def generar_codigo() -> str:
@@ -342,10 +444,9 @@ def client_id_de(db: SASession, proveedor: str = "google_cuenta") -> str:
     raise HTTPException(
         status_code=400,
         detail=(
-            "Esta copia todavia no tiene el acceso con esa cuenta configurado. "
-            "Lo activa una sola vez quien la instala (ayuda en 'Conectar IA > "
-            "Configuracion avanzada'). Mientras tanto puedes entrar con tu correo "
-            "o seguir en este equipo."
+            "El acceso con esa cuenta todavia no esta activado en este servidor "
+            "(lo activa una sola vez quien lo instala). No te frena: entra con tu "
+            "correo y tu contrasena, o sigue en este equipo."
         ),
     )
 
