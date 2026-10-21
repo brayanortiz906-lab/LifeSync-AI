@@ -100,6 +100,48 @@ prepara Python 3.12 + Node 20, instala las dependencias y abre los puertos
 
 ---
 
+## 2.6 La app con IA propia, descargada en un clic
+
+Si no quieres claves de IA ni cuentas: **descarga una IA ligera** (400 MB) y
+queda en tu computador, sin internet y sin que nadie vea tus datos.
+
+| Desde dónde | Cómo |
+|---|---|
+| **La app** | *Conectar IA* → si no hay motor, aparece la tarjeta **«Descarga una IA ligera»** con 4 modelos, su tamaño y una barra de progreso real |
+| **El instalador** | ventana `LifeAgente.exe` → botón **«Descargar IA ligera»** (instala Ollama si falta y baja `qwen2.5:0.5b`) |
+
+Modelos disponibles:
+
+| Modelo | Tamaño | Nota |
+|---|---|---|
+| `qwen2.5:0.5b` | 400 MB | **recomendado** (rápido y suficiente) |
+| `gemma3:1b` | 815 MB | mejor calidad, un poco más lento |
+| `llama3.2:1b` | 1,3 GB | muy rápido |
+| `phi3.5:mini` | 2,2 GB | el más pequeno de razonar |
+
+> La IA local se detecta y se **conecta sola** al arrancar la app: no hay que
+> hacer nada más. Detalle en [`docs/18-IA-LIGERA-Y-ACCESO.md`](docs/18-IA-LIGERA-Y-ACCESO.md).
+
+## 2.7 Entrar con tu cuenta sin configurar nada
+
+El identificador de cliente OAuth **es público** (va dentro de la app, como el
+botón de "Continuar con Google" de cualquier sitio). Por eso el instalador o
+el despliegue pueden traerlo ya puesto y la persona solo pulsa el botón:
+
+```
+Persona          LifeAgente            Google
+   |  clic  ---------->|  device flow ----->|
+   |<-- codigo + autorizar en el navegador ---|
+   |  "Listo, ya autoricé" -->|  poll  ------->|
+   |<--------- sesión con su correo y sus datos --|
+```
+
+La app busca el identificador en **4 sitios**, en este orden: variable de
+entorno → credencial guardada → lo que pegaste en la app → el archivo público
+`public/clientes-publicos.json`. Por eso **nadie tiene que pegar nada**.
+
+---
+
 ## 3. Dónde se guardan tus datos (nada se pierde)
 
 | Dato | Ubicación | Comentario |
@@ -136,6 +178,7 @@ obligatoria**: sin ellas la app funciona igual (modo local, motor de reglas).
 | `DEFAULT_CURRENCY`, `DAY_START`, `DAY_END`, `DEFAULT_TIMEZONE` | moneda, jornada y zona horaria | `COP`, `07:00`, `22:00`, `America/Bogota` |
 | `CORS_ORIGINS` | orígenes permitidos (separados por comas) | `http://localhost:5173,http://127.0.0.1:5173` |
 | `LIFEAGENTE_DATA` | cambia la carpeta de datos (útil para portable) | `%APPDATA%\LifeAgente` |
+| `LIFEAGENTE_BOOTSTRAP_URL` | de dónde se leen los identificadores públicos de las cuentas (Google/Outlook/GitHub) | el archivo `public/clientes-publicos.json` del repo |
 
 > **El paso técnico lo hace una sola vez quien instala.** Quien usa la app solo
 > hace clic en «Continuar con Google» y autoriza en el navegador.
@@ -216,7 +259,7 @@ Documentación completa de cada área en `docs/`.
 | Archivo | Para qué |
 |---|---|
 | `run.py` | arranque rápido de la API |
-| `smoke.py` | **111 comprobaciones automáticas** de todo el sistema (`python smoke.py`) |
+| `smoke.py` | **116 comprobaciones automáticas** de todo el sistema (`python smoke.py`) |
 | `requirements.txt` | dependencias de Python |
 | `.env.example` | plantilla de configuración |
 
@@ -295,7 +338,7 @@ Documentación completa de cada área en `docs/`.
 ## 8. Mantenimiento
 
 ```powershell
-# 1. Comprobar que todo sigue bien (111 casos)
+# 1. Comprobar que todo sigue bien (116 casos)
 backend\.venv\Scripts\python.exe backend\smoke.py
 
 # 2. Compilar la interfaz

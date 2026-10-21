@@ -416,6 +416,44 @@ export interface Respaldo {
   conexiones: Record<string, unknown>[]
 }
 
+/** Un modelo de IA ligero que se puede descargar para usarlo en el computador. */
+export interface ModeloLigero {
+  id: string
+  nombre: string
+  tamano_mb: number
+  nota: string
+  recomendado: boolean
+}
+
+/** Como va una descarga de modelo (progreso, log y error si lo hubo). */
+export interface DescargaIA {
+  id: string
+  modelo: string
+  estado: 'descargando' | 'listo' | 'error'
+  progreso: number
+  mensaje: string
+  log: string[]
+  iniciada_en: string | null
+  terminada_en: string | null
+}
+
+/** Modelos ligeros disponibles y si hay un motor local instalado. */
+export interface InfoModelosLigeros {
+  ok: boolean
+  modelos: ModeloLigero[]
+  motor: string
+  hay_motor: boolean
+  motores: MotorLocal[]
+}
+
+/** Credenciales publicas de las cuentas (se obtienen solas al iniciar sesion). */
+export interface InfoClientesPublicos {
+  ok: boolean
+  url: string
+  proveedores: Record<string, string>
+  configurado: boolean
+}
+
 /** Estado del acceso con Google: dice si ya hay un ID de cliente configurado. */
 export interface EstadoGoogle {
   /** Ya hay un ID de cliente de Google guardado (un clic y entras). */

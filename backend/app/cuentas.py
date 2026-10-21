@@ -420,6 +420,13 @@ def client_id_de(db: SASession, proveedor: str = "google_cuenta") -> str:
 
     1) variable de entorno (GOOGLE_CLIENT_ID / OUTLOOK_CLIENT_ID / GITHUB_CLIENT_ID)
     2) el client id guardado (cifrado) en la conexion de ese proveedor
+    3) el client id guardado por la persona en la app
+    4) el client id PUBLICO publicado por el proyecto (bootstrap)
+
+    El punto 4 es lo que hace que "solo con iniciar sesion" funcione: el
+    identificador de cliente OAuth es publico (va incrustado en la app), asi
+    que el despliegue puede publicarlo y la persona unicamente pulsa
+    "Continuar con Google" y autoriza en el navegador.
     """
     from . import connections as con
 
@@ -458,6 +465,16 @@ def client_id_de(db: SASession, proveedor: str = "google_cuenta") -> str:
         guardado = str(cred.get("client_id") or "").strip()
         if guardado:
             return guardado
+    # 4) Identificador publico publicado por el proyecto: con esto la persona
+    #    solo tiene que iniciar sesion, sin pegar ni configurar nada.
+    try:
+        from . import ia_local
+
+        publico = str(ia_local.clientes_publicos().get(pid) or "").strip()
+        if publico:
+            return publico
+    except Exception:
+        pass
     raise HTTPException(
         status_code=400,
         detail=(

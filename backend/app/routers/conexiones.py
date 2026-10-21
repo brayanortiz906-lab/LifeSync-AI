@@ -39,6 +39,65 @@ def catalogo():
     return {"proveedores": con.listar_catalogo()}
 
 
+# --------------------------------------------------------------------------- #
+# Credenciales publicas: "solo con iniciar sesion"
+# --------------------------------------------------------------------------- #
+@router.get("/clientes-publicos")
+def clientes_publicos(forzar: bool = False):
+    """Identificadores de cliente publicos publicados por el despliegue.
+
+    No son secretos (van incrustados en cualquier app OAuth), por eso la
+    app puede obtenerlos sola: la persona solo inicia sesion.
+    """
+    from .. import ia_local
+
+    mapa = ia_local.clientes_publicos(forzar=forzar)
+    return {
+        "ok": True,
+        "url": ia_local.url_bootstrap(),
+        "proveedores": sorted(mapa.keys()),
+        "configurado": bool(mapa),
+    }
+
+
+# --------------------------------------------------------------------------- #
+# IA super ligera descargable
+# --------------------------------------------------------------------------- #
+@router.get("/modelos-ligeros")
+def modelos_ligeros():
+    """Modelos pequeños que se pueden descargar para usar la app sin IA en la nube."""
+    from .. import ia_local
+
+    motores = con.detectar_motores_locales_sync()
+    return {
+        "ok": True,
+        "modelos": ia_local.MODELOS_LIGEROS,
+        "motor": ia_local.MOTOR_RECOMENDADO,
+        "hay_motor": bool(motores),
+        "motores": motores,
+    }
+
+
+@router.post("/descargar-modelo")
+def descargar_modelo(cuerpo: dict):
+    """Arranca la descarga de un modelo ligero en segundo plano."""
+    from .. import ia_local
+
+    resultado = ia_local.descargar_modelo(str(cuerpo.get("modelo") or ""))
+    if not resultado.get("ok"):
+        raise HTTPException(status_code=400, detail=str(resultado.get("mensaje") or "No se pudo empezar la descarga."))
+    return resultado
+
+
+@router.get("/descargas")
+def descargas():
+    """Estado de las descargas de modelos en curso."""
+    from .. import ia_local
+
+    lista = ia_local.listar_descargas()
+    return {"ok": True, "descargas": lista, "total": len(lista)}
+
+
 @router.get("/locales")
 async def detectar_locales(db: Session = Depends(get_db, scope="function")):
     """Busca motores de IA ya levantados en el equipo y conecta el primero.

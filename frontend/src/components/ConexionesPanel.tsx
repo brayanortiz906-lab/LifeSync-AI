@@ -20,6 +20,7 @@ import type {
   ProveedorCatalogo,
 } from '../types'
 import { Aviso, Boton, Campo, Chip, Modal } from './ui'
+import BloqueIaLigera from './BloqueIaLigera'
 
 /** Los 4 caminos, ordenados de mas facil a mas avanzado. */
 const CAMINOS: Array<{ id: string; titulo: string; texto: string; icono: string; modo: string }> = [
@@ -461,6 +462,11 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
               </div>
             )}
 
+            {/* Si no hay ninguna IA en el equipo, dejamos una forma de bajar una ligera */}
+            {motoresDisponibles.length === 0 && (
+              <BloqueIaLigera alCambiar={() => void cargar()} />
+            )}
+
             {/* Los 4 caminos */}
             <div className="space-y-3">
               {CAMINOS.map((c) => {
@@ -687,7 +693,7 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
             </div>
 
             {/* Camino 3 */}
-            {motoresDisponibles.length > 0 && (
+            {motoresDisponibles.length > 0 ? (
               <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/8 p-4 sm:p-5">
                 <div className="text-xs font-bold text-emerald-100">
                   Camino 3 · Usar la IA de tu computador (gratis, sin cuentas)
@@ -719,6 +725,19 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
                     </div>
                   ))}
                 </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="rounded-2xl border border-white/8 bg-white/3 p-4 sm:p-5">
+                  <div className="text-xs font-bold text-white">
+                    Camino 3 · Usar la IA de tu computador (gratis, sin cuentas)
+                  </div>
+                  <p className="mt-1.5 text-[11px] leading-relaxed text-slate-300">
+                    Todavia no hay IA en tu equipo. Puedes descargar un modelo
+                    ligero y usarlo sin claves ni cuentas.
+                  </p>
+                </div>
+                <BloqueIaLigera alCambiar={() => void cargar()} />
               </div>
             )}
 

@@ -1,8 +1,9 @@
 /** Cliente HTTP de la API de LifeAgente AI. */
 import type {
   Ajustes, Aprobacion, AutorizacionCuenta, CatalogoModelos, Conexion, Dashboard, DatosPanel,
-  EntradaAuditoria, EstadoGoogle,
-  EstadoPermisos, InfoProveedores, MiembroPanel, Panel, Permiso,
+  DescargaIA, EntradaAuditoria, EstadoGoogle,
+  EstadoPermisos, InfoClientesPublicos, InfoModelosLigeros, InfoProveedores, MiembroPanel,
+  Panel, Permiso,
   PerfilCuenta, Respaldo, ResultadoCodigo, ResultadoSesion, Usuario,
   Evento, HistorialMsg, Mantenimiento, MotorLocal, Politica, ProveedorCatalogo, Registro,
   ReporteCumplimiento, ResumenAuditoria, RespuestaAgente, ResultadoAutorizacion, Tarea,
@@ -263,6 +264,23 @@ export const api = {
         body: JSON.stringify({ client_id, proveedor }),
       },
     ),
+
+  /** Modelos ligeritos que se pueden descargar para usar IA en el computador. */
+  modelosLigeros: () => request<InfoModelosLigeros>('/conexiones/modelos-ligeros'),
+
+  /** Arranca la descarga de un modelo ligero (en segundo plano). */
+  descargarModelo: (modelo: string) =>
+    request<{ ok: boolean; id: string; modelo: string }>('/conexiones/descargar-modelo', {
+      method: 'POST',
+      body: JSON.stringify({ modelo }),
+    }),
+
+  /** Como van las descargas (progreso, log y errores). */
+  descargas: () => request<{ ok: boolean; descargas: DescargaIA[]; total: number }>('/conexiones/descargas'),
+
+  /** Credenciales publicas de las cuentas (se obtienen solas al iniciar sesion). */
+  clientesPublicos: (forzar = false) =>
+    request<InfoClientesPublicos>(`/conexiones/clientes-publicos?forzar=${forzar ? 1 : 0}`),
 }
 
 /** Endpoints de acceso y respaldo (v11). */

@@ -1,0 +1,6 @@
+{
+  "_comentario": "Identificadores de cliente OAuth PUBLICOS de LifeAgente AI. No son secretos: un ID de cliente OAuth de tipo 'App de escritorio' va incrustado en cualquier aplicacion y se puede publicar. Al publicar aqui el identificador, TODAS las personas que usen LifeAgente pueden entrar con Google, Outlook o GitHub con un solo clic, sin pegar ni configurar nada. Para anadir uno: crealo en la consola del proveedor (tipo 'App de escritorio') y pega aqui su identificador publico (el que termina en .apps.googleusercontent.com).",
+  "google_cuenta": "",
+  "outlook_cuenta": "",
+  "github_cuenta": ""
+}

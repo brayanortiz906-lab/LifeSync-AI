@@ -817,6 +817,46 @@ def main() -> int:
         f"-> cod={cod_forget} {r_forget}",
     )
 
+    # ------------------------------------------------------------------ #
+    # Acceso con un clic (credenciales publicas) e IA ligera (v26)
+    # ------------------------------------------------------------------ #
+    print("\n" + "=" * 70)
+    print("IA LIGERA Y ACCESO CON UN CLIC (v26)")
+    print("=" * 70)
+    cod_bo, r_bo = pedir_suave("GET", "/api/conexiones/clientes-publicos")
+    check(
+        "[IA] el bootstrap de credenciales publicas responde",
+        cod_bo == 200 and isinstance(r_bo, dict) and bool(r_bo.get("url")),
+        f"-> cod={cod_bo} url={(r_bo or {}).get('url', '')}",
+    )
+    cod_ml, r_ml = pedir_suave("GET", "/api/conexiones/modelos-ligeros")
+    modelos_v26 = (r_ml or {}).get("modelos", []) if isinstance(r_ml, dict) else []
+    check(
+        "[IA] hay modelos ligeros para descargar",
+        cod_ml == 200 and len(modelos_v26) >= 3
+        and all(m.get("id") and m.get("tamano_mb") for m in modelos_v26),
+        f"-> n={len(modelos_v26)} {[m.get('id') for m in modelos_v26]}",
+    )
+    check(
+        "[IA] el modelo recomendado es el mas liviano",
+        any(m.get("recomendado") is True for m in modelos_v26),
+        f"-> {[m.get('id') for m in modelos_v26 if m.get('recomendado')]}",
+    )
+    cod_dl, r_dl = pedir_suave("GET", "/api/conexiones/descargas")
+    check(
+        "[IA] el registro de descargas responde",
+        cod_dl == 200 and isinstance(r_dl, dict) and isinstance(r_dl.get("descargas"), list),
+        f"-> cod={cod_dl} total={(r_dl or {}).get('total')}",
+    )
+    cod_bad, _ = pedir_suave(
+        "POST", "/api/conexiones/descargar-modelo", {"modelo": "modelo-que-no-existe"}
+    )
+    check(
+        "[IA] no se deja descargar un modelo que no existe",
+        cod_bad == 400,
+        f"-> cod={cod_bad}",
+    )
+
     print("=" * 70)
     if fallos:
         print(f"RESULTADO: {len(fallos)} CASO(S) FALLIDO(S): {fallos}")

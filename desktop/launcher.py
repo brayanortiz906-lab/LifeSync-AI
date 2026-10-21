@@ -62,6 +62,9 @@ DIR_DATOS = Path(
 )
 PUERTO = int(os.environ.get("LIFEAGENTE_PUERTO", "8000"))
 URL = f"http://127.0.0.1:{PUERTO}"
+
+# Modelo muy ligero para usar LifeAgente en el computador sin claves de IA.
+MODELO_LIGERO = "qwen2.5:0.5b"
 DIR_RESPALDOS = DIR_DATOS / "respaldos"
 ARCHIVO_DB = DIR_DATOS / "lifesync.db"
 
@@ -283,6 +286,13 @@ class Lanzador:
             highlightbackground="#1e293b", padx=14, pady=9, cursor="hand2",
         )
         self.boton_respaldo.pack(side="left", padx=8)
+        self.boton_ia = tk.Button(
+            botones, text="Descargar IA ligera", command=self.descargar_ia_ligera,
+            bg=FONDO_CARD, fg=TEXTO, activebackground="#1e293b",
+            font=("Segoe UI", 10), bd=0, highlightthickness=1,
+            highlightbackground="#1e293b", padx=14, pady=9, cursor="hand2",
+        )
+        self.boton_ia.pack(side="left", padx=8)
 
         # Registro
         tk.Label(marco, text="REGISTRO", bg=FONDO, fg=TEXTO_TENUE,
@@ -357,6 +367,63 @@ class Lanzador:
                     self.estado("Fallo la instalacion", ROJO)
             except Exception as exc:
                 self.escribir(f"Error instalando {clave}: {exc}")
+            self.raiz.after(0, self.actualizar_requisitos)
+
+        threading.Thread(target=_hilo, daemon=True).start()
+
+    # --- IA ligera local ---------------------------------------------------- #
+    def descargar_ia_ligera(self) -> None:
+        """Baja un modelo de IA muy pequeno para que la app funcione sin claves.
+
+        Si Ollama no esta instalado, se instala primero con winget; despues se
+        baja 'qwen2.5:0.5b' (unos 400 MB), que es el modelo mas ligero que
+        responde bien en un computador normal.
+        """
+        modelo = MODELO_LIGERO
+        if not en_ruta("ollama"):
+            if not en_ruta("winget"):
+                self.escribir("No se encontro 'winget'. Instala Ollama desde https://ollama.com/download")
+                self.estado("Falta instalar Ollama", ROJO)
+                return
+            self.escribir("Ollama no esta instalado. Instalando con winget (puede tardar)...")
+            self.estado("Instalando Ollama...", TEXTO_TENUE)
+            r = subprocess.run(
+                ["winget", "install", "--id", "Ollama.Ollama", "-e",
+                 "--accept-package-agreements", "--accept-source-agreements"],
+                capture_output=True, text=True, timeout=1800,
+            )
+            if r.returncode != 0:
+                self.escribir(f"No se pudo instalar Ollama: {(r.stderr or r.stdout)[-300:]}")
+                self.estado("Fallo la instalacion", ROJO)
+                return
+            self.escribir("Ollama instalado. Si sigue sin aparecer, reinicia el equipo.")
+            self.raiz.after(0, self.actualizar_requisitos)
+
+        self.escribir(f"Descargando el modelo {modelo} (unos 400 MB). Puedes seguir usando la app mientras baja.")
+        self.estado("Descargando IA ligera...", TEXTO_TENUE)
+
+        def _hilo() -> None:
+            try:
+                proceso = subprocess.Popen(
+                    ["ollama", "pull", modelo], stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT, text=True,
+                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                )
+                for linea in proceso.stdout or []:
+                    linea = linea.strip()
+                    if linea:
+                        self.escribir(f"  {linea}")
+                proceso.wait()
+                if proceso.returncode == 0:
+                    self.escribir(f"Listo: {modelo} ya esta en tu computador.")
+                    self.escribir("En la app, ve a 'Conectar IA' y pulsa 'Conectar' en Ollama.")
+                    self.estado("IA lista", VERDE)
+                else:
+                    self.escribir(f"La descarga fallo (codigo {proceso.returncode}).")
+                    self.estado("Fallo la descarga", ROJO)
+            except Exception as exc:
+                self.escribir(f"Error descargando la IA: {exc}")
+                self.estado("Error", ROJO)
             self.raiz.after(0, self.actualizar_requisitos)
 
         threading.Thread(target=_hilo, daemon=True).start()

@@ -12,6 +12,8 @@ Si buscas **cómo usarlo**: empieza por [`MANUAL-LOCAL.md`](../MANUAL-LOCAL.md)
 | **Entender cómo está hecho** | [`01-ARQUITECTURA.md`](01-ARQUITECTURA.md) |
 | **Cambiar el comportamiento del agente** | [`02-SYSTEM-PROMPT.md`](02-SYSTEM-PROMPT.md) |
 | **Conectar una IA (Claude, GPT, Gemini, una local…)** | [`06-CONE-XIONES.md`](06-CONE-XIONES.md) · [`03-INTEGRACION-API-KEY.md`](03-INTEGRACION-API-KEY.md) |
+| **Entrar con Google sin configurar nada** | [`18-IA-LIGERA-Y-ACCESO.md`](18-IA-LIGERA-Y-ACCESO.md) |
+| **Bajar una IA ligera para usar la app local** | [`18-IA-LIGERA-Y-ACCESO.md`](18-IA-LIGERA-Y-ACCESO.md) |
 | **Entender la parte de "IA responsable"** | [`05-RESPONSABILIDAD.md`](05-RESPONSABILIDAD.md) |
 | **Personalizar (tema, orden, bienvenida)** | [`07-AJUSTES.md`](07-AJUSTES.md) |
 | **Maquillar la interfaz** | [`08-SISTEMA-VISUAL.md`](08-SISTEMA-VISUAL.md) |
@@ -43,6 +45,7 @@ Si buscas **cómo usarlo**: empieza por [`MANUAL-LOCAL.md`](../MANUAL-LOCAL.md)
 | 15 | [Cuentas y paneles](15-CUENTAS-Y-PANELES.md) | Acceso sin callejones, correo + contraseña, y paneles con permiso de ver/editar. |
 | 16 | [Respaldo y nube](16-RESPALDO-Y-NUBE.md) | El error 500 explicado, el código de verificación, Drive como almacén real y la red de seguridad. |
 | 17 | [Instalador local](17-INSTALADOR-LOCAL.md) | El `.exe` de Windows: qué lleva dentro, dónde viven los datos y cómo se compila. |
+| 18 | [IA ligera y acceso](18-IA-LIGERA-Y-ACCESO.md) | Por qué las credenciales son públicas (acceso con un clic) y cómo bajar una IA de 400 MB para usar la app local. |
 
 ## Documentos fuera de `docs/`
 
