@@ -1,0 +1,78 @@
+==========================================================================
+  LIFEAGENTE AI  -  COMO TENERLO EN TU EQUIPO (leeme en 2 minutos)
+==========================================================================
+
+QUE ES
+  Asistente de vida y productividad. Le hablas y LifeAgente registra tu
+  agenda, tus tareas de estudio, tus gastos y tus mantenimientos. Tambien
+  tiene: cuentas con correo o Google/Outlook/GitHub, respaldo en tu Drive,
+  paneles que puedes compartir, y un sistema de "IA responsable" (auditoria,
+  aprobaciones y proteccion de tus datos).
+
+LA FORMA MAS FACIL (la que recomiendo)
+  1. Descarga el instalador:
+     https://github.com/brayanortiz906-lab/LifeSync-AI/releases/download/v1.0.0/LifeAgente.exe
+  2. Copialo donde quieras (por ejemplo el Escritorio).
+  3. Doble clic. Se abre una ventana con los REQUISITOS.
+  4. Si algo falta, pulsa "Instalar" (instala lo que falte solo).
+  5. Pulsa "Iniciar LifeAgente". Se abre el navegador en
+     http://127.0.0.1:8000
+  6. Cuando cierres la ventana, LifeAgente guarda una copia de tus datos
+     y apaga el servidor. No queda nada corriendo.
+
+  No necesitas instalar Python, Node ni Docker: el .exe lleva todo dentro.
+
+
+OTRAS FORMAS DE USARLO
+  - desktop\INICIAR.bat ............. arranque sin compilar (necesita
+                                     Python 3.12+ y Node 20)
+  - docker compose up ............... todo dentro de Docker
+  - npm run dev (en frontend/) ...... desarrollo con recarga en caliente
+  - Boton "Code" de GitHub .......... Codespaces (todo en la nube de GitHub)
+
+  El detalle de cada una esta en MANUAL-LOCAL.md
+
+
+DONDE QUEDAN TUS DATOS
+  %APPDATA%\LifeAgente\
+      lifesync.db ...... tu agenda, tareas, gastos, cuentas y paneles
+      secreto.txt ...... clave de cifrado (NO la borres)
+      respaldos\ ....... copias automaticas con fecha
+  En la nube: en tu Google Drive, si autorizas el permiso de Drive.
+
+  Para llevar TODO a otro equipo: copia esa carpeta entera al otro equipo.
+
+
+ARCHIVOS QUE DEBES LEER
+  MANUAL-LOCAL.md ........ este manual completo (que hace cada archivo)
+  LEEME.txt ............... este archivo (arranque rapido)
+  README.md .............. resumen del proyecto
+  docs/ .................. documentacion detallada por area (16 documentos)
+
+
+SI QUIERES QUE ENTRE CON TU CUENTA DE GOOGLE
+  1. En la consola de Google Cloud -> Credenciales -> Crear credenciales
+     -> "ID de cliente OAuth" de tipo "App de escritorio".
+  2. Copia el ID de cliente (termina en .apps.googleusercontent.com).
+  3. En LifeAgente: Conectar IA -> Configuracion avanzada -> Camino 1.
+  Con eso quedan activos: entrar con Google, Google Drive (respaldo),
+  Google Calendar (importar tu agenda) y el resumen por correo.
+  Ese paso lo hace UNA sola vez quien instala. Quien usa la app solo
+  hace clic en "Continuar con Google" y autoriza en el navegador.
+
+
+PRUEBA RAPIDA DE QUE TODO ESTA BIEN
+  backend\.venv\Scripts\python.exe backend\smoke.py
+  -> debe imprimir "RESULTADO: TODOS LOS CASOS PASARON" (111 casos)
+
+  Y si algo falla:
+  Invoke-RestMethod http://127.0.0.1:8000/api/diagnostico
+  -> te dice que problema hay en la base de datos.
+
+
+ATENCION (seguridad)
+  Si alguna vez pegaste un token de GitHub en un chat o en un documento,
+  revocalo en https://github.com/settings/personal-access-tokens
+  Las claves de IA se guardan CIFRADAS, pero nunca las pegues en chats.
+
+==========================================================================

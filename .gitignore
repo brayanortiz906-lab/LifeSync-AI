@@ -31,3 +31,6 @@ Thumbs.db
 .vscode/
 .idea/
 *.log
+
+# Paquete generado por empaquetar.ps1
+LifeAgente-AI-sistema.zip

@@ -63,6 +63,20 @@ gratuita en cada release.
 
 Detalle técnico: `docs/17-INSTALADOR-LOCAL.md`.
 
+### 📘 El manual del sistema (para tenerlo local)
+
+| Archivo | Qué es |
+|---|---|
+| **[`MANUAL-LOCAL.md`](MANUAL-LOCAL.md)** | el manual completo: 5 formas de tenerlo en tu equipo, dónde quedan los datos, variables de entorno, **qué hace cada archivo del sistema**, problemas frecuentes y mantenimiento |
+| **[`LEEME.txt`](LEEME.txt)** | arranque rápido en texto plano (2 minutos, sin Markdown) |
+| **[`empaquetar.ps1`](empaquetar.ps1)** | crea un ZIP con **todo el sistema** (código + interfaz compilada + docs) para llevártelo a otro equipo |
+
+```powershell
+# crear el paquete del sistema completo
+powershell -ExecutionPolicy Bypass -File empaquetar.ps1
+# -> LifeAgente-AI-sistema.zip
+```
+
 ```
 ┌───────────────────────────────────────────┬──────────────────────┐
 │  MI AGENDA (vista inicial)                │  ACADÉMICO + BITÁCORA│
