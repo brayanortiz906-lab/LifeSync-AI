@@ -14,6 +14,22 @@
 # del contenedor y se reinicia cuando Render reconstruye el servicio.
 # Para datos que sobrevivan, cambia `plan: free` por `plan: starter` y
 # descomenta el bloque `disk` de mas abajo.
+#
+# ---------------------------------------------------------------------------
+# OJO CON VITE_API_URL (esta fue la causa de un "Method Not Allowed"):
+# el Dockerfile declara `ARG VITE_API_URL`, asi que Render hornea ese valor
+# DENTRO del bundle de la interfaz. Si en el panel de Render creaste la
+# variable con el boton "Generate" (un texto aleatorio de 32 caracteres), la
+# interfaz construye URLs tipo https://<servicio>/<texto-aleatorio>/api/... y todo
+# se rompe: los GET devuelven el HTML de la pagina y los POST un 405.
+# Opciones correctas:
+#   a) NO crear esa variable en Render (la opcion mas simple: Render sirve la
+#      API y la interfaz en el mismo dominio, asi que la ruta relativa /api
+#      funciona sola), o
+#   b) ponerla con la URL COMPLETA: https://<nombre>.onrender.com/api
+# El codigo ya ignora cualquier valor que no sea una URL valida, pero lo
+# correcto es dejarlo bien desde el principio.
+# ---------------------------------------------------------------------------
 services:
   - type: web
     name: lifeagente-ai

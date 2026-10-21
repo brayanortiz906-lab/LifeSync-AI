@@ -30,6 +30,19 @@ function esSitioEstatico(url: string): boolean {
   }
 }
 
+/**
+ * Una direccion de API sirve solo si es una URL real.
+ * Evita el desastre tipico: en el panel de Render alguien genera un valor
+ * aleatorio para VITE_API_URL ("70de074d...") y la app construye URLs como
+ * https://servidor.onrender.com/70de074d.../api -> la SPA devuelve HTML (200)
+ * en los GET y 405 en los POST, y la persona ve "Method Not Allowed".
+ */
+function esUrlUsable(url: string): boolean {
+  const u = (url || '').trim()
+  if (!u) return false
+  return /^https?:\/\//i.test(u) || u.startsWith('/')
+}
+
 function sinBarras(url: string): string {
   return url.trim().replace(/\/+$/, '')
 }
@@ -37,10 +50,20 @@ function sinBarras(url: string): string {
 export function leerUrlApi(): string {
   const guardada = localStorage.getItem(CLAVE_API_URL)?.trim()
   const delBuild = (import.meta.env.VITE_API_URL || '').trim()
-  // 1. La guardada, siempre que NO apunte a un sitio estatico.
-  if (guardada && !esSitioEstatico(guardada)) return sinBarras(guardada)
-  // 2. La que trae el build (la del despliegue).
-  if (delBuild) return sinBarras(delBuild)
+  // 1. La guardada: solo si es una URL de verdad y no apunta a un sitio estatico.
+  if (guardada && esUrlUsable(guardada) && !esSitioEstatico(guardada)) return sinBarras(guardada)
+  // 2. La que trae el build (la del despliegue), si es una URL de verdad.
+  if (esUrlUsable(delBuild)) {
+    if (delBuild && !/^https?:\/\//i.test(delBuild)) {
+      console.warn('[LifeAgente] VITE_API_URL no es una URL valida, se usa la ruta relativa:', delBuild)
+    }
+    return sinBarras(delBuild)
+  }
+  if (delBuild) {
+    console.warn(
+      `[LifeAgente] VITE_API_URL no es una URL valida ("${delBuild}"); se usara la ruta relativa.`,
+    )
+  }
   // 3. El mismo origen (la API va junto a la interfaz).
   return sinBarras(`${import.meta.env.BASE_URL}api`)
 }
@@ -55,6 +78,7 @@ export function guardarUrlApi(url: string): void {
 export function apiGuardadaEsEstatica(): boolean {
   const guardada = localStorage.getItem(CLAVE_API_URL)?.trim()
   if (!guardada) return false
+  if (!esUrlUsable(guardada)) return true
   return esSitioEstatico(guardada)
 }
 

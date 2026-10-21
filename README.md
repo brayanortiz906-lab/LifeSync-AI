@@ -43,6 +43,13 @@ reorganiza tu agenda ante imprevistos y registra lo que te pasa en lenguaje natu
 > `CORS_ORIGINS` y asegúrate de que incluya `https://brayanortiz906-lab.github.io`
 > (separado por comas). Sin ese origen el navegador bloquea la llamada y la app
 > cae en modo local.
+>
+> **Cuidado con `VITE_API_URL`**: si en Render creaste esa variable con el botón
+> "Generate" (texto aleatorio), el valor queda **horneado en el bundle** y la
+> interfaz llama a rutas que no existen (405 "Method Not Allowed"). Déjala
+> **vacía** (Render sirve la API y la interfaz en el mismo dominio) o ponle la
+> URL completa `https://lifesync-ai-qs5t.onrender.com/api`, y luego **Redeploy**.
+> Detalle en [`docs/10-DESPLIEGUE.md`](docs/10-DESPLIEGUE.md) §9.
 
 ### 🖥️ Instalador local: un `.exe` y listo
 

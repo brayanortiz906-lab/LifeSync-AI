@@ -231,3 +231,59 @@ disparar la tarea.
   muestra en pantalla (modo desarrollo).
 - Conceder permisos de Google a nombre de otra persona: cada quien autoriza
   en su propio navegador, con su propia cuenta.
+
+---
+
+## 9. La trampa de `VITE_API_URL` (esto rompió la app y ya no puede romperla)
+
+### Qué pasó
+
+En el panel de Render se creó la variable `VITE_API_URL` con el botón
+**"Generate"**, que genera un texto aleatorio de 32 caracteres (por ejemplo
+`70de074d95436f5883ea20d08ac5c8cf`). Como el `Dockerfile` declara
+`ARG VITE_API_URL`, Render **hornea ese valor dentro del bundle** de la
+interfaz. La app entonces construía URLs así:
+
+```
+https://lifesync-ai-qs5t.onrender.com/70de074d95436f5883ea20d08ac5c8cf/api/...
+```
+
+Esas rutas no existen, así que:
+
+| Petición | Respuesta | Lo que veía la persona |
+|---|---|---|
+| `GET /.../dashboard` | 200 con el **HTML** de la página (catch-all de la SPA) | datos vacíos |
+| `POST /.../cuentas/registro` | **405 Method Not Allowed** | "Method Not Allowed" |
+
+### Cómo se diagnostica
+
+Descarga el bundle que se está sirviendo y busca el valor compilado:
+
+```powershell
+(Invoke-WebRequest "https://<tu-servicio>/" -UseBasicParsing).Content |
+  Select-String -Pattern 'assets/index-[A-Za-z0-9_-]+\.js'
+# descarga ese .js y busca la URL
+Invoke-WebRequest "https://<tu-servicio>/assets/index-XXXX.js" -UseBasicParsing |
+  Select-String -Pattern 'onrender.com'
+```
+
+Si aparece un hex raro en vez de la URL, esa es la causa.
+
+### Cómo se corrige (en el panel de Render)
+
+1. Render → tu servicio → **Environment**.
+2. Borra `VITE_API_URL` (lo más simple: Render sirve la API y la interfaz en
+   el mismo dominio, así que la ruta relativa `/api` funciona sola)
+   **o** ponle la URL completa: `https://<nombre>.onrender.com/api`
+3. **Redeploy** (el valor se hornea en el build: no basta con reiniciar).
+
+> Ojo: el botón "Generate" de Render sirve para **claves secretas**, no para
+> URLs. Si pulsas "Generate" en una variable que debe ser una dirección, se
+> rompe la interfaz.
+
+### El código ya es inmune
+
+`frontend/src/lib/api.ts` valida la dirección antes de usarla (`esUrlUsable`):
+si no es una URL real (http, https o ruta que empiece por `/`) la **ignora**,
+avisa en la consola del navegador y cae a la ruta relativa. Si apunta a un sitio
+estático (`github.io`) también la ignora, porque ahí no hay API.

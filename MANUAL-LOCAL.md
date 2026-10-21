@@ -179,6 +179,7 @@ obligatoria**: sin ellas la app funciona igual (modo local, motor de reglas).
 | `CORS_ORIGINS` | orígenes permitidos (separados por comas) | `http://localhost:5173,http://127.0.0.1:5173` |
 | `LIFEAGENTE_DATA` | cambia la carpeta de datos (útil para portable) | `%APPDATA%\LifeAgente` |
 | `LIFEAGENTE_BOOTSTRAP_URL` | de dónde se leen los identificadores públicos de las cuentas (Google/Outlook/GitHub) | el archivo `public/clientes-publicos.json` del repo |
+| `VITE_API_URL` | **solo en el build de la web**: dirección de la API que usa la interfaz. Debe ser una **URL completa** (`https://servidor/api`) o **déjala vacía** si la API va en el mismo sitio | vacía (ruta relativa `/api`) |
 
 > **El paso técnico lo hace una sola vez quien instala.** Quien usa la app solo
 > hace clic en «Continuar con Google» y autoriza en el navegador.

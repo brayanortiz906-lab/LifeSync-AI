@@ -380,10 +380,10 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
           {apiGuardadaEsEstatica() && (
             <div className="mt-2">
               <Aviso tono="aviso">
-                La direccion guardada apunta a <strong>GitHub Pages</strong>, que solo sirve
-                archivos: ahi no hay API y por eso las cuentas fallaban. Ya se esta usando la del
-                despliegue (<code className="text-slate-300">{urlApiEnUso()}</code>), pero puedes
-                corregirla aqui.
+                La direccion guardada no sirve: no es una direccion de API valida (o apunta a
+                <strong>GitHub Pages</strong>, que solo sirve archivos). Ahi no hay API y por eso
+                las cuentas fallaban. Ya se esta usando la del despliegue (
+                <code className="text-slate-300">{urlApiEnUso()}</code>), pero puedes corregirla aqui.
                 <div className="mt-2">
                   <Boton
                     variante="fantasma"
