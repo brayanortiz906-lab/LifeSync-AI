@@ -4,6 +4,7 @@ from __future__ import annotations
 from collections.abc import Generator
 
 from sqlalchemy import create_engine, event
+from fastapi import Request
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from .config import settings
@@ -78,6 +79,14 @@ def _migrar_sqlite() -> None:
                 "google_client_id": "VARCHAR(200) DEFAULT ''",
             },
         )
+        # Multiusuario (v11): cada tabla de datos recibe la columna de dueño.
+        for _tabla in (
+            "events", "tasks", "log_entries", "maintenance_items", "chat_messages",
+            "ai_connections", "audit_log", "approval_requests",
+            "app_settings", "policy_settings",
+        ):
+            _asegurar_columnas(conn, _tabla, {"usuario_id": "INTEGER DEFAULT 1"})
+
         filas = conn.exec_driver_sql("PRAGMA foreign_key_list(tasks)").fetchall()
         if not filas:
             return
@@ -89,7 +98,7 @@ def _migrar_sqlite() -> None:
                 """
                 CREATE TABLE tasks (
                     id INTEGER NOT NULL,
-                    título VARCHAR(220) NOT NULL,
+                    titulo VARCHAR(220) NOT NULL,
                     materia VARCHAR(120),
                     fecha_entrega DATE,
                     estado VARCHAR(24) NOT NULL,
@@ -108,10 +117,10 @@ def _migrar_sqlite() -> None:
             )
             conn.exec_driver_sql(
                 """
-                INSERT INTO tasks (id, título, materia, fecha_entrega, estado, prioridad,
+                INSERT INTO tasks (id, titulo, materia, fecha_entrega, estado, prioridad,
                                    minutos_estimados, resumen, material, preguntas,
                                    fuente, tarea_id, creado_en)
-                SELECT id, título, materia, fecha_entrega, estado, prioridad,
+                SELECT id, titulo, materia, fecha_entrega, estado, prioridad,
                        minutos_estimados, resumen, material, preguntas,
                        fuente, tarea_id, creado_en
                 FROM tasks_old
@@ -125,7 +134,7 @@ class Base(DeclarativeBase):
     pass
 
 
-def get_db() -> Generator[Session, None, None]:
+def get_db(request: Request) -> Generator[Session, None, None]:
     """Sesión por request.
 
     IMPORTANTE: los routers la usan con `Depends(get_db, scope="function")`.
@@ -136,6 +145,10 @@ def get_db() -> Generator[Session, None, None]:
     """
     db = SessionLocal()
     try:
+        # Persona de la peticion (v11): sin token, se usa el usuario local.
+        from .cuentas import fijar_usuario_de_peticion
+
+        fijar_usuario_de_peticion(db, request.headers.get("authorization", ""))
         yield db
         db.commit()
     except Exception:

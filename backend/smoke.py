@@ -64,6 +64,96 @@ def limpiar() -> None:
 
 
 def main() -> int:
+    # --------------------------------------------------------------------------- #
+    # ----------------------------------------------------------------- #
+    # CUENTAS DE USUARIO (v11): acceso con codigo, aislamiento y respaldo
+    # ----------------------------------------------------------------- #
+    print("\n--- CUENTAS DE USUARIO ---")
+    import time as _time
+
+    def pedir_tok(ruta, metodo="GET", cuerpo=None, token=None):
+        """Como pedir(), pero devuelve el codigo de error en vez de launchar."""
+        datos = json.dumps(cuerpo).encode("utf-8") if cuerpo is not None else None
+        cabeceras = {"Content-Type": "application/json; charset=utf-8"}
+        if token:
+            cabeceras["Authorization"] = f"Bearer {token}"
+        req = urllib.request.Request(
+            f"{BASE}{ruta}", data=datos, method=metodo, headers=cabeceras
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=60) as r:
+                crudo = r.read()
+                return json.loads(crudo.decode("utf-8")) if crudo else {}
+        except urllib.error.HTTPError as exc:
+            return {"__error__": exc.code, "detail": exc.read().decode("utf-8")}
+
+    _correo = f"smoke.lifesync+{int(_time.time())}@example.com"
+
+    _r = pedir_tok("/api/cuentas/yo")
+    check(
+        "[CUENTA] sin cuenta se usa el usuario local",
+        isinstance(_r, dict) and _r.get("usuario", {}).get("es_local") is True,
+        f"usuario={(_r or {}).get('usuario')}",
+    )
+
+    _r = pedir_tok("/api/cuentas/codigo", "POST", {"correo": _correo, "nombre": "Prueba"})
+    _codigo = (_r or {}).get("codigo", "")
+    check(
+        "[CUENTA] se pide un codigo de verificacion",
+        isinstance(_r, dict) and bool(_codigo),
+        f"modo={(_r or {}).get('modo')}",
+    )
+
+    _r = pedir_tok("/api/cuentas/verificar", "POST", {"correo": _correo, "codigo": "000000"})
+    check(
+        "[CUENTA] un codigo incorrecto se rechaza",
+        isinstance(_r, dict) and _r.get("__error__") == 400,
+        f"http={(_r or {}).get('__error__')}",
+    )
+
+    _r = pedir_tok("/api/cuentas/verificar", "POST", {"correo": _correo, "codigo": _codigo})
+    _token = (_r or {}).get("token", "")
+    check(
+        "[CUENTA] el codigo correcto abre sesion",
+        isinstance(_r, dict) and bool(_token),
+        f"token={'si' if _token else 'no'}",
+    )
+
+    _r = pedir_tok("/api/cuentas/yo", token=_token)
+    check(
+        "[CUENTA] el token identifica a la persona",
+        isinstance(_r, dict) and (_r.get("usuario", {}).get("correo") == _correo),
+        f"correo={(_r or {}).get('usuario', {}).get('correo')}",
+    )
+
+    _evs = pedir_tok("/api/events?desde=2020-01-01&hasta=2030-12-31", token=_token)
+    check(
+        "[CUENTA] la cuenta nueva no ve los datos del usuario local",
+        isinstance(_evs, list) and len(_evs) == 0,
+        f"eventos={len(_evs) if isinstance(_evs, list) else 'error'}",
+    )
+
+    _r = pedir_tok("/api/cuentas/respaldo", token=_token)
+    check(
+        "[CUENTA] el respaldo se puede descargar",
+        isinstance(_r, dict) and "eventos" in _r,
+        f"claves={sorted(_r.keys())[:4] if isinstance(_r, dict) else '-'}",
+    )
+
+    _r = pedir_tok("/api/cuentas/salir", "POST", token=_token)
+    check(
+        "[CUENTA] se puede cerrar sesion",
+        isinstance(_r, dict) and _r.get("ok") is True,
+        f"ok={(_r or {}).get('ok')}",
+    )
+
+    _r = pedir_tok("/api/cuentas/yo", token=_token)
+    check(
+        "[CUENTA] tras salir, el token ya no vale",
+        isinstance(_r, dict) and _r.get("usuario", {}).get("es_local") is True,
+        f"usuario={(_r or {}).get('usuario')}",
+    )
+
     print("=" * 70)
     print("LIFESYNC AI — VERIFICACION END-TO-END")
     print("=" * 70)

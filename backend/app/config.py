@@ -31,6 +31,15 @@ class Settings(BaseSettings):
     day_end: str = "22:00"
     default_timezone: str = "America/Bogota"
 
+    # --- Envio del codigo de verificacion (v11) ------------------------- #
+    # Sin SMTP configurado el codigo se muestra en la respuesta (modo
+    # desarrollo) y queda registrado en la consola del servidor.
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_desde: str = ""
+
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
     # ID de cliente OAuth de Google usado por el boton "Continuar con Google".

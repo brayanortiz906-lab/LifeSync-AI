@@ -328,6 +328,46 @@ export interface AutorizacionCuenta {
   client_id: string
 }
 
+/** Persona con cuenta (v11). Sin cuenta: el usuario local del equipo. */
+export interface Usuario {
+  id: number
+  correo: string
+  nombre: string
+  metodo: string
+  verificado: boolean
+  es_local: boolean
+}
+
+export interface PerfilCuenta {
+  ok: boolean
+  usuario: Usuario
+}
+
+export interface ResultadoCodigo {
+  ok: boolean
+  modo: string
+  mensaje: string
+  correo: string
+  codigo?: string
+}
+
+export interface ResultadoSesion {
+  ok: boolean
+  token: string
+  usuario: Usuario
+}
+
+export interface Respaldo {
+  version: number
+  exportado_en: string
+  eventos: Record<string, unknown>[]
+  tareas: Record<string, unknown>[]
+  registros: Record<string, unknown>[]
+  mantenimiento: Record<string, unknown>[]
+  chat: Record<string, unknown>[]
+  conexiones: Record<string, unknown>[]
+}
+
 /** Estado del acceso con Google: dice si ya hay un ID de cliente configurado. */
 export interface EstadoGoogle {
   /** Ya hay un ID de cliente de Google guardado (un clic y entras). */

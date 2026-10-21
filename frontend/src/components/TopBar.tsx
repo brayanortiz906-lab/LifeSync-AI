@@ -1,18 +1,22 @@
 /** Barra superior: marca, navegación de fecha, KPIs y conexiones de IA. */
 import { useState } from 'react'
-import { CalendarDays, ChevronLeft, ChevronRight, MessageSquare, Plug, Sparkles, Trash2 } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, MessageSquare, Plug, Sparkles, Trash2, User } from 'lucide-react'
 import { useLifeSync } from '../store/useLifeSync'
 import { duracionLegible, etiquetaDia, monto } from '../lib/format'
 import { Boton, Chip } from './ui'
+import type { Usuario } from '../types'
 import ConexionesPanel from './ConexionesPanel'
 
 export default function TopBar({
   fecha, onCambiarFecha, onAbrirChat, chatAbierto,
-  conexionesAbiertas, onAbrirConexiones, onCerrarConexiones,
+  conexionesAbiertas, onAbrirConexiones, onCerrarConexiones, onAbrirAcceso, usuario,
+
 }: {
   fecha: Date
   onCambiarFecha: (d: Date) => void
   onAbrirChat?: () => void
+  onAbrirAcceso?: () => void
+  usuario?: Usuario | null
   /** Estado del chat flotante (para pintar el boton como activo). */
   chatAbierto?: boolean
   /** Centro de conexiones controlado desde fuera (p. ej. desde Ajustes). */
@@ -101,6 +105,16 @@ export default function TopBar({
         <Boton variante="fantasma" onClick={limpiarChat} titulo="Limpiar el historial del chat">
           <Trash2 size={14} />
         </Boton>
+        {onAbrirAcceso && (
+          <Boton
+            variante="secundario"
+            onClick={onAbrirAcceso}
+            titulo="Tu cuenta de LifeSync AI (datos separados y respaldo)"
+          >
+            <User size={14} />
+            {usuario && !usuario.es_local ? usuario.nombre || usuario.correo : 'Acceder'}
+          </Boton>
+        )}
         {onAbrirChat && (
           <Boton
             variante={chatAbierto ? 'secundario' : 'fantasma'}

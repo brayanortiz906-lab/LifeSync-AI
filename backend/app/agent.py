@@ -1096,9 +1096,13 @@ def _categoria_de_accion(tipo: str) -> str | None:
 def _get_app_settings(db: Session):
     from .models import AppSettings
 
-    app = db.get(AppSettings, 1)
+    # Cada persona tiene sus propios ajustes (v11).
+    from .cuentas import usuario_id_actual
+
+    uid = usuario_id_actual()
+    app = db.get(AppSettings, uid)
     if app is None:
-        app = AppSettings(id=1)
+        app = AppSettings(id=uid, usuario_id=uid)
         db.add(app)
         db.flush()
     return app

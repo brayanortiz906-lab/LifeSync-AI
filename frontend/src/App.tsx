@@ -32,6 +32,8 @@ import AjustesPanel, { AsistenteBienvenida } from './components/AjustesPanel'
 import ContextoLateral from './components/ContextoLateral'
 import ChatFlotante from './components/ChatFlotante'
 import { Boton, Panel } from './components/ui'
+import AccesoPanel from './components/AccesoPanel'
+import type { Usuario } from './types'
 
 type Vista = 'agenda' | 'responsabilidad' | 'ajustes'
 
@@ -45,6 +47,8 @@ export default function App() {
   const [fecha, setFecha] = useState(new Date())
   const [chatAbierto, setChatAbierto] = useState(false)
   const [vista, setVista] = useState<Vista>('agenda')
+  const [accesoAbierto, setAccesoAbierto] = useState(false)
+  const [usuario, setUsuario] = useState<Usuario | null>(null)
   const [conexionesAbiertas, setConexionesAbiertas] = useState(false)
   const [bienvenidaSaltada, setBienvenidaSaltada] = useState(false)
 
@@ -84,6 +88,8 @@ export default function App() {
   return (
     <div className="flex h-screen flex-col overflow-hidden">
       <TopBar
+        onAbrirAcceso={() => setAccesoAbierto(true)}
+        usuario={usuario}
         fecha={fecha}
         onCambiarFecha={setFecha}
         onAbrirChat={() => setChatAbierto((v) => !v)}
@@ -182,6 +188,11 @@ export default function App() {
 
       {/* El chat vive aparte: burbuja flotante disponible en cualquier vista. */}
       <ChatFlotante abierto={chatAbierto} onToggle={() => setChatAbierto((v) => !v)} />
+    <AccesoPanel
+      abierto={accesoAbierto}
+      onCerrar={() => setAccesoAbierto(false)}
+      onSesionCambiada={(u) => setUsuario(u)}
+    />
 
       {cargando && (
         <div className="pointer-events-none fixed bottom-4 left-4 rounded-full border border-white/10 bg-slate-900/90 px-3 py-1.5 text-[11px] text-slate-400 shadow-lg backdrop-blur">

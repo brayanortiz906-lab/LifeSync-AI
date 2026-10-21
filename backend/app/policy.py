@@ -171,9 +171,13 @@ def redactar_pii(texto: str) -> tuple[str, list[str]]:
 # --------------------------------------------------------------------------- #
 def obtener_politica(db: Session) -> PolicySettings:
     """Devuelve la política activa; la crea con los valores por defecto."""
-    politica = db.get(PolicySettings, 1)
+    # Cada persona tiene su propia politica de gobierno (v11).
+    from .cuentas import usuario_id_actual
+
+    uid = usuario_id_actual()
+    politica = db.get(PolicySettings, uid)
     if politica is None:
-        politica = PolicySettings(id=1)
+        politica = PolicySettings(id=uid, usuario_id=uid)
         db.add(politica)
         db.flush()
     return politica

@@ -23,6 +23,7 @@ from sqlalchemy import (
     Text,
     func,
 )
+from sqlalchemy import Column, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -227,3 +228,19 @@ class ApprovalRequest(Base):
     decidido_en: Mapped[datetime | None] = mapped_column(DateTime, default=None)
     decidido_por: Mapped[str | None] = mapped_column(String(48), default=None)
     nota_decision: Mapped[str | None] = mapped_column(Text, default=None)
+
+
+# --------------------------------------------------------------------------- #
+# Multiusuario (v11)
+# --------------------------------------------------------------------------- #
+# Cada fila pertenece a una persona. El id 1 es el "usuario local": el que
+# usa LifeSync en su propio equipo sin crear ninguna cuenta. El filtro de
+# sesion de `cuentas.py` aade `usuario_id = <usuario actual>` a todas las
+# consultas, de modo que cada persona ve solo lo suyo.
+from sqlalchemy import Column  # noqa: E402  (import local para no tocar el bloque superior)
+
+for _modelo in (
+    Event, Task, LogEntry, Maintenance, ChatMessage, ConexionIA,
+    AuditLog, ApprovalRequest, AppSettings, PolicySettings,
+):
+    _modelo.usuario_id = Column(Integer, default=1, index=True)
