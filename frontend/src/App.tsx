@@ -18,10 +18,7 @@
  *   - dentro del panel hay un boton para ocuparlo toda la pantalla
  */
 import { useEffect, useState } from 'react'
-import {
-  AlertTriangle, CalendarCheck, LayoutGrid, MessageSquare, RefreshCw, Settings,
-  ShieldCheck, Sparkles,
-} from 'lucide-react'
+import { AlertTriangle, CalendarCheck, LayoutGrid, MessageSquare, Plug, RefreshCw, Settings, ShieldCheck, Sparkles } from 'lucide-react'
 import { useLifeSync } from './store/useLifeSync'
 import TopBar from './components/TopBar'
 import CalendarPanel from './components/CalendarPanel'
@@ -131,9 +128,25 @@ export default function App() {
       </nav>
 
       {error && (
-        <div className="flex shrink-0 items-center gap-2 border-b border-rose-500/25 bg-rose-500/10 px-4 py-2 text-xs text-rose-200">
+        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-rose-500/25 bg-rose-500/10 px-4 py-2 text-xs text-rose-200">
           <AlertTriangle size={13} />
-          <span className="flex-1">{error}</span>
+          <span className="flex-1">
+            {error}
+            {(error.includes('404') || error.includes('405')) && (
+              <span className="mt-0.5 block text-[11px] leading-relaxed text-rose-200/80">
+                No encontramos el servidor de LifeSync. Si abriste esta pagina en GitHub Pages,
+                falta la API detras: ponle la direccion donde vive (por ejemplo
+                <code className="mx-1">http://127.0.0.1:8000/api</code> si la tienes en tu
+                computador, o la de tu servidor en la nube) en "Conectar IA &gt; Direccion de la API".
+              </span>
+            )}
+          </span>
+          <button
+            onClick={() => setConexionesAbiertas(true)}
+            className="flex items-center gap-1 rounded-lg border border-rose-400/40 px-2 py-1 text-[11px] font-semibold underline"
+          >
+            <Plug size={11} /> Configurar la API
+          </button>
           <button onClick={() => cargarTodo()} className="flex items-center gap-1 underline">
             <RefreshCw size={11} /> Reintentar
           </button>
