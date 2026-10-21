@@ -226,7 +226,7 @@ Documentación completa de cada área en `docs/`.
 |---|---|
 | `App.tsx` | armazón: pestañas, chat flotante, atajo Ctrl+K, banner de modo local/prueba |
 | `types.ts` | todos los tipos de datos |
-| `store/useLifeSync.ts` | estado global (Zustand) y acciones |
+| `store/useLifeAgente.ts` | estado global (Zustand) y acciones |
 | `lib/api.ts` | cliente HTTP + URL de la API configurable en caliente |
 | `lib/format.ts` | fechas y dinero en español (es-CO) |
 | `lib/motorLocal.ts` | **motor de reglas del navegador**: funciona sin IA y sin servidor |

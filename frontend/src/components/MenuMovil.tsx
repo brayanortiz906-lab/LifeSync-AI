@@ -9,7 +9,7 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ClipboardList, Coins, LayoutList, LogOut, MessageSquare, Plug, User, X } from 'lucide-react'
-import { useLifeSync } from '../store/useLifeSync'
+import { useLifeAgente } from '../store/useLifeAgente'
 import AcademicPanel from './AcademicPanel'
 import LogbookPanel from './LogbookPanel'
 import ContextoLateral from './ContextoLateral'
@@ -44,7 +44,7 @@ export default function MenuMovil({
   const [pestana, setPestana] = useState<Pestana>('tareas')
   const resumen = useResumen()
   const lineas = lineasResumen(resumen)
-  const limpiarChat = useLifeSync((s) => s.limpiarChat)
+  const limpiarChat = useLifeAgente((s) => s.limpiarChat)
 
   // Escape cierra y el fondo no se desplaza mientras la hoja esta abierta.
   useEffect(() => {

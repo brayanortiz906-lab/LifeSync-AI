@@ -1,7 +1,7 @@
 # 03 — Integración de API Key (BYOK)
 
 > **Modelo:** *Bring Your Own Key*. El usuario pega su propia key de OpenAI, Google Gemini o
-> usa el proveedor `mock` local. LifeSync **nunca** cobra ni revende tokens, y **no** expone
+> usa el proveedor `mock` local. LifeAgente **nunca** cobra ni revende tokens, y **no** expone
 > keys de terceros.
 
 ---
@@ -11,7 +11,7 @@
 | # | Paso | Dónde se hace | Efecto |
 |---|---|---|---|
 | 1 | El usuario pega su key en **Configuración → Conectar IA** | `frontend/src/components/SettingsModal.tsx` | Se guarda en `localStorage` (`lifesync.apiKey`) |
-| 2 | Cada chat envía la key en el cuerpo (`api_key`) o el backend usa la cifrada en la BD | `frontend/src/store/useLifeSync.ts` → `POST /api/agent/chat` | `providers.complete()` la usa para llamar al proveedor |
+| 2 | Cada chat envía la key en el cuerpo (`api_key`) o el backend usa la cifrada en la BD | `frontend/src/store/useLifeAgente.ts` → `POST /api/agent/chat` | `providers.complete()` la usa para llamar al proveedor |
 | 3 | Si el usuario marca "recordar en el servidor", la key se **cifra con Fernet** y se guarda en `app_settings.api_key_cifrada` | `backend/app/routers/agent.py` (`PUT /api/settings`) → `backend/app/security.py` | Sobrevive al recargar el navegador |
 | 4 | El backend llama a OpenAI o Gemini por HTTP directo | `backend/app/providers.py` | La key nunca sale de tu máquina |
 

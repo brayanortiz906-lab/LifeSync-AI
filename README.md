@@ -8,6 +8,19 @@ reorganiza tu agenda ante imprevistos y registra lo que te pasa en lenguaje natu
 [![Pages](https://github.com/brayanortiz906-lab/LifeSync-AI/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/brayanortiz906-lab/LifeSync-AI/actions/workflows/deploy-pages.yml)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-blue.svg)](LICENSE)
 
+### Estado del proyecto
+
+| | |
+|---|---|
+| **Versión** | `v1.0.0` (release con el instalador y el código completo) |
+| **Pruebas** | 111 comprobaciones automáticas (`backend/smoke.py`) + build TypeScript |
+| **Documentación** | 18 documentos (`docs/00-INDICE.md` es el índice) |
+| **Interfaz** | React 19 · Vite 7 · TypeScript · Tailwind CSS v4 · Zustand 5 |
+| **API** | FastAPI · SQLAlchemy 2 · SQLite · Pydantic v2 |
+| **IA** | OpenAI · Gemini · Anthropic · OpenRouter · Ollama · LM Studio · motor local por reglas |
+| **Extras** | IA responsable (auditoría y aprobaciones) · cuentas con Drive · paneles compartidos · `.exe` de Windows |
+| **Licencia** | MIT |
+
 ### 🌍 Está en vivo
 
 | Qué | Dónde |
@@ -196,7 +209,7 @@ Detalle completo en [`docs/06-CONE-XIONES.md`](docs/06-CONE-XIONES.md).
 
 ### Verificación automática
 
-Con el backend corriendo, `backend/smoke.py` comprueba los 104 casos de uso contra la
+Con el backend corriendo, `backend/smoke.py` comprueba los 111 casos de uso contra la
 base de datos real (calendario, bitácora, tareas, mantenimiento, multi-intención,
 cascadas de registro automático, el sistema de IA responsable, el centro de conexiones
 y los permisos con piloto automático):
@@ -411,7 +424,7 @@ imagen de Python 3.12 que corre la API. La base SQLite vive en el volumen `/data
 
 ### 1-bis.4 Automatización (CI)
 
-`.github/workflows/ci.yml` corre en cada push: levanta la API, ejecuta los **104 casos** de
+`.github/workflows/ci.yml` corre en cada push: levanta la API, ejecuta los **111 casos** de
 `backend/smoke.py` (que incluyen el chat multi-intención, las cascadas, el sistema responsable,
 el centro de conexiones y los permisos con piloto automático) y compila el frontend con
 `tsc -b && vite build`. La insignia de arriba refleja el estado real del último push.
@@ -423,7 +436,7 @@ el centro de conexiones y los permisos con piloto automático) y compila el fron
 ```
 .
 ├── .github/workflows/
-│   ├── ci.yml                   ← CI: 104 casos del smoke test + build del frontend
+│   ├── ci.yml                   ← CI: 111 casos del smoke test + build del frontend
 │   ├── daily.yml                ← Tarea diaria (respaldo + resumen por correo)
 │   └── deploy-pages.yml         ← Publica la interfaz en GitHub Pages
 ├── .devcontainer/               ← Codespaces: Python 3.12 + Node 20 preinstalados
@@ -466,7 +479,7 @@ el centro de conexiones y los permisos con piloto automático) y compila el fron
 │   └── src/
 │       ├── App.tsx              ← Layout: agenda (vista inicial) + responsabilidad +
 │       │                           permisos + ajustes
-│       ├── store/useLifeSync.ts ← Estado global (Zustand) + tema y ajustes
+│       ├── store/useLifeAgente.ts ← Estado global (Zustand) + tema y ajustes
 │       ├── lib/api.ts           ← Cliente HTTP + manejo de la API Key local
 │       ├── lib/format.ts        ← Fechas, moneda, duraciones (es-CO)
 │       ├── lib/useMediaQuery.ts ← Cortes de pantalla (escritorio 1024 px)
@@ -503,8 +516,14 @@ el centro de conexiones y los permisos con piloto automático) y compila el fron
 
 ## 3. Documentación
 
+> 📚 **[Índice completo de la documentación](docs/00-INDICE.md)** — qué leer según lo que quieras hacer.
+> 🖥️ **[Manual del sistema](MANUAL-LOCAL.md)** — cómo tenerlo en tu equipo y **qué hace cada archivo**.
+
 | Documento | Contenido |
 |---|---|
+| [MANUAL-LOCAL.md](MANUAL-LOCAL.md) | **El manual del sistema**: 5 formas de correrlo, dónde están los datos y mapa de cada archivo |
+| [LEEME.txt](LEEME.txt) | Arranque rápido en texto plano (2 minutos) |
+| [docs/00-INDICE.md](docs/00-INDICE.md) | Índice de todos los documentos, por lo que quieres hacer |
 | [docs/01-ARQUITECTURA.md](docs/01-ARQUITECTURA.md) | Stack recomendado, diagrama, capas, modelo de datos, decisiones (ADR) |
 | [docs/02-SYSTEM-PROMPT.md](docs/02-SYSTEM-PROMPT.md) | El System Prompt completo, el contrato JSON y cómo extenderlo |
 | [docs/03-INTEGRACION-API-KEY.md](docs/03-INTEGRACION-API-KEY.md) | Paso a paso para conectar OpenAI / Gemini, seguridad, costos |
@@ -520,6 +539,7 @@ el centro de conexiones y los permisos con piloto automático) y compila el fron
 | [docs/14-RESPONSIVE.md](docs/14-RESPONSIVE.md) | Diseño responsivo: 3 columnas en pantallas grandes, menu desplegable en el móvil y un solo scroll |
 | [docs/15-CUENTAS-Y-PANELES.md](docs/15-CUENTAS-Y-PANELES.md) | Cuentas que siempre funcionan (correo + contraseña) y paneles con permiso de acceso |
 | [docs/16-RESPALDO-Y-NUBE.md](docs/16-RESPALDO-Y-NUBE.md) | El error 500 explicado y arreglado, el código de verificación y Drive como almacén real |
+| [docs/17-INSTALADOR-LOCAL.md](docs/17-INSTALADOR-LOCAL.md) | El instalador `.exe` de Windows: qué lleva dentro, dónde viven los datos y cómo se compila |
 
 ---
 

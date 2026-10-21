@@ -8,7 +8,7 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { GripVertical, Maximize2, MessageSquare, Minimize2, Sparkles, X } from 'lucide-react'
-import { useLifeSync } from '../store/useLifeSync'
+import { useLifeAgente } from '../store/useLifeAgente'
 import ChatBody from './ChatBody'
 import { Chip } from './ui'
 
@@ -42,8 +42,8 @@ export default function ChatFlotante({
   const [tam, setTam] = useState({ w: 1280, h: 800 })
   const [arrastrando, setArrastrando] = useState(false)
   const movido = useRef(false)
-  const mensajes = useLifeSync((s) => s.mensajes)
-  const enviando = useLifeSync((s) => s.enviando)
+  const mensajes = useLifeAgente((s) => s.mensajes)
+  const enviando = useLifeAgente((s) => s.enviando)
 
   // Al abrir el panel se sale del modo pantalla completa (mas comodo).
   useEffect(() => {
@@ -189,7 +189,7 @@ export default function ChatFlotante({
           <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600">
             <Sparkles size={14} className="text-white" />
           </span>
-          Agente LifeSync
+          Agente LifeAgente
         </div>
         <div className="flex items-center gap-1.5">
           <Chip className="bg-white/5 text-slate-400 ring-white/10">

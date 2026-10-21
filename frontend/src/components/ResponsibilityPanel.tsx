@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import { api } from '../lib/api'
 import { monto } from '../lib/format'
-import { useLifeSync } from '../store/useLifeSync'
+import { useLifeAgente } from '../store/useLifeAgente'
 import type { EntradaAuditoria, Politica } from '../types'
 import { Boton, Chip, Panel, Stat, Vacio } from './ui'
 
@@ -73,7 +73,7 @@ export default function ResponsibilityPanel() {
   const {
     politica, aprobaciones, auditoria, resumenAuditoria, cumplimiento, cargandoResponsable,
     cargarResponsable, guardarPolitica, decidirAprobacion, purgarAuditoria,
-  } = useLifeSync()
+  } = useLifeAgente()
   const [sub, setSub] = useState<SubPanel>('aprobaciones')
   const [guardando, setGuardando] = useState(false)
   const [nota, setNota] = useState<Record<number, string>>({})

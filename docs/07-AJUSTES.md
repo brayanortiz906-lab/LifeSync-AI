@@ -1,6 +1,6 @@
 # Ajustes, temas y cómo organizar lo que ves
 
-LifeSync no te obliga a conocer la app antes de usarla. La primera vez que abres el
+LifeAgente no te obliga a conocer la app antes de usarla. La primera vez que abres el
 programa aparece un **formulario de bienvenida** de 3 pasos, y a partir de ahí todo lo
 que defines sobre cómo quieres trabajar vive en la pestaña **«Ajustes»**.
 
@@ -10,7 +10,7 @@ Este documento explica qué se guarda, dónde, y cómo extenderlo.
 
 ## 1. El formulario de bienvenida (la primera vez)
 
-Al abrir la aplicación, si todavía no completaste la bienvenida, LifeSync muestra un
+Al abrir la aplicación, si todavía no completaste la bienvenida, LifeAgente muestra un
 asistente a pantalla completa con 3 pasos:
 
 | Paso | Qué pregunta | Para qué sirve |
@@ -170,7 +170,7 @@ arrancar.
 | `frontend/src/components/AjustesPanel.tsx` | Ajustes + asistente de bienvenida |
 | `frontend/src/components/ChatFlotante.tsx` | Burbuja arrastrable y panel del chat |
 | `frontend/src/index.css` | Temas por variables CSS |
-| `frontend/src/store/useLifeSync.ts` | Estado `ajustes` + `aplicarTema()` |
+| `frontend/src/store/useLifeAgente.ts` | Estado `ajustes` + `aplicarTema()` |
 | `frontend/src/types.ts` | `TemaId`, `OrdenTareas`, `OrdenGastos`, `OrdenEventos` |
 | `backend/app/models.py` | Campos nuevos en `AppSettings` |
 | `backend/app/database.py` | `_asegurar_columnas()` (migración idempotente) |

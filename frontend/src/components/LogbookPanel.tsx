@@ -1,18 +1,18 @@
 /** Panel derecho (inferior): bitácora, gastos y mantenimiento. */
 import { useMemo, useState } from 'react'
 import { AlertTriangle, CheckCircle2, Plus, Receipt, TrendingUp, Wrench } from 'lucide-react'
-import { useLifeSync } from '../store/useLifeSync'
+import { useLifeAgente } from '../store/useLifeAgente'
 import { aIso, fechaCorta, monto } from '../lib/format'
 import { COLOR_GASTO, type CategoriaGasto, type OrdenGastos } from '../types'
 import { Boton, Chip, Panel, Vacio } from './ui'
 
 export default function LogbookPanel() {
-  const registros = useLifeSync((s) => s.registros)
-  const dashboard = useLifeSync((s) => s.dashboard)
-  const mantenimiento = useLifeSync((s) => s.mantenimiento)
-  const crearRegistro = useLifeSync((s) => s.crearRegistro)
-  const ajustes = useLifeSync((s) => s.ajustes)
-  const guardarAjustes = useLifeSync((s) => s.guardarAjustes)
+  const registros = useLifeAgente((s) => s.registros)
+  const dashboard = useLifeAgente((s) => s.dashboard)
+  const mantenimiento = useLifeAgente((s) => s.mantenimiento)
+  const crearRegistro = useLifeAgente((s) => s.crearRegistro)
+  const ajustes = useLifeAgente((s) => s.ajustes)
+  const guardarAjustes = useLifeAgente((s) => s.guardarAjustes)
 
   const modo = ajustes?.orden_gastos ?? 'fecha'
   const registrosOrdenados = useMemo(() => {
@@ -30,7 +30,7 @@ export default function LogbookPanel() {
     }
     return copia
   }, [registros, modo])
-  const completarMantenimiento = useLifeSync((s) => s.completarMantenimiento)
+  const completarMantenimiento = useLifeAgente((s) => s.completarMantenimiento)
 
   const [descripcion, setDescripcion] = useState('')
   const [montoValor, setMontoValor] = useState('')

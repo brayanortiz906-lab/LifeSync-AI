@@ -5,7 +5,7 @@
  */
 import { useMemo } from 'react'
 import { ArrowRight, CalendarCheck, Clock, ListTodo, Wallet } from 'lucide-react'
-import { useLifeSync } from '../store/useLifeSync'
+import { useLifeAgente } from '../store/useLifeAgente'
 import { duracionLegible, etiquetaDia, hhmm, monto, mismoDia } from '../lib/format'
 import { COLOR_EVENTO } from '../types'
 import { Boton, Panel } from './ui'
@@ -17,9 +17,9 @@ export default function ContextoLateral({
   /** Opcional: si no se pasa, no se muestra el boton de ir a la agenda. */
   onVerAgenda?: () => void
 }) {
-  const eventos = useLifeSync((s) => s.eventos)
-  const dashboard = useLifeSync((s) => s.dashboard)
-  const tareas = useLifeSync((s) => s.tareas)
+  const eventos = useLifeAgente((s) => s.eventos)
+  const dashboard = useLifeAgente((s) => s.dashboard)
+  const tareas = useLifeAgente((s) => s.tareas)
 
   const deHoy = useMemo(
     () => eventos.filter((e) => mismoDia(e.inicio, fecha)).sort((a, b) => a.inicio.localeCompare(b.inicio)),

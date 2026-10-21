@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import {
   BookOpen, CheckCircle2, Circle, FileUp, GraduationCap, Loader2, Sparkles,
 } from 'lucide-react'
-import { useLifeSync } from '../store/useLifeSync'
+import { useLifeAgente } from '../store/useLifeAgente'
 import { api } from '../lib/api'
 import type { OrdenTareas, Tarea } from '../types'
 import { Boton, Chip, Modal, Panel, Vacio } from './ui'
@@ -26,11 +26,11 @@ function diasRestantes(fecha: string | null): number | null {
 }
 
 export default function AcademicPanel() {
-  const tareas = useLifeSync((s) => s.tareas)
-  const completar = useLifeSync((s) => s.completarTarea)
-  const cargarTodo = useLifeSync((s) => s.cargarTodo)
-  const ajustes = useLifeSync((s) => s.ajustes)
-  const guardarAjustes = useLifeSync((s) => s.guardarAjustes)
+  const tareas = useLifeAgente((s) => s.tareas)
+  const completar = useLifeAgente((s) => s.completarTarea)
+  const cargarTodo = useLifeAgente((s) => s.cargarTodo)
+  const ajustes = useLifeAgente((s) => s.ajustes)
+  const guardarAjustes = useLifeAgente((s) => s.guardarAjustes)
   const [filtro, setFiltro] = useState<'pendientes' | 'todas' | 'completadas'>('pendientes')
   const [expandida, setExpandida] = useState<number | null>(null)
   const [importar, setImportar] = useState(false)
@@ -217,7 +217,7 @@ function ModalImportar({
   onCerrar: () => void
   onOk: () => Promise<void>
 }) {
-  const { apiKey, proveedor } = useLifeSync()
+  const { apiKey, proveedor } = useLifeAgente()
   const [titulo, setTitulo] = useState('')
   const [materia, setMateria] = useState('')
   const [material, setMaterial] = useState('')

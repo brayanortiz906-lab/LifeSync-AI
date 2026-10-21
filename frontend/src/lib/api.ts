@@ -1,4 +1,4 @@
-/** Cliente HTTP de la API de LifeSync AI. */
+/** Cliente HTTP de la API de LifeAgente AI. */
 import type {
   Ajustes, Aprobacion, AutorizacionCuenta, CatalogoModelos, Conexion, Dashboard, DatosPanel,
   EntradaAuditoria, EstadoGoogle,

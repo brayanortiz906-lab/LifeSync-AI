@@ -1,6 +1,6 @@
 # 05 · Sistema de IA Responsable (gobierno, auditoría y control humano)
 
-> LifeSync AI no es solo un asistente que responde: es un **sistema de IA** que escribe en
+> LifeAgente AI no es solo un asistente que responde: es un **sistema de IA** que escribe en
 > tu base de datos. Eso lo obliga a responder por tres preguntas: **¿por qué lo hizo?**
 > (trazabilidad), **¿puedo reversarlo?** (control humano) y **¿qué datos mías salió?** (privacidad).
 >

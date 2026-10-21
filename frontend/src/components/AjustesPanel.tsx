@@ -14,7 +14,7 @@ import {
   Check, ChevronLeft, ChevronRight, Clock, Coins, Palette, Plus, SlidersHorizontal,
   Sparkles, Tag, Trash2, User, X,
 } from 'lucide-react'
-import { useLifeSync } from '../store/useLifeSync'
+import { useLifeAgente } from '../store/useLifeAgente'
 import type {
   Ajustes, OrdenEventos, OrdenGastos, OrdenTareas, TemaId,
 } from '../types'
@@ -57,8 +57,8 @@ const ETIQUETAS_SUGERIDAS = ['Universidad', 'Trabajo', 'Salud', 'Casa', 'Familia
 // Panel de Ajustes
 // --------------------------------------------------------------------------- //
 export default function AjustesPanel({ onAbrirConexiones }: { onAbrirConexiones?: () => void }) {
-  const ajustes = useLifeSync((s) => s.ajustes)
-  const guardarAjustes = useLifeSync((s) => s.guardarAjustes)
+  const ajustes = useLifeAgente((s) => s.ajustes)
+  const guardarAjustes = useLifeAgente((s) => s.guardarAjustes)
   const [etiquetaNueva, setEtiquetaNueva] = useState('')
   const [guardando, setGuardando] = useState(false)
   const [mensaje, setMensaje] = useState<string | null>(null)
@@ -350,8 +350,8 @@ export function AsistenteBienvenida({
   alTerminar: () => void
   onAbrirConexiones?: () => void
 }) {
-  const ajustes = useLifeSync((s) => s.ajustes)
-  const guardarAjustes = useLifeSync((s) => s.guardarAjustes)
+  const ajustes = useLifeAgente((s) => s.ajustes)
+  const guardarAjustes = useLifeAgente((s) => s.guardarAjustes)
   const [paso, setPaso] = useState(0)
   const [nombre, setNombre] = useState('')
   const [moneda, setMoneda] = useState('COP')

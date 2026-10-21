@@ -1,4 +1,4 @@
-"""Modelo de datos de LifeSync AI.
+"""Modelo de datos de LifeAgente AI.
 
 Entidades:
   Event        -> bloques de calendario (trabajo, clase, estudio, descanso...)
@@ -330,7 +330,7 @@ class PermisoPanel(Base):
 # Multiusuario (v11)
 # --------------------------------------------------------------------------- #
 # Cada fila pertenece a una persona. El id 1 es el "usuario local": el que
-# usa LifeSync en su propio equipo sin crear ninguna cuenta. El filtro de
+# usa LifeAgente en su propio equipo sin crear ninguna cuenta. El filtro de
 # sesion de `cuentas.py` aade `usuario_id = <usuario actual>` a todas las
 # consultas, de modo que cada persona ve solo lo suyo.
 from sqlalchemy import Column  # noqa: E402  (import local para no tocar el bloque superior)

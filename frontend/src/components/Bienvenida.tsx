@@ -6,7 +6,7 @@
  *    - Sin cuenta: se queda en su equipo, con la IA que ya tenga instalada.
  *
  *  El paso tecnico (configurar un cliente OAuth) lo hace una sola vez quien
- *  instala LifeSync; aqui jamas se le pide nada a quien usa la app.
+ *  instala LifeAgente; aqui jamas se le pide nada a quien usa la app.
  */
 import { useEffect, useState } from 'react'
 import {

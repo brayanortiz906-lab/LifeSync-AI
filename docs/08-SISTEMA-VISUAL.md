@@ -2,7 +2,7 @@
 
 > Version: v1.14 · Archivo principal: `frontend/src/index.css` + `frontend/src/components/ui.tsx`
 
-Este documento explica las reglas que sigue LifeSync AI para que **nada quede pegado, raro o desorganizado**, y como aplicarlas al añadir pantallas nuevas.
+Este documento explica las reglas que sigue LifeAgente AI para que **nada quede pegado, raro o desorganizado**, y como aplicarlas al añadir pantallas nuevas.
 
 ---
 
@@ -117,7 +117,7 @@ cambiar de tema no rompe ningun espaciado ni ningun color.
 | No hay titulo duplicado | Contar apariciones del nombre del proveedor en `innerText` |
 | Padding y aire | `getComputedStyle(bloque).paddingTop` debe ser >= 12px |
 | Build sin errores | `npm run build` en `frontend/` |
-| Suite completa | `backend/.venv/Scripts/python.exe backend/smoke.py` (63 casos) |
+| Suite completa | `backend/.venv/Scripts/python.exe backend/smoke.py` (111 casos) |
 | Sin caracteres CJK | Escaneo sobre `.py`, `.ts`, `.tsx`, `.md`, `.txt` |
 
 ## 9. Archivos

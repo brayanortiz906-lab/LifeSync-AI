@@ -83,6 +83,6 @@ almuerzo por 25 mil."* -> 1 bloque, 1 tarea, 1 mantenimiento y 1 gasto.
 |---|---|
 | `frontend/src/lib/motorLocal.ts` | el motor de reglas (fechas, horas, montos, palabras clave) |
 | `frontend/src/lib/plantillas.ts` | los 5 organizadores preestablecidos |
-| `frontend/src/store/useLifeSync.ts` | modos local/prueba, limites, `importarTexto`, `cargarPlantilla` |
+| `frontend/src/store/useLifeAgente.ts` | modos local/prueba, limites, `importarTexto`, `cargarPlantilla` |
 | `frontend/src/components/Bienvenida.tsx` | plantillas + caja de pegar texto |
 | `frontend/src/App.tsx` | banner de modo local y paso automatico cuando la API no responde |

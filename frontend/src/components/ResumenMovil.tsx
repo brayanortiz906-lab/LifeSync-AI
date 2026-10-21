@@ -5,16 +5,16 @@
  * En pantallas grandes esto no se ve: ahi la agenda usa las tres columnas.
  */
 import { ChevronUp, Clock, Wallet } from 'lucide-react'
-import { useLifeSync } from '../store/useLifeSync'
+import { useLifeAgente } from '../store/useLifeAgente'
 import { duracionLegible, monto, mismoDia } from '../lib/format'
 
 /** Calcula las tres lineas de resumen con los datos que haya. */
 export function useResumen() {
-  const dashboard = useLifeSync((s) => s.dashboard)
-  const eventos = useLifeSync((s) => s.eventos)
-  const tareas = useLifeSync((s) => s.tareas)
-  const registros = useLifeSync((s) => s.registros)
-  const mantenimiento = useLifeSync((s) => s.mantenimiento)
+  const dashboard = useLifeAgente((s) => s.dashboard)
+  const eventos = useLifeAgente((s) => s.eventos)
+  const tareas = useLifeAgente((s) => s.tareas)
+  const registros = useLifeAgente((s) => s.registros)
+  const mantenimiento = useLifeAgente((s) => s.mantenimiento)
 
   const hoy = new Date()
   const eventosHoy = eventos.filter((e) => mismoDia(e.inicio, hoy))

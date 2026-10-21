@@ -1,4 +1,4 @@
-/** Estado global de LifeSync AI (Zustand). */
+/** Estado global de LifeAgente AI (Zustand). */
 import { create } from 'zustand'
 import { api, cuentas as apiCuentas, guardarApiKeyLocal, leerApiKeyLocal, paneles as apiPaneles } from '../lib/api'
 import { aIso } from '../lib/format'
@@ -169,7 +169,7 @@ function aplicarLocal(
  * (por ejemplo, la version publicada en GitHub Pages sin servidor detras).
  */
 function registrarConMotorLocal(texto: string) {
-  const estado = useLifeSync.getState()
+  const estado = useLifeAgente.getState()
   const enPrueba = estado.modoPrueba
   const analisis = analizarLocal(texto, new Date())
   const base: DatosLocales = {
@@ -205,7 +205,7 @@ function registrarConMotorLocal(texto: string) {
     agente,
   }
   if (!enPrueba) guardarLocales(resultado)
-  useLifeSync.setState({
+  useLifeAgente.setState({
     ...resultado,
     dashboard: null,
     mensajes: [...estado.mensajes, usuario, respuesta],
@@ -300,7 +300,7 @@ interface Estado {
   setMensajeSesion: (mensaje: string) => void
 }
 
-export const useLifeSync = create<Estado>((set, get) => ({
+export const useLifeAgente = create<Estado>((set, get) => ({
   cargando: true,
   enviando: false,
   error: null,

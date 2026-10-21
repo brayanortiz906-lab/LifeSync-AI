@@ -8,7 +8,7 @@ import {
   Bot, BookOpen, CalendarClock, GraduationCap, ListChecks, Receipt, Send, ShieldAlert,
   ShieldCheck, Sparkles, User, Wrench,
 } from 'lucide-react'
-import { useLifeSync } from '../store/useLifeSync'
+import { useLifeAgente } from '../store/useLifeAgente'
 import { Chip } from './ui'
 import type { AprobacionPendiente, RegistroDetallado, RespuestaAgente } from '../types'
 
@@ -43,10 +43,10 @@ export default function ChatBody({
   /** En modo compacto se muestran menos sugerencias y menos padding. */
   compacto?: boolean
 }) {
-  const mensajes = useLifeSync((s) => s.mensajes)
-  const enviar = useLifeSync((s) => s.enviarMensaje)
-  const enviando = useLifeSync((s) => s.enviando)
-  const error = useLifeSync((s) => s.error)
+  const mensajes = useLifeAgente((s) => s.mensajes)
+  const enviar = useLifeAgente((s) => s.enviarMensaje)
+  const enviando = useLifeAgente((s) => s.enviando)
+  const error = useLifeAgente((s) => s.error)
   const [texto, setTexto] = useState('')
   const finRef = useRef<HTMLDivElement>(null)
 

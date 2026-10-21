@@ -1,4 +1,4 @@
-/** LifeSync AI — layout principal.
+/** LifeAgente AI — layout principal.
  *
  * DISENO (v5): la app abre con TU AGENDA (la informacion que necesitas) y el
  * chat vive APARTE, como burbuja flotante disponible desde cualquier vista.
@@ -19,7 +19,7 @@
  */
 import { useEffect, useState } from 'react'
 import { AlertTriangle, CalendarCheck, Folder, KeyRound, LayoutGrid, MessageSquare, Plug, RefreshCw, Settings, ShieldCheck, Sparkles } from 'lucide-react'
-import { useLifeSync } from './store/useLifeSync'
+import { useLifeAgente } from './store/useLifeAgente'
 import TopBar from './components/TopBar'
 import CalendarPanel from './components/CalendarPanel'
 import AcademicPanel from './components/AcademicPanel'
@@ -42,15 +42,15 @@ import type { Usuario } from './types'
 type Vista = 'agenda' | 'paneles' | 'responsabilidad' | 'permisos' | 'ajustes'
 
 export default function App() {
-  const cargarTodo = useLifeSync((s) => s.cargarTodo)
-  const cargarResponsable = useLifeSync((s) => s.cargarResponsable)
-  const sincronizarCuenta = useLifeSync((s) => s.sincronizarCuenta)
-  const mensajeSesion = useLifeSync((s) => s.mensajeSesion)
-  const setMensajeSesion = useLifeSync((s) => s.setMensajeSesion)
-  const cargando = useLifeSync((s) => s.cargando)
-  const error = useLifeSync((s) => s.error)
-  const aprobaciones = useLifeSync((s) => s.aprobaciones)
-  const ajustes = useLifeSync((s) => s.ajustes)
+  const cargarTodo = useLifeAgente((s) => s.cargarTodo)
+  const cargarResponsable = useLifeAgente((s) => s.cargarResponsable)
+  const sincronizarCuenta = useLifeAgente((s) => s.sincronizarCuenta)
+  const mensajeSesion = useLifeAgente((s) => s.mensajeSesion)
+  const setMensajeSesion = useLifeAgente((s) => s.setMensajeSesion)
+  const cargando = useLifeAgente((s) => s.cargando)
+  const error = useLifeAgente((s) => s.error)
+  const aprobaciones = useLifeAgente((s) => s.aprobaciones)
+  const ajustes = useLifeAgente((s) => s.ajustes)
   const [fecha, setFecha] = useState(new Date())
   const [chatAbierto, setChatAbierto] = useState(false)
   const [vista, setVista] = useState<Vista>('agenda')
@@ -64,12 +64,12 @@ export default function App() {
   const [menuMovilAbierto, setMenuMovilAbierto] = useState(false)
   /** En pantallas grandes la agenda usa tres columnas; en movil, un menu. */
   const esEscritorio = useMediaQuery(ESCRITORIO)
-  const activarModoPrueba = useLifeSync((s) => s.activarModoPrueba)
-  const activarModoLocal = useLifeSync((s) => s.activarModoLocal)
-  const cargarPlantilla = useLifeSync((s) => s.cargarPlantilla)
-  const importarTexto = useLifeSync((s) => s.importarTexto)
-  const modoLocal = useLifeSync((s) => s.modoLocal)
-  const cargarPaneles = useLifeSync((s) => s.cargarPaneles)
+  const activarModoPrueba = useLifeAgente((s) => s.activarModoPrueba)
+  const activarModoLocal = useLifeAgente((s) => s.activarModoLocal)
+  const cargarPlantilla = useLifeAgente((s) => s.cargarPlantilla)
+  const importarTexto = useLifeAgente((s) => s.importarTexto)
+  const modoLocal = useLifeAgente((s) => s.modoLocal)
+  const cargarPaneles = useLifeAgente((s) => s.cargarPaneles)
 
   useEffect(() => {
     cargarTodo()
@@ -78,7 +78,7 @@ export default function App() {
     void cargarResponsable()
     // Los paneles (v19) se cargan siempre: el selector de la barra superior
     // los necesita aunque la persona no abra la vista de Paneles.
-    void useLifeSync.getState().cargarPaneles()
+    void useLifeAgente.getState().cargarPaneles()
   }, [cargarTodo, cargarResponsable])
 
   // Atajo Ctrl/Cmd + K: abre o cierra el chat flotante.
@@ -122,8 +122,8 @@ export default function App() {
         onAbrirConexiones={() => setConexionesAbiertas(true)}
         onCerrarConexiones={() => setConexionesAbiertas(false)}
         onAbrirMenu={() => setMenuMovilAbierto(true)}
-        panelId={useLifeSync((s) => s.panelId)}
-        onCambiarPanel={(id) => void useLifeSync.getState().seleccionarPanel(id)}
+        panelId={useLifeAgente((s) => s.panelId)}
+        onCambiarPanel={(id) => void useLifeAgente.getState().seleccionarPanel(id)}
       />
 
       {/* Navegacion principal: agenda / responsabilidad / ajustes */}
@@ -166,7 +166,7 @@ export default function App() {
             {error}
             {(error.includes('404') || error.includes('405')) && (
               <span className="mt-0.5 block text-[11px] leading-relaxed text-rose-200/80">
-                No encontramos el servidor de LifeSync. Si abriste esta pagina en GitHub Pages,
+                No encontramos el servidor de LifeAgente. Si abriste esta pagina en GitHub Pages,
                 falta la API detras: ponle la direccion donde vive (por ejemplo
                 <code className="mx-1">http://127.0.0.1:8000/api</code> si la tienes en tu
                 computador, o la de tu servidor en la nube) en "Conectar IA &gt; Direccion de la API".
@@ -337,7 +337,7 @@ export default function App() {
         setPortadaAbierta(false)
       }}
       onCargarPlantilla={(id) => {
-        if (!modoLocal && !useLifeSync.getState().modoPrueba) activarModoLocal()
+        if (!modoLocal && !useLifeAgente.getState().modoPrueba) activarModoLocal()
         cargarPlantilla(id)
         setMostrarAvisoPrueba(false)
         setPortadaAbierta(false)

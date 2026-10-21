@@ -1,4 +1,4 @@
-/** Tipos compartidos con la API de LifeSync AI (ver backend/app/schemas.py). */
+/** Tipos compartidos con la API de LifeAgente AI (ver backend/app/schemas.py). */
 
 export type CategoriaEvento =
   | 'trabajo' | 'clase' | 'estudio' | 'descanso'

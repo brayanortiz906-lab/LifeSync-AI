@@ -130,7 +130,7 @@ Servidor (guarda el token cifrado)
 
 ## 4. Verificación automática
 
-`backend/smoke.py` → **99 casos** (92 de antes + 7 nuevos):
+`backend/smoke.py` → **111 casos** (104 de antes + 7 nuevos):
 
 ```
 [OK] [CUENTA] la cuenta se verifica con el codigo y da token
@@ -153,7 +153,7 @@ Servidor (guarda el token cifrado)
 | `backend/app/permisos.py` | `listar_respaldos_drive`, `restaurar_drive`, respaldo con nombre de fecha |
 | `backend/app/main.py` | manejador global de errores, `GET /api/diagnostico`, migración que no tumba el arranque |
 | `backend/app/database.py` | reconstrucción de `tasks` con las columnas reales |
-| `frontend/src/store/useLifeSync.ts` | `sincronizarCuenta()`, `mensajeSesion` |
+| `frontend/src/store/useLifeAgente.ts` | `sincronizarCuenta()`, `mensajeSesion` |
 | `frontend/src/components/AccesoPanel.tsx` | «¿No te llegó el código? Pide otro» |
 | `frontend/src/components/PermisosPanel.tsx` | «Recuperar de Drive» |
 | `frontend/src/App.tsx` | al entrar: sincronizar + cargar todo |

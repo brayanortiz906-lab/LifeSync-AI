@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react'
 import { Eye, FolderPlus, LayoutGrid, Pencil, Share2, Trash2, UserPlus } from 'lucide-react'
 import { paneles as apiPaneles } from '../lib/api'
 import type { MiembroPanel, Panel } from '../types'
-import { useLifeSync } from '../store/useLifeSync'
+import { useLifeAgente } from '../store/useLifeAgente'
 import { Aviso, Boton, Campo, Panel as PanelCaja, Stat } from './ui'
 
 const TIPOS = [
@@ -29,14 +29,14 @@ const COLOR_CHIP: Record<string, string> = {
 }
 
 export default function PanelesPanel() {
-  const paneles = useLifeSync((s) => s.paneles)
-  const panelId = useLifeSync((s) => s.panelId)
-  const cargarPaneles = useLifeSync((s) => s.cargarPaneles)
-  const seleccionarPanel = useLifeSync((s) => s.seleccionarPanel)
-  const crearPanel = useLifeSync((s) => s.crearPanel)
-  const compartirPanel = useLifeSync((s) => s.compartirPanel)
-  const quitarAcceso = useLifeSync((s) => s.quitarAcceso)
-  const borrarPanel = useLifeSync((s) => s.borrarPanel)
+  const paneles = useLifeAgente((s) => s.paneles)
+  const panelId = useLifeAgente((s) => s.panelId)
+  const cargarPaneles = useLifeAgente((s) => s.cargarPaneles)
+  const seleccionarPanel = useLifeAgente((s) => s.seleccionarPanel)
+  const crearPanel = useLifeAgente((s) => s.crearPanel)
+  const compartirPanel = useLifeAgente((s) => s.compartirPanel)
+  const quitarAcceso = useLifeAgente((s) => s.quitarAcceso)
+  const borrarPanel = useLifeAgente((s) => s.borrarPanel)
 
   const [nombre, setNombre] = useState('')
   const [tipo, setTipo] = useState('agenda')

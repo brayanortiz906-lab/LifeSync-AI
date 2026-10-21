@@ -110,7 +110,7 @@ SQLAlchemy se apoya en esa misma regla.
 
 | Prueba | Resultado |
 |---|---|
-| Smoke test | 98 casos, todos en verde |
+| Smoke test | 111 casos, todos en verde |
 | Script manual de cuentas y paneles | 14/14 |
 | `GET /api/cuentas/google/disponible` | responde sin error |
 | Persona **sin** permiso sobre un panel ajeno | **403** |

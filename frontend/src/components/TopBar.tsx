@@ -1,7 +1,7 @@
 /** Barra superior: marca, navegación de fecha, KPIs y conexiones de IA. */
 import { useState } from 'react'
 import { CalendarDays, ChevronLeft, ChevronRight, LayoutGrid, Menu, MessageSquare, Plug, Sparkles, Trash2, User } from 'lucide-react'
-import { useLifeSync } from '../store/useLifeSync'
+import { useLifeAgente } from '../store/useLifeAgente'
 import { duracionLegible, etiquetaDia, monto } from '../lib/format'
 import { Boton, Chip } from './ui'
 import type { Usuario } from '../types'
@@ -30,11 +30,11 @@ export default function TopBar({
   panelId?: number | null
   onCambiarPanel?: (id: number | null) => void
 }) {
-  const dashboard = useLifeSync((s) => s.dashboard)
-  const proveedor = useLifeSync((s) => s.proveedor)
-  const apiKey = useLifeSync((s) => s.apiKey)
-  const limpiarChat = useLifeSync((s) => s.limpiarChat)
-  const paneles = useLifeSync((s) => s.paneles)
+  const dashboard = useLifeAgente((s) => s.dashboard)
+  const proveedor = useLifeAgente((s) => s.proveedor)
+  const apiKey = useLifeAgente((s) => s.apiKey)
+  const limpiarChat = useLifeAgente((s) => s.limpiarChat)
+  const paneles = useLifeAgente((s) => s.paneles)
   const [conexionesInternas, setConexionesInternas] = useState(false)
 
   const conexiones = conexionesAbiertas ?? conexionesInternas

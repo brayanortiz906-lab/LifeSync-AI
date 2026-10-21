@@ -17,7 +17,7 @@ import {
   AlarmClock, CalendarRange, Clock, Info, LayoutGrid, List, Rows3,
   TriangleAlert, Trash2, X,
 } from 'lucide-react'
-import { useLifeSync } from '../store/useLifeSync'
+import { useLifeAgente } from '../store/useLifeAgente'
 import {
   aFecha, duracionLegible, etiquetaDia, hhmm, HORA_FIN, HORA_INICIO, mismoDia,
 } from '../lib/format'
@@ -42,10 +42,10 @@ export default function CalendarPanel({
   fecha: Date
   onCambiarFecha: (d: Date) => void
 }) {
-  const eventos = useLifeSync((s) => s.eventos)
-  const eliminarEvento = useLifeSync((s) => s.eliminarEvento)
-  const ajustes = useLifeSync((s) => s.ajustes)
-  const guardarAjustes = useLifeSync((s) => s.guardarAjustes)
+  const eventos = useLifeAgente((s) => s.eventos)
+  const eliminarEvento = useLifeAgente((s) => s.eliminarEvento)
+  const ajustes = useLifeAgente((s) => s.ajustes)
+  const guardarAjustes = useLifeAgente((s) => s.guardarAjustes)
   const [vista, setVista] = useState<Vista>('dia')
   const [seleccion, setSeleccion] = useState<Evento | null>(null)
   const [categoria, setCategoria] = useState<string | null>(null)
