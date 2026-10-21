@@ -183,7 +183,7 @@ async def _conecta_persona(request: Request, call_next):
     return await call_next(request)
 
 
-@app.get("/api/health")
+@app.api_route("/api/health", methods=["GET", "HEAD"])
 def health():
     return {
         "ok": True,
@@ -262,7 +262,9 @@ FRONTEND_DIST = Path(__file__).resolve().parent.parent.parent / "frontend" / "di
 if FRONTEND_DIST.exists():
     app.mount("/assets", StaticFiles(directory=FRONTEND_DIST / "assets"), name="assets")
 
-    @app.get("/{full_path:path}")
+    # El chequeo de salud de Render (y algunos balanceadores) pide HEAD "/",
+    # no solo GET. Sin esto responden 405 y el despliegue queda en_warning.
+    @app.api_route("/{full_path:path}", methods=["GET", "HEAD"])
     def spa(full_path: str):
         archivo = FRONTEND_DIST / full_path
         if full_path and archivo.is_file():
