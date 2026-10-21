@@ -12,6 +12,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent          # backend/
 PROJECT_DIR = BASE_DIR.parent                               # raíz del proyecto
 SHARED_DIR = PROJECT_DIR / "shared"
 
+# Orígenes que la API siempre acepta: las webs de este mismo proyecto
+# publicadas en GitHub Pages. Así la app funciona desde la web aunque quien
+# despliega olvide añadir el origen a CORS_ORIGINS.
+ORIGENES_PROPIOS = (
+    "https://brayanortiz906-lab.github.io",
+    "https://underlanded4.github.io",
+)
+
 # --- App empaquetada (instalador .exe) ----------------------------------- #
 # Cuando LifeAgente va dentro de un .exe (PyInstaller), los archivos viven
 # en una carpeta temporal que se BORRA al cerrar. Por eso:
@@ -123,7 +131,18 @@ class Settings(BaseSettings):
 
     @property
     def cors_origin_list(self) -> list[str]:
-        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+        """Orígenes permitidos.
+
+        Los del propio proyecto (la web publicada en GitHub Pages) se incluyen
+        SIEMPRE: si el panel de Render no los lista, el navegador bloquea la
+        llamada y la app cae en modo local al entrar desde la web. El valor
+        de CORS_ORIGINS solo puede AÑADIR orígenes, nunca quitarlos.
+        """
+        lista = [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+        for propio in ORIGENES_PROPIOS:
+            if propio not in lista:
+                lista.append(propio)
+        return lista
 
     def modelo_defecto(self) -> "Settings":
         """Rellena los valores que dependen de la carpeta de datos."""
