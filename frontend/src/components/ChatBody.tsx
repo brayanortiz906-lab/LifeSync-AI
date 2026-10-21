@@ -47,6 +47,11 @@ export default function ChatBody({
   const enviar = useLifeAgente((s) => s.enviarMensaje)
   const enviando = useLifeAgente((s) => s.enviando)
   const error = useLifeAgente((s) => s.error)
+  const proveedor = useLifeAgente((s) => s.proveedor)
+  /** Si la IA vive en el equipo, la respuesta tarda mas: lo avisamos (v34). */
+  const iaLocalActiva = ['ollama', 'lmstudio', 'jan', 'gpt4all', 'llamacpp', 'localai', 'textgen', 'kobold', 'claude_local'].includes(
+    (proveedor || '').toLowerCase(),
+  )
   const [texto, setTexto] = useState('')
   const finRef = useRef<HTMLDivElement>(null)
 
@@ -125,14 +130,22 @@ export default function ChatBody({
             <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-violet-600">
               <Bot size={13} className="text-white" />
             </div>
-            <div className="flex items-center gap-1 rounded-2xl rounded-bl-md border border-white/8 bg-white/5 px-4 py-3">
-              {[0, 150, 300].map((d) => (
-                <span
-                  key={d}
-                  className="ls-dot h-1.5 w-1.5 rounded-full bg-indigo-400"
-                  style={{ animationDelay: `${d}ms` }}
-                />
-              ))}
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-1 rounded-2xl rounded-bl-md border border-white/8 bg-white/5 px-4 py-3">
+                {[0, 150, 300].map((d) => (
+                  <span
+                    key={d}
+                    className="ls-dot h-1.5 w-1.5 rounded-full bg-indigo-400"
+                    style={{ animationDelay: `${d}ms` }}
+                  />
+                ))}
+              </div>
+              {iaLocalActiva && (
+                <p className="px-1 text-[10px] leading-relaxed text-slate-400">
+                  Tu IA esta pensando en tu computador: la primera respuesta puede tardar 1 o 2
+                  minutos. No es un error.
+                </p>
+              )}
             </div>
           </div>
         )}

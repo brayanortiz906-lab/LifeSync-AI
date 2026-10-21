@@ -24,6 +24,12 @@ if settings.database_url.startswith("sqlite"):
         cursor = dbapi_connection.cursor()
         cursor.execute("PRAGMA foreign_keys=ON")
         cursor.execute("PRAGMA journal_mode=WAL")
+        # synchronous=NORMAL: con WAL el disco se sincroniza menos veces y las
+        # escrituras (agenda, gastos, chat) responden al instante. Si el equipo
+        # se apaga de golpe podria perderse la ultima operacion, que es un
+        # cambio aceptable para esta app (el respaldo real esta en Drive).
+        cursor.execute("PRAGMA synchronous=NORMAL")
+        cursor.execute("PRAGMA busy_timeout=8000")
         cursor.close()
 
 

@@ -135,26 +135,62 @@ function traducirDetalle(detalle: string, status: number): string {
   return d
 }
 
+// --- Aviso de "el servidor esta tardando" (v34) --------------------------
+// En la nube el servicio puede estar dormido: la primera peticion tarda
+// medio minuto. En vez de que la persona piense que la app se rompio,
+// avisamos de que estamos esperando.
+const UMBRAL_LENTO_MS = 3500
+type OyenteLento = (lento: boolean) => void
+const oyentesLento = new Set<OyenteLento>()
+let pendientesLento = 0
+
+export function suscribirLento(fn: OyenteLento): () => void {
+  oyentesLento.add(fn)
+  return () => {
+    oyentesLento.delete(fn)
+  }
+}
+
+function avisarLento(lento: boolean) {
+  if (lento) {
+    pendientesLento += 1
+    if (pendientesLento === 1) oyentesLento.forEach((fn) => fn(true))
+  } else {
+    pendientesLento = Math.max(0, pendientesLento - 1)
+    if (pendientesLento === 0) oyentesLento.forEach((fn) => fn(false))
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const cabeceras: Record<string, string> = { 'Content-Type': 'application/json' }
   const token = leerToken()
   if (token) cabeceras.Authorization = `Bearer ${token}`
-  const res = await fetch(`${leerUrlApi()}${path}`, {
-    ...init,
-    headers: { ...cabeceras, ...((init?.headers as Record<string, string>) || {}) },
-  })
-  if (!res.ok) {
-    let detalle = `Error ${res.status}`
-    try {
-      const cuerpo = await res.json()
-      detalle = cuerpo.detail ?? JSON.stringify(cuerpo)
-    } catch {
-      detalle = await res.text().catch(() => detalle)
+  let lento = false
+  const reloj = window.setTimeout(() => {
+    lento = true
+    avisarLento(true)
+  }, UMBRAL_LENTO_MS)
+  try {
+    const res = await fetch(`${leerUrlApi()}${path}`, {
+      ...init,
+      headers: { ...cabeceras, ...((init?.headers as Record<string, string>) || {}) },
+    })
+    if (!res.ok) {
+      let detalle = `Error ${res.status}`
+      try {
+        const cuerpo = await res.json()
+        detalle = cuerpo.detail ?? JSON.stringify(cuerpo)
+      } catch {
+        detalle = await res.text().catch(() => detalle)
+      }
+      throw new ApiError(traducirDetalle(detalle, res.status), res.status)
     }
-    throw new ApiError(traducirDetalle(detalle, res.status), res.status)
+    if (res.status === 204) return undefined as T
+    return (await res.json()) as T
+  } finally {
+    window.clearTimeout(reloj)
+    if (lento) avisarLento(false)
   }
-  if (res.status === 204) return undefined as T
-  return (await res.json()) as T
 }
 
 /** Clave de API que el usuario pega en el navegador (modo BYOK del prototipo). */

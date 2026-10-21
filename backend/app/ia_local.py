@@ -49,28 +49,60 @@ def url_bootstrap() -> str:
     ).strip()
 
 
+def _descargar_bootstrap(timeout: float = 1.5) -> dict[str, str]:
+    """Descarga el archivo de identificadores publicos. Nunca lanza."""
+    url = url_bootstrap()
+    datos: dict[str, str] = {}
+    if not url:
+        return datos
+    try:
+        with httpx.Client(timeout=timeout, follow_redirects=True) as cliente:
+            resp = cliente.get(url)
+        if resp.status_code < 400:
+            crudo = resp.json()
+            if isinstance(crudo, dict):
+                for clave, valor in crudo.items():
+                    if isinstance(valor, str) and valor.strip():
+                        datos[clave.strip()] = valor.strip()
+    except Exception:
+        datos = {}
+    return datos
+
+
+def _programar_reintento() -> None:
+    """Si no se pudo descargar, se reintenta en segundo plano (nunca bloquea)."""
+    def _tarea() -> None:
+        time.sleep(300)
+        try:
+            datos = _descargar_bootstrap(timeout=6.0)
+            if datos:
+                _CACHE_BOOTSTRAP["ts"] = time.time()
+                _CACHE_BOOTSTRAP["valor"] = datos
+        except Exception:
+            pass
+
+    try:
+        threading.Thread(target=_tarea, daemon=True).start()
+    except Exception:
+        pass
+
+
 def clientes_publicos(forzar: bool = False) -> dict[str, str]:
     """Identificadores de cliente publicos publicados por el despliegue.
 
     Nunca lanza: si no hay archivo publico o no hay red, devuelve {}.
+    El primer intento es rapido (1,5 s) para no retrasar el inicio de sesion;
+    si falla, se reintenta en segundo plano sin molestar a la persona.
     """
     ahora = time.time()
     if not forzar and ahora - float(_CACHE_BOOTSTRAP["ts"]) < _CACHE_BOOTSTRAP_TTL:
         return dict(_CACHE_BOOTSTRAP["valor"])
-    url = url_bootstrap()
-    datos: dict[str, str] = {}
-    if url:
-        try:
-            with httpx.Client(timeout=4.0, follow_redirects=True) as cliente:
-                resp = cliente.get(url)
-            if resp.status_code < 400:
-                crudo = resp.json()
-                if isinstance(crudo, dict):
-                    for clave, valor in crudo.items():
-                        if isinstance(valor, str) and valor.strip():
-                            datos[clave.strip()] = valor.strip()
-        except Exception:
-            datos = {}
+    datos = _descargar_bootstrap(timeout=1.5)
+    if not datos and not forzar:
+        _CACHE_BOOTSTRAP["ts"] = ahora
+        _CACHE_BOOTSTRAP["valor"] = {}
+        _programar_reintento()
+        return {}
     _CACHE_BOOTSTRAP["ts"] = ahora
     _CACHE_BOOTSTRAP["valor"] = datos
     return dict(datos)

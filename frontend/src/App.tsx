@@ -18,7 +18,7 @@
  *   - dentro del panel hay un boton para ocuparlo toda la pantalla
  */
 import { useEffect, useState } from 'react'
-import { AlertTriangle, CalendarCheck, Folder, KeyRound, LayoutGrid, MessageSquare, Plug, RefreshCw, Settings, ShieldCheck, Sparkles } from 'lucide-react'
+import { AlertTriangle, CalendarCheck, Folder, KeyRound, LayoutGrid, Loader2, MessageSquare, Plug, RefreshCw, Settings, ShieldCheck, Sparkles } from 'lucide-react'
 import { useLifeAgente } from './store/useLifeAgente'
 import TopBar from './components/TopBar'
 import CalendarPanel from './components/CalendarPanel'
@@ -37,7 +37,7 @@ import { Boton, Panel } from './components/ui'
 import AccesoPanel from './components/AccesoPanel'
 import Bienvenida from './components/Bienvenida'
 import { ESCRITORIO, useMediaQuery } from './lib/useMediaQuery'
-import { guardarToken, leerToken } from './lib/api'
+import { guardarToken, leerToken, suscribirLento } from './lib/api'
 import type { Usuario } from './types'
 
 type Vista = 'agenda' | 'paneles' | 'responsabilidad' | 'permisos' | 'ajustes'
@@ -63,6 +63,8 @@ export default function App() {
   const [portadaAbierta, setPortadaAbierta] = useState(() => !leerToken())
   const [mostrarAvisoPrueba, setMostrarAvisoPrueba] = useState(false)
   const [menuMovilAbierto, setMenuMovilAbierto] = useState(false)
+  /** El servidor esta tardando (se durmio en la nube): avisamos en vez de congelar. */
+  const [lento, setLento] = useState(false)
   /** En pantallas grandes la agenda usa tres columnas; en movil, un menu. */
   const esEscritorio = useMediaQuery(ESCRITORIO)
   const activarModoPrueba = useLifeAgente((s) => s.activarModoPrueba)
@@ -81,6 +83,11 @@ export default function App() {
     // los necesita aunque la persona no abra la vista de Paneles.
     void useLifeAgente.getState().cargarPaneles()
   }, [cargarTodo, cargarResponsable])
+
+  // Aviso de "el servidor esta tardando" (v34): en la nube el servicio puede
+  // estar dormido y la primera peticion tarda medio minuto. Mejor decirlo que
+  // dejar la pantalla en blanco sin explicacion.
+  useEffect(() => suscribirLento(setLento), [])
 
   // Atajo Ctrl/Cmd + K: abre o cierra el chat flotante.
   useEffect(() => {
@@ -315,6 +322,12 @@ export default function App() {
         >
           Conectar una IA
         </button>
+      </div>
+    )}
+    {lento && (
+      <div className="fixed bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full border border-sky-500/30 bg-slate-900/90 px-4 py-2 text-[11px] font-semibold text-sky-100 shadow-lg backdrop-blur">
+        <Loader2 size={13} className="animate-spin" />
+        <span>Despertando el servidor… la primera vez puede tardar un momento</span>
       </div>
     )}
     {mensajeSesion && (

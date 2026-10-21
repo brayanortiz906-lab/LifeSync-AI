@@ -13,7 +13,7 @@ reorganiza tu agenda ante imprevistos y registra lo que te pasa en lenguaje natu
 | | |
 |---|---|
 | **Versión** | `v1.0.0` (release con el instalador y el código completo) |
-| **Pruebas** | 127 comprobaciones automáticas (`backend/smoke.py`) + build TypeScript |
+| **Pruebas** | 130 comprobaciones automáticas (`backend/smoke.py`) + build TypeScript |
 | **Documentación** | 18 documentos (`docs/00-INDICE.md` es el índice) |
 | **Interfaz** | React 19 · Vite 7 · TypeScript · Tailwind CSS v4 · Zustand 5 |
 | **API** | FastAPI · SQLAlchemy 2 · SQLite · Pydantic v2 |
@@ -258,7 +258,7 @@ Detalle completo en [`docs/06-CONE-XIONES.md`](docs/06-CONE-XIONES.md).
 
 ### Verificación automática
 
-Con el backend corriendo, `backend/smoke.py` comprueba los 127 casos de uso contra la
+Con el backend corriendo, `backend/smoke.py` comprueba los 130 casos de uso contra la
 base de datos real (calendario, bitácora, tareas, mantenimiento, multi-intención,
 cascadas de registro automático, el sistema de IA responsable, el centro de conexiones
 y los permisos con piloto automático):
@@ -280,6 +280,33 @@ RESULTADO: TODOS LOS CASOS PASARON
 
 El script es **idempotente**: limpia las citas de corridas anteriores antes de
 empezar, así que se puede repetir sin contaminar la base.
+
+### Que no vaya lento (rendimiento medido)
+
+La app se midio endpoint por endpoint. El culpable era la deteccion de IA local:
+buscaba 8 puertos **uno por uno** y cada puerto ausente quemaba 2,5 s de espera
+(**16 segundos** al abrir «Conectar tu IA»). Ahora se sondean **todos en
+paralelo** con un timeout corto.
+
+| Endpoint | Antes | Ahora |
+|---|---:|---:|
+| `GET /api/conexiones/locales` (detectar IA local) | **16 053 ms** | **3 ms** (cache) · **741 ms** (forzada) |
+| `GET /api/health` | 1 172 ms | 62 ms |
+| `GET /api/cuentas/proveedores` | 305 ms | 118 ms |
+
+Ademas: el bootstrap de credenciales publicas no bloquea el inicio de sesion
+(1,5 s y reintento en segundo plano), SQLite escribe con `synchronous=NORMAL`,
+el vigilante de guardado paso de 20 s a 45 s, y **la interfaz explica la
+espera**: si el servidor tarda mas de 3,5 s aparece «*Despertando el
+servidor…*» (el plan gratis de Render se duerme a los 15 min). Cuando la IA
+vive en tu equipo, el chat avisa que la primera respuesta puede tardar 1 o 2
+minutos y que no es un error.
+
+Tres checks del smoke test vigilan que no vuelva a pasar:
+`[VELOCIDAD] la deteccion de IA local responde rapido` (< 3 s),
+`[VELOCIDAD] la deteccion completa (sin cache) tambien es rapida` (< 5 s) y
+`[VELOCIDAD] el tablero de la agenda responde rapido` (< 1,5 s).
+Detalle en `docs/19-RENDIMIENTO.md`.
 
 ### El chat: habla y se registra todo
 
@@ -473,7 +500,7 @@ imagen de Python 3.12 que corre la API. La base SQLite vive en el volumen `/data
 
 ### 1-bis.4 Automatización (CI)
 
-`.github/workflows/ci.yml` corre en cada push: levanta la API, ejecuta los **127 casos** de
+`.github/workflows/ci.yml` corre en cada push: levanta la API, ejecuta los **130 casos** de
 `backend/smoke.py` (que incluyen el chat multi-intención, las cascadas, el sistema responsable,
 el centro de conexiones y los permisos con piloto automático) y compila el frontend con
 `tsc -b && vite build`. La insignia de arriba refleja el estado real del último push.
@@ -485,7 +512,7 @@ el centro de conexiones y los permisos con piloto automático) y compila el fron
 ```
 .
 ├── .github/workflows/
-│   ├── ci.yml                   ← CI: 127 casos del smoke test + build del frontend
+│   ├── ci.yml                   ← CI: 130 casos del smoke test + build del frontend
 │   ├── daily.yml                ← Tarea diaria (respaldo + resumen por correo)
 │   └── deploy-pages.yml         ← Publica la interfaz en GitHub Pages
 ├── .devcontainer/               ← Codespaces: Python 3.12 + Node 20 preinstalados
@@ -589,6 +616,8 @@ el centro de conexiones y los permisos con piloto automático) y compila el fron
 | [docs/15-CUENTAS-Y-PANELES.md](docs/15-CUENTAS-Y-PANELES.md) | Cuentas que siempre funcionan (correo + contraseña) y paneles con permiso de acceso |
 | [docs/16-RESPALDO-Y-NUBE.md](docs/16-RESPALDO-Y-NUBE.md) | El error 500 explicado y arreglado, el código de verificación y Drive como almacén real |
 | [docs/17-INSTALADOR-LOCAL.md](docs/17-INSTALADOR-LOCAL.md) | El instalador `.exe` de Windows: qué lleva dentro, dónde viven los datos y cómo se compila |
+| [docs/18-IA-LIGERA-Y-ACCESO.md](docs/18-IA-LIGERA-Y-ACCESO.md) | Credenciales públicas (acceso en un clic) y descarga de una IA super ligera |
+| [docs/19-RENDIMIENTO.md](docs/19-RENDIMIENTO.md) | Por qué la app no se siente lenta: mediciones antes/después y los 5 arreglos |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Cómo contribuir: reglas del proyecto, qué comprobar antes de un PR y dónde tocar cada cosa |
 | [SECURITY.md](SECURITY.md) | Política de seguridad: qué datos se cifran, qué **no** pegar en un issue y cómo reportar un problema |
 
@@ -892,7 +921,7 @@ Detalle tecnico: `docs/13-MOTOR-LOCAL.md`.
 
 | Pieza | Dónde | Qué hace |
 |---|---|---|
-| **CI** | `.github/workflows/ci.yml` | en cada push: levanta la API, corre los **127 casos** del smoke test, valida el System Prompt y compila la interfaz |
+| **CI** | `.github/workflows/ci.yml` | en cada push: levanta la API, corre los **130 casos** del smoke test, valida el System Prompt y compila la interfaz |
 | **Publicación de la web** | `.github/workflows/deploy-pages.yml` | compila la interfaz y la publica en la rama `gh-pages` (que es la que sirve GitHub Pages) |
 | **Tarea diaria** | `.github/workflows/daily.yml` | despierta la API, guarda el respaldo en Drive y manda el resumen por correo |
 | **Instalador** | `.github/workflows/build-installer.yml` | compila el `.exe` de Windows y lo publica como descarga en cada release |
@@ -916,7 +945,7 @@ Detalle tecnico: `docs/13-MOTOR-LOCAL.md`.
 
 | Workflow | Cuándo se dispara | Qué hace |
 |---|---|---|
-| `CI` | push y pull request en `main` | 127 comprobaciones + build de TypeScript |
+| `CI` | push y pull request en `main` | 130 comprobaciones + build de TypeScript |
 | `Publicar la interfaz` | push en `main` | publica en GitHub Pages |
 | `Instalador de Windows` | a mano o al crear un tag `v*` | compila el `.exe` y lo sube al release |
 | `Tarea diaria` | todos los días a las 06:00 (Colombia) | respaldo + resumen por correo |

@@ -62,15 +62,17 @@ def _autopiloto_una_vez() -> None:
 
 
 async def _tarea_guardado() -> None:
-    """Cada 20 segundos: si la persona DEJO de escribir, se guarda en Drive.
+    """Cada 45 segundos: si la persona DEJO de escribir, se guarda en Drive.
 
     Este es el guardado con retardo (v21): no se sube a la nube a media
     escritura, se espera a que la persona termine de poner informacion.
+    El intervalo era de 20 s: como el guardado real ya espera 45 s a que la
+    persona pare, preguntar cada 20 s solo hacia gastar consultas.
     """
     import asyncio
 
     while True:
-        await asyncio.sleep(20)
+        await asyncio.sleep(45)
         try:
             await asyncio.to_thread(_guardar_una_vez)
         except Exception as exc:  # pragma: no cover - nunca debe tumbar la app

@@ -23,6 +23,7 @@ from __future__ import annotations
 import json
 import os
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -616,82 +617,87 @@ def listar_modelos_publicos(proveedor: str) -> list[dict[str, Any]]:
 # Deteccion automática de motores locales
 # --------------------------------------------------------------------------- #
 _CACHE_MOTORES: dict[str, Any] = {"ts": 0.0, "valor": []}
-_CACHE_TTL = 8.0
+_CACHE_TTL = 30.0
+#: Timeout de cada sondeo. Los motores locales responden en milisegundos: si no
+#: contestan en 0,7 s es que no estan. Antes era 2,5 s por puerto y todo se
+#: interrogaba en fila, lo que arrivals a 16 segundos de espera.
+TIMEOUT_SONDEO = 0.7
+
+#: Puertos donde suele vivir una IA local. Se sondean todos a la vez.
+CANDIDATOS_MOTORES: list[dict[str, str]] = [
+    {"id": "ollama", "url": "http://127.0.0.1:11434/api/tags", "nombre": "Ollama", "estilo": "ollama"},
+    {"id": "ollama", "url": "http://127.0.0.1:11435/api/tags", "nombre": "Ollama (puerto 11435)", "estilo": "ollama"},
+    {"id": "lmstudio", "url": "http://127.0.0.1:1234/v1/models", "nombre": "LM Studio", "estilo": "openai"},
+    {"id": "jan", "url": "http://127.0.0.1:1337/v1/models", "nombre": "Jan", "estilo": "openai"},
+    {"id": "gpt4all", "url": "http://127.0.0.1:4891/v1/models", "nombre": "GPT4All", "estilo": "openai"},
+    {"id": "llamacpp", "url": "http://127.0.0.1:8080/v1/models", "nombre": "llama.cpp / LocalAI", "estilo": "openai"},
+    {"id": "textgen", "url": "http://127.0.0.1:5000/v1/models", "nombre": "text-generation-webui", "estilo": "openai"},
+    {"id": "kobold", "url": "http://127.0.0.1:5001/v1/models", "nombre": "KoboldCpp", "estilo": "openai"},
+]
+
+
+def _sondear_motor(candidato: dict[str, str]) -> dict[str, Any] | None:
+    """Prueba un motor local. Devuelve la ficha o None si no responde."""
+    try:
+        resp = httpx.get(candidato["url"], timeout=TIMEOUT_SONDEO)
+    except Exception:
+        return None
+    if resp.status_code >= 400:
+        return None
+    modelos: list[str] = []
+    try:
+        data = resp.json()
+        if candidato["estilo"] == "ollama":
+            modelos = [m.get("name", "") for m in data.get("models", []) if m.get("name")]
+        else:
+            modelos = [m.get("id", "") for m in data.get("data", []) if m.get("id")]
+    except Exception:
+        pass
+    base = candidato["url"].rsplit("/api/tags", 1)[0].rsplit("/v1/models", 1)[0]
+    return {
+        "id": candidato["id"],
+        "nombre": candidato["nombre"],
+        "url": candidato["url"],
+        "base_url": base,
+        "modelos": modelos[:12],
+        "modelos_disponibles": len(modelos),
+    }
 
 
 def detectar_motores_locales_sync(forzar: bool = False) -> list[dict[str, Any]]:
-    """Variante sincrona (para endpoints que ya trabajan en hilo sync).
+    """Detecta los motores de IA locales (Ollama, LM Studio, Jan...) del equipo.
 
-    Cachea el resultado unos segundos: el listado de conexiones lo invoca por
-    cada conexión local y no tiene sentido interrogar los motores tan a menudo.
+    Sondea TODOS los puertos a la vez: los que existen contestan en
+    milisegundos y los que no se van con un timeout corto. Antes se
+    interrogaba uno por uno (2,5 s cada puerto ausente) y la pantalla de
+    conexiones tardaba 16 segundos en abrir.
     """
     ahora = time.time()
     if not forzar and ahora - float(_CACHE_MOTORES["ts"]) < _CACHE_TTL:
         return list(_CACHE_MOTORES["valor"])
-    candidatos = [
-        {"id": "ollama", "url": "http://127.0.0.1:11434/api/tags", "nombre": "Ollama", "estilo": "ollama"},
-        {"id": "ollama", "url": "http://127.0.0.1:11435/api/tags", "nombre": "Ollama (puerto 11435)", "estilo": "ollama"},
-        {"id": "lmstudio", "url": "http://127.0.0.1:1234/v1/models", "nombre": "LM Studio", "estilo": "openai"},
-        {"id": "jan", "url": "http://127.0.0.1:1337/v1/models", "nombre": "Jan", "estilo": "openai"},
-        {"id": "gpt4all", "url": "http://127.0.0.1:4891/v1/models", "nombre": "GPT4All", "estilo": "openai"},
-        {"id": "llamacpp", "url": "http://127.0.0.1:8080/v1/models", "nombre": "llama.cpp / LocalAI", "estilo": "openai"},
-        {"id": "textgen", "url": "http://127.0.0.1:5000/v1/models", "nombre": "text-generation-webui", "estilo": "openai"},
-        {"id": "kobold", "url": "http://127.0.0.1:5001/v1/models", "nombre": "KoboldCpp", "estilo": "openai"},
-    ]
+    with ThreadPoolExecutor(max_workers=len(CANDIDATOS_MOTORES)) as pool:
+        resultados = list(pool.map(_sondear_motor, CANDIDATOS_MOTORES))
     encontrados: list[dict[str, Any]] = []
     vistos: set[str] = set()
-    with httpx.Client(timeout=2.5) as client:
-        for candidato in candidatos:
-            pid = candidato["id"]
-            url = candidato["url"]
-            if pid in vistos:
-                continue
-            try:
-                resp = client.get(url)
-            except Exception:
-                continue
-            if resp.status_code >= 400:
-                continue
-            modelos: list[str] = []
-            try:
-                data = resp.json()
-                if candidato["estilo"] == "ollama":
-                    modelos = [m.get("name", "") for m in data.get("models", []) if m.get("name")]
-                else:
-                    modelos = [m.get("id", "") for m in data.get("data", []) if m.get("id")]
-            except Exception:
-                pass
-            base = url.rsplit("/api/tags", 1)[0].rsplit("/v1/models", 1)[0]
-            vistos.add(pid)
-            encontrados.append(
-                {
-                    "id": pid,
-                    "nombre": candidato["nombre"],
-                    "url": url,
-                    "base_url": base,
-                    "modelos": modelos[:12],
-                    "modelos_disponibles": len(modelos),
-                }
-            )
+    for ficha in resultados:
+        if ficha is None or ficha["id"] in vistos:
+            continue
+        vistos.add(ficha["id"])
+        encontrados.append(ficha)
     # Claude local: si hay un proxy de Anthropic en este equipo.
     proxy = (os.environ.get("ANTHROPIC_BASE_URL") or "").strip().rstrip("/")
     if proxy and "claude_local" not in vistos:
-        with httpx.Client(timeout=2.5) as client:
-            try:
-                resp = client.get(f"{proxy}/v1/models")
-            except Exception:
-                resp = None
-        if resp is not None and resp.status_code < 400:
-            encontrados.append(
-                {
-                    "id": "claude_local",
-                    "nombre": "Claude en tu computador (proxy local)",
-                    "url": f"{proxy}/v1/models",
-                    "base_url": proxy,
-                    "modelos": [],
-                    "modelos_disponibles": 0,
-                }
-            )
+        ficha = _sondear_motor(
+            {
+                "id": "claude_local",
+                "url": f"{proxy}/v1/models",
+                "nombre": "Claude en tu computador (proxy local)",
+                "estilo": "openai",
+            }
+        )
+        if ficha:
+            ficha["base_url"] = proxy
+            encontrados.append(ficha)
     _CACHE_MOTORES["ts"] = ahora
     _CACHE_MOTORES["valor"] = encontrados
     return list(encontrados)

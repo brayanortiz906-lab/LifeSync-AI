@@ -988,6 +988,37 @@ def main() -> int:
     )
 
     print("=" * 70)
+    print("RENDIMIENTO: QUE NO VAYA LENTO (v34)")
+    print("=" * 70)
+    # La deteccion de motores locales sondea 8 puertos. Antes lo hacia de uno
+    # en uno (2,5 s por puerto ausente) y la pantalla de conexiones tardaba
+    # 16 segundos en abrir. Ahora van todos en paralelo.
+    t0 = time.time()
+    cod_r, cuerpo_r = pedir_suave("GET", "/api/conexiones/locales")
+    dt_cache = time.time() - t0
+    check(
+        "[VELOCIDAD] la deteccion de IA local responde rapido",
+        cod_r == 200 and dt_cache < 3.0,
+        f"-> {dt_cache:.2f} s (con cache)",
+    )
+    t0 = time.time()
+    cod_r2, _ = pedir_suave("POST", "/api/conexiones/autoconectar")
+    dt_forzado = time.time() - t0
+    check(
+        "[VELOCIDAD] la deteccion completa (sin cache) tambien es rapida",
+        cod_r2 == 200 and dt_forzado < 5.0,
+        f"-> {dt_forzado:.2f} s (sondeando los 8 puertos en paralelo)",
+    )
+    t0 = time.time()
+    cod_r3, _ = pedir_suave("GET", "/api/dashboard")
+    dt_dash = time.time() - t0
+    check(
+        "[VELOCIDAD] el tablero de la agenda responde rapido",
+        cod_r3 == 200 and dt_dash < 1.5,
+        f"-> {dt_dash:.2f} s",
+    )
+
+    print("=" * 70)
     if fallos:
         print(f"RESULTADO: {len(fallos)} CASO(S) FALLIDO(S): {fallos}")
         return 1
