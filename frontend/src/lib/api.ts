@@ -5,7 +5,9 @@ import type {
   ReporteCumplimiento, ResumenAuditoria, RespuestaAgente, ResultadoAutorizacion, Tarea,
 } from '../types'
 
-const BASE = import.meta.env.VITE_API_URL ?? '/api'
+// La URL de la API: variable de entorno (VITE_API_URL) o el mismo origen.
+// Con VITE_BASE='./' (GitHub Pages) cae a './api' en lugar de '/api'.
+const BASE = import.meta.env.VITE_API_URL || `${import.meta.env.BASE_URL}api`
 
 export class ApiError extends Error {
   status: number

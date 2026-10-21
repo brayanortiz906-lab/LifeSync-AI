@@ -1,0 +1,24 @@
+{
+  "name": "LifeSync AI",
+  "image": "mcr.microsoft.com/devcontainers/python:3.12",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "20"
+    }
+  },
+  "forwardPorts": [8000, 5173],
+  "portsAttributes": {
+    "8000": { "label": "LifeSync AI (API + interfaz)", "onAutoForward": "openPreview" },
+    "5173": { "label": "Vite (desarrollo)", "onAutoForward": "notify" }
+  },
+  "postCreateCommand": "bash .devcontainer/postcreate.sh",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode"
+      ]
+    }
+  }
+}

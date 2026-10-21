@@ -1,0 +1,20 @@
+# Dependencias y artefactos que no van a la imagen
+**/node_modules
+**/dist
+**/.venv
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+.git
+.github
+*.db
+*.db-wal
+*.db-shm
+.env
+.env.*
+!.env.example
+docs
+*.md
+!README.md
+.vscode
+.idea

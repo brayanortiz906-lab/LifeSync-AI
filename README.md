@@ -4,11 +4,18 @@
 las finanzas/mantenimiento personal mediante un agente conversacional que planifica,
 reorganiza tu agenda ante imprevistos y registra lo que te pasa en lenguaje natural.
 
+[![CI](https://github.com/brayanortiz906-lab/LifeSync-AI/actions/workflows/ci.yml/badge.svg)](https://github.com/brayanortiz906-lab/LifeSync-AI/actions/workflows/ci.yml)
+[![Pages](https://github.com/brayanortiz906-lab/LifeSync-AI/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/brayanortiz906-lab/LifeSync-AI/actions/workflows/deploy-pages.yml)
+[![Licencia](https://img.shields.io/badge/licencia-MIT-blue.svg)](LICENSE)
+
 ```
-┌────────────┬──────────────────────────┬──────────────────────┐
-│  AGENTE    │      CALENDARIO          │  ACADÉMICO + BITÁCORA│
-│  (chat)    │  (día / semana / mes)    │  (tareas y gastos)   │
-└────────────┴──────────────────────────┴──────────────────────┘
+┌───────────────────────────────────────────┬──────────────────────┐
+│  MI AGENDA (vista inicial)                │  ACADÉMICO + BITÁCORA│
+│  calendario por franjas · resumen         │  (tareas y gastos)   │
+│  academia · bitácora · mantenimiento       │                      │
+└───────────────────────────────────────────┴──────────────────────┘
+        ▲
+        │  burbuja flotante (Ctrl+K) — el chat vive aparte, no tapa la agenda
 ```
 
 ---
@@ -191,10 +198,70 @@ O arranca sin recarga: `.\.venv\Scripts\python.exe -m uvicorn app.main:app --por
 
 ---
 
+## 1-bis. Correr dentro de GitHub
+
+El repositorio trae **toda la infraestructura** para que la app funcione sin instalar nada
+en tu equipo. Hay tres caminos:
+
+| Camino | Qué es | Para quién |
+|---|---|---|
+| **GitHub Codespaces** | Un VS Code en la nube con Python, Node, la API (8000) y la interfaz (5173) ya instalados | Quien quiere abrir, tocar y probar sin configurar nada |
+| **GitHub Pages + Render** | La interfaz se publica en `brayanortiz906-lab.github.io/LifeSync-AI/` y la API corre en Render (Docker) | Quien quiere una URL pública que se pueda compartir |
+| **Docker en tu equipo** | `docker compose up` levanta API + interfaz en un solo proceso | Quien ya usa contenedores |
+
+### 1-bis.1 Codespaces (lo más rápido)
+
+1. Abre el repositorio en GitHub → botón verde **Code** → **Codespaces** → **Create codespace on main**.
+2. Espera a que termine `postCreate` (crea el venv, instala dependencias y compila la interfaz).
+3. Abre el puerto **8000** en la pestaña *Ports* → se abre LifeSync AI en el navegador.
+
+El `.devcontainer/devcontainer.json` ya trae Python 3.12, Node 20, y reenvía los puertos
+8000 y 5173.
+
+### 1-bis.2 Pages (interfaz) + Render (API)
+
+- **Interfaz (Pages)**: el workflow `.github/workflows/deploy-pages.yml` compila el frontend
+  y lo publica en GitHub Pages. Se activa en *Settings → Pages → Source → GitHub Actions*.
+- **API (Render)**: el `render.yaml` del repo es un *Blueprint*: al abrirlo en Render se crea
+  un servicio con Dockerfile, disco persistente en `/data` y healthcheck en `/api/health`.
+- **Conectar una y otra**: define la variable de repositorio `VITE_API_URL` con la URL de tu
+  API (por ejemplo `https://lifesync-api.onrender.com/api`) y el workflow de Pages la inyecta
+  al compilar. Sin esa variable, la interfaz usa rutas relativas (`./api`) y sirve todo desde
+  el mismo dominio.
+
+```bash
+gh variable set VITE_API_URL --body "https://<tu-api>/api" --repo brayanortiz906-lab/LifeSync-AI
+```
+
+### 1-bis.3 Docker
+
+```bash
+docker compose up --build          # http://localhost:8000
+```
+
+El `Dockerfile` es multi-stage: compila la interfaz con Node 20 y la sirve desde la misma
+imagen de Python 3.12 que corre la API. La base SQLite vive en el volumen `/data`.
+
+### 1-bis.4 Automatización (CI)
+
+`.github/workflows/ci.yml` corre en cada push: levanta la API, ejecuta los **59 casos** de
+`backend/smoke.py` (que incluyen el chat multi-intención, las cascadas, el sistema responsable
+y el centro de conexiones) y compila el frontend con `tsc -b && vite build`. La insignia de
+arriba refleja el estado real del último push.
+
+---
+
 ## 2. Estructura del proyecto
 
 ```
 .
+├── .github/workflows/
+│   ├── ci.yml                   ← CI: 59 casos del smoke test + build del frontend
+│   └── deploy-pages.yml         ← Publica la interfaz en GitHub Pages
+├── .devcontainer/               ← Codespaces: Python 3.12 + Node 20 preinstalados
+├── Dockerfile                   ← Multi-stage: Node 20 compila, Python 3.12 sirve
+├── docker-compose.yml           ← `docker compose up` y listo
+├── render.yaml                  ← Blueprint para desplegar la API en Render
 ├── shared/
 │   └── system_prompt.txt        ← FUENTE DE VERDAD del System Prompt (la usa el backend)
 ├── backend/

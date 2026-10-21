@@ -1,0 +1,21 @@
+services:
+  lifesync:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: lifesync-ai:local
+    container_name: lifesync-ai
+    ports:
+      - "8000:8000"
+    environment:
+      APP_SECRET_KEY: "clave-de-desarrollo-cambiala-en-produccion"
+      DATABASE_URL: "sqlite:////data/lifesync.db"
+      CORS_ORIGINS: "http://localhost:8000,http://localhost:5173"
+      DEFAULT_LLM_PROVIDER: "demo"
+      DEFAULT_CURRENCY: "COP"
+    volumes:
+      - lifesync-data:/data
+    restart: unless-stopped
+
+volumes:
+  lifesync-data:

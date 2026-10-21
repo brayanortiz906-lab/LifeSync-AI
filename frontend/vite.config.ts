@@ -4,6 +4,8 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  // GitHub Pages sirve la app en /<repo>/ -> rutas relativas (VITE_BASE=./).
+  base: process.env.VITE_BASE ?? '/',
   server: {
     port: 5173,
     proxy: {

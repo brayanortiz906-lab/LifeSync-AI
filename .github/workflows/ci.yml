@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend · smoke test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Clonar el repositorio
+        uses: actions/checkout@v4
+
+      - name: Instalar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Arrancar la API
+        run: |
+          python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --log-level warning &
+          for i in $(seq 1 40); do
+            if curl -sf http://127.0.0.1:8000/api/health > /dev/null; then
+              echo "API lista"
+              break
+            fi
+            sleep 1
+          done
+          curl -sf http://127.0.0.1:8000/api/health
+
+      - name: Smoke test (59 casos)
+        run: python smoke.py
+
+      - name: Comprobar el System Prompt maestro
+        run: |
+          python -c "from app.config import settings; s = settings.system_prompt; assert 'CONTRATO JSON' in s and len(s) > 5000; print('System Prompt OK:', len(s), 'caracteres')"
+
+  frontend:
+    name: Frontend · build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Clonar el repositorio
+        uses: actions/checkout@v4
+
+      - name: Instalar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Compilar (TypeScript estricto)
+        run: npm run build
+
+      - name: Subir el bundle como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
+          retention-days: 7

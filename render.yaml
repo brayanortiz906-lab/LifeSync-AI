@@ -1,0 +1,25 @@
+# LifeSync AI · desplegable con un clic en Render (blueprint)
+# Docs: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: lifesync-ai
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: APP_SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        value: sqlite:////data/lifesync.db
+      - key: CORS_ORIGINS
+        sync: false
+      - key: DEFAULT_LLM_PROVIDER
+        value: demo
+      - key: DEFAULT_CURRENCY
+        value: COP
+    disk:
+      name: lifesync-data
+      mountPath: /data
+      sizeGB: 1
