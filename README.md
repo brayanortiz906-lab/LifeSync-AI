@@ -499,3 +499,20 @@ Con cuenta ademas puedes **descargar un respaldo** en JSON o **guardarlo en tu
 Google Drive** desde *Acceder > Guardar en mi Drive*.
 
 Detalles completos en `docs/09-CUENTAS.md`.
+
+### Publicar con datos reales (API en la nube + cuentas por persona)
+
+| Paso | Qué haces | Dónde |
+|---|---|---|
+| 1 | Despliega el servicio con el `render.yaml` del repo | [render.com](https://render.com) -> *New > Blueprint* -> elige el repo -> *Apply* |
+| 2 | La app completa (interfaz + API) queda en `https://lifesync-ai.onrender.com` | el mismo servicio sirve las dos cosas |
+| 3 | Conecta la pagina de Pages con esa API | `gh variable set VITE_API_URL --body "https://lifesync-ai.onrender.com/api" --repo brayanortiz906-lab/LifeSync-AI` y luego *Publicar la interfaz* |
+| 4 | Activa el envio real del codigo de verificacion | en Render: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_DESDE` |
+| 5 | Activa "Entrar con Google" | en Render: `GOOGLE_CLIENT_ID` (crealo en https://console.cloud.google.com/apis/credentials) |
+
+Cada persona entra con **su cuenta** (correo verificado o Google) y sus datos
+quedan **aislados**: el servidor anade `usuario_id` a todas las consultas, asi
+que nadie ve lo de nadie. Ademas puede bajar un respaldo en JSON o guardarlo
+en su Google Drive.
+
+Guia completa: `docs/10-DESPLIEGUE.md`.

@@ -1,5 +1,15 @@
-# LifeSync AI · desplegable con un clic en Render (blueprint)
+# LifeSync AI - desplegable con un clic en Render (blueprint)
 # Docs: https://render.com/docs/blueprint-spec
+#
+# QUE OBTIENES: un solo servicio con la API y la interfaz juntas.
+#   https://lifesync-ai.onrender.com/  -> la app completa (funciona sola)
+#   https://lifesync-ai.onrender.com/api -> la API
+#
+# NOTA SOBRE LOS DATOS: el plan gratuito de Render no permite disco
+# persistente (solo en planes de pago), asi que la base SQLite vive dentro
+# del contenedor y se reinicia cuando Render reconstruye el servicio.
+# Para datos que sobrevivan, cambia `plan: free` por `plan: starter` y
+# descomenta el bloque `disk` de mas abajo.
 services:
   - type: web
     name: lifesync-ai
@@ -11,15 +21,35 @@ services:
     envVars:
       - key: APP_SECRET_KEY
         generateValue: true
+      # La base de datos del contenedor (usa un disco si cambias el plan).
       - key: DATABASE_URL
-        value: sqlite:////data/lifesync.db
+        value: sqlite:////app/lifesync.db
+      # Origenes permitidos: la pagina de GitHub Pages y los puertos locales.
       - key: CORS_ORIGINS
-        sync: false
+        value: https://brayanortiz906-lab.github.io,https://underlanded4.github.io,http://localhost:8000,http://localhost:5173,http://127.0.0.1:8000,http://127.0.0.1:5173
+      # Sin API key: el asistente arranca con el motor integrado (demo).
       - key: DEFAULT_LLM_PROVIDER
         value: demo
       - key: DEFAULT_CURRENCY
         value: COP
-    disk:
-      name: lifesync-data
-      mountPath: /data
-      sizeGB: 1
+      # Opcionales: los rellenas en el panel de Render si los necesitas.
+      # ID de cliente publico de Google (para "Entrar con Google").
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      # Correo saliente (para el codigo de verificacion de las cuentas).
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: 587
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_DESDE
+        sync: false
+    # Con plan de pago (starter) descomenta esto para que los datos
+    # sobrevivan a las reconstrucciones:
+    # disk:
+    #   name: lifesync-data
+    #   mountPath: /data
+    #   sizeGB: 1
