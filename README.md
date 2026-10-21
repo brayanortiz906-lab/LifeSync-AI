@@ -158,10 +158,11 @@ Claves de la experiencia:
   estudio; gasto de mantenimiento → próxima fecha; evento nuevo → reorganización).
 - **Visibilidad**: bajo cada respuesta aparece el bloque verde **«Registrado
   automáticamente (N)»** con cada cosa guardada, y un chip por categoría.
-- **Chat flotante, aparte de la agenda**: el asistente vive en una burbuja fija abajo a
-  la derecha, disponible en cualquier vista. `Ctrl+K` (o `Cmd+K`) la abre y la cierra,
-  `Escape` la cierra, y desde su cabecera puedes ampliarla a pantalla casi completa.
-  La agenda manda: nunca tapa la información operativa.
+- **Chat flotante y móvil, aparte de la agenda**: el asistente vive en una burbuja
+  **arrastrable** (la agarras y la llevas a donde quieras; la posición se recuerda).
+  `Ctrl+K` (o `Cmd+K`) la abre y la cierra, `Escape` la cierra, y desde su cabecera
+  puedes ampliarla a pantalla casi completa. En el celular el panel ocupa toda la
+  pantalla. La agenda manda: nunca tapa la información operativa.
 - **Anti-duplicados**: repetir la misma cita actualiza el evento en vez de crear
   otro.
 - **Sin API Key**: si el proveedor elegido no tiene clave, el backend cae al motor
@@ -177,9 +178,28 @@ tape lo que ya tenías en pantalla.
 |---|---|
 | **Vista inicial «Mi agenda»** | Calendario por franjas (Mañana / Tarde / Noche) + resumen del día + tareas académicas + bitácora de gastos |
 | **Tarjeta «Habla con tu asistente»** | Dentro de la propia agenda: un botón «Abrir el chat» para hablar sin salir de la vista |
-| **Burbuja flotante** (abajo a la derecha) | Acceso al chat desde cualquier vista; muestra puntos animados mientras el agente responde |
-| **Panel del chat** | Burbuja → panel de 420×620 px; botón «Ampliar» → casi pantalla completa |
+| **Burbuja flotante** (arrastrable) | Acceso al chat desde cualquier vista; la mueves con el dedo o el ratón; puntos animados mientras el agente responde |
+| **Panel del chat** | Burbuja → panel de 420 px pegado a la burbuja; botón «Ampliar» → casi pantalla completa; en móvil → pantalla completa |
+| **Pestaña «Ajustes»** | Tu nombre, moneda, jornada, tema de color, cómo ordenar cada bloque y tus etiquetas |
 | **Teclado** | `Ctrl+K` / `Cmd+K` alterna el chat · `Escape` lo cierra |
+
+### Ajustes, temas y cómo ordenar lo que ves
+
+LifeSync arranca con un **formulario de bienvenida** (3 pasos) la primera vez: te pide
+tu nombre, tu jornada y el tema que prefieres, antes de que toques nada. Después, todo
+lo demás vive en la pestaña **«Ajustes»** (`frontend/src/components/AjustesPanel.tsx`).
+
+| Bloque de Ajustes | Qué puedes cambiar | Dónde se nota |
+|---|---|---|
+| **Sobre ti** | Nombre, moneda, hora de inicio y fin de tu jornada | Encabezado, métricas y agenda |
+| **Tema de la app** | 4 temas: Medianoche, Océano, Bosque, Atardecer | Cambia la interfaz al instante (variables CSS, sin recargar) |
+| **Cómo organizar lo que ves** | Orden de tareas (fecha / prioridad / tiempo / materia), de gastos (fecha / monto / categoría) y de agenda (hora / categoría / duración) | Paneles de tareas, gastos y calendario |
+| **Tus temas / etiquetas** | Etiquetas libres (p. ej. *Universidad*, *Trabajo*) para clasificar a tu manera | Filtras y agrupadores |
+
+Además, la agenda tiene **filtros por categoría** y la opción **«solo fijos»** (los
+compromisos inamovibles que el agente nunca mueve).
+
+Detalle completo en [docs/07-AJUSTES.md](docs/07-AJUSTES.md).
 
 ### El sistema de IA responsable
 
@@ -278,7 +298,7 @@ arriba refleja el estado real del último push.
 ```
 .
 ├── .github/workflows/
-│   ├── ci.yml                   ← CI: 59 casos del smoke test + build del frontend
+│   ├── ci.yml                   ← CI: 63 casos del smoke test + build del frontend
 │   └── deploy-pages.yml         ← Publica la interfaz en GitHub Pages
 ├── .devcontainer/               ← Codespaces: Python 3.12 + Node 20 preinstalados
 ├── Dockerfile                   ← Multi-stage: Node 20 compila, Python 3.12 sirve
@@ -310,30 +330,32 @@ arriba refleja el estado real del último push.
 │   │                                 aprobaciones, redacción, cumplimiento)
 │   ├── requirements.txt
 │   ├── run.py
-│   └── smoke.py                 ← 59 verificaciones end-to-end contra la BD real
+│   └── smoke.py                 ← 63 verificaciones end-to-end contra la BD real
 ├── frontend/
 │   └── src/
-│       ├── App.tsx              ← Layout: agenda (vista inicial) + responsabilidad
-│       ├── store/useLifeSync.ts ← Estado global (Zustand)
+│       ├── App.tsx              ← Layout: agenda (vista inicial) + responsabilidad + ajustes
+│       ├── store/useLifeSync.ts ← Estado global (Zustand) + tema y ajustes
 │       ├── lib/api.ts           ← Cliente HTTP + manejo de la API Key local
 │       ├── lib/format.ts        ← Fechas, moneda, duraciones (es-CO)
 │       └── components/
 │           ├── TopBar.tsx       ← Marca, navegación de fecha, KPIs, conexiones
-│           ├── ChatFlotante.tsx ← Chat flotante (burbuja → panel → pantalla completa)
+│           ├── ChatFlotante.tsx ← Chat flotante móvil (burbuja arrastrable → panel → pantalla completa)
 │           ├── ChatBody.tsx    ← Burbujas, ficha del agente, input, sugerencias
 │           ├── ContextoLateral.tsx ← Resumen lateral (hoy, entregas, mes)
-│           ├── CalendarPanel.tsx← Agenda día/semana/mes por franjas (sin ambigüedad)
-│           ├── ConexionesPanel.tsx ← Centro de Conexiones (4 caminos, sin jerga)
-│           ├── AcademicPanel.tsx← Tareas y resúmenes (derecha)
-│           ├── LogbookPanel.tsx ← Gastos y mantenimiento (derecha)
+│           ├── CalendarPanel.tsx← Agenda día/semana/mes por franjas + filtros y orden
+│           ├── ConexionesPanel.tsx ← Centro de Conexiones (4 caminos + Google, sin jerga)
+│           ├── AcademicPanel.tsx← Tareas y resúmenes (derecha, ordenable)
+│           ├── LogbookPanel.tsx ← Gastos y mantenimiento (derecha, ordenable)
+│           ├── AjustesPanel.tsx  ← Ajustes (temas, órdenes, etiquetas) + bienvenida inicial
 │           ├── ResponsibilityPanel.tsx ← Aprobaciones, auditoría, política, cumplimiento
-│           └── ui.tsx           ← Atomos visuales
+│           └── ui.tsx           ← Atomos visuales (Modal con portal)
 └── docs/
     ├── 01-ARQUITECTURA.md
     ├── 02-SYSTEM-PROMPT.md
     ├── 03-INTEGRACION-API-KEY.md
     ├── 05-RESPONSABILIDAD.md
-    └── 06-CONE-XIONES.md
+    ├── 06-CONE-XIONES.md
+    └── 07-AJUSTES.md
 ```
 
 ---
@@ -347,6 +369,7 @@ arriba refleja el estado real del último push.
 | [docs/03-INTEGRACION-API-KEY.md](docs/03-INTEGRACION-API-KEY.md) | Paso a paso para conectar OpenAI / Gemini, seguridad, costos |
 | [docs/05-RESPONSABILIDAD.md](docs/05-RESPONSABILIDAD.md) | Motor de política, reglas, PII, auditoría, aprobaciones y marco normativo |
 | [docs/06-CONE-XIONES.md](docs/06-CONE-XIONES.md) | Centro de Conexiones: cualquier IA, sin claves, con IA local |
+| [docs/07-AJUSTES.md](docs/07-AJUSTES.md) | Formulario inicial, temas, órdenes de cada bloque y etiquetas |
 
 ---
 

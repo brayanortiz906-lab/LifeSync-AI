@@ -29,6 +29,21 @@ if settings.database_url.startswith("sqlite"):
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 
 
+def _asegurar_columnas(conn, tabla: str, columnas: dict[str, str]) -> None:
+    """Agrega a una tabla las columnas que falten.
+
+    SQLite permite agregar columnas con `ALTER TABLE ... ADD COLUMN` y la
+    operacion es idempotente si primero se revisa `PRAGMA table_info`. Asi una
+    base creada por una version anterior sigue funcionando sin recrearla.
+    """
+    existentes = {
+        str(f[1]) for f in conn.exec_driver_sql(f"PRAGMA table_info({tabla})").fetchall()
+    }
+    for nombre, definicion in columnas.items():
+        if nombre not in existentes:
+            conn.exec_driver_sql(f"ALTER TABLE {tabla} ADD COLUMN {nombre} {definicion}")
+
+
 def _migrar_sqlite() -> None:
     """Correcciones de esquema aplicables sobre bases ya creadas.
 
@@ -39,6 +54,20 @@ def _migrar_sqlite() -> None:
     if not settings.database_url.startswith("sqlite"):
         return
     with engine.begin() as conn:
+        # Preferencias de la persona (v8): tema, ordenes y onboarding.
+        _asegurar_columnas(
+            conn,
+            "app_settings",
+            {
+                "nombre_usuario": "VARCHAR(60) DEFAULT ''",
+                "tema": "VARCHAR(24) DEFAULT 'medianoche'",
+                "orden_tareas": "VARCHAR(24) DEFAULT 'fecha'",
+                "orden_gastos": "VARCHAR(24) DEFAULT 'fecha'",
+                "orden_eventos": "VARCHAR(24) DEFAULT 'hora'",
+                "etiquetas": "TEXT DEFAULT ''",
+                "onboarding_completo": "BOOLEAN DEFAULT 0",
+            },
+        )
         filas = conn.exec_driver_sql("PRAGMA foreign_key_list(tasks)").fetchall()
         if not filas:
             return

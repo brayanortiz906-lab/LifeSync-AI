@@ -5,7 +5,7 @@ import {
 } from 'lucide-react'
 import { useLifeSync } from '../store/useLifeSync'
 import { api } from '../lib/api'
-import type { Tarea } from '../types'
+import type { OrdenTareas, Tarea } from '../types'
 import { Boton, Chip, Modal, Panel, Vacio } from './ui'
 
 const PRIORIDAD: Record<string, string> = {
@@ -13,6 +13,9 @@ const PRIORIDAD: Record<string, string> = {
   media: 'bg-amber-500/15 text-amber-300 ring-amber-500/30',
   baja: 'bg-slate-500/15 text-slate-300 ring-slate-500/30',
 }
+
+/** Rango de prioridad para ordenar (alta primero). */
+const RANGO_PRIO: Record<string, number> = { alta: 0, media: 1, baja: 2 }
 
 function diasRestantes(fecha: string | null): number | null {
   if (!fecha) return null
@@ -26,12 +29,15 @@ export default function AcademicPanel() {
   const tareas = useLifeSync((s) => s.tareas)
   const completar = useLifeSync((s) => s.completarTarea)
   const cargarTodo = useLifeSync((s) => s.cargarTodo)
+  const ajustes = useLifeSync((s) => s.ajustes)
+  const guardarAjustes = useLifeSync((s) => s.guardarAjustes)
   const [filtro, setFiltro] = useState<'pendientes' | 'todas' | 'completadas'>('pendientes')
   const [expandida, setExpandida] = useState<number | null>(null)
   const [importar, setImportar] = useState(false)
 
+  const modo = ajustes?.orden_tareas ?? 'fecha'
+
   const visibles = useMemo(() => {
-    const orden = { alta: 0, media: 1, baja: 2 }
     const filtradas = tareas.filter((t) => {
       if (filtro === 'pendientes') return t.estado !== 'completada'
       if (filtro === 'completadas') return t.estado === 'completada'
@@ -41,12 +47,25 @@ export default function AcademicPanel() {
       if ((a.estado === 'completada') !== (b.estado === 'completada')) {
         return a.estado === 'completada' ? 1 : -1
       }
+      if (modo === 'prioridad') {
+        const d = RANGO_PRIO[a.prioridad] - RANGO_PRIO[b.prioridad]
+        if (d !== 0) return d
+      }
+      if (modo === 'tiempo') {
+        const d = (a.minutos_estimados ?? 0) - (b.minutos_estimados ?? 0)
+        if (d !== 0) return d
+      }
+      if (modo === 'materia') {
+        const ma = (a.materia ?? '').toLowerCase()
+        const mb = (b.materia ?? '').toLowerCase()
+        if (ma !== mb) return ma < mb ? -1 : 1
+      }
       const fa = a.fecha_entrega ?? '9999-12-31'
       const fb = b.fecha_entrega ?? '9999-12-31'
       if (fa !== fb) return fa < fb ? -1 : 1
-      return orden[a.prioridad] - orden[b.prioridad]
+      return RANGO_PRIO[a.prioridad] - RANGO_PRIO[b.prioridad]
     })
-  }, [tareas, filtro])
+  }, [tareas, filtro, modo])
 
   return (
     <Panel
@@ -78,6 +97,17 @@ export default function AcademicPanel() {
             {f === 'pendientes' ? 'Pendientes' : f === 'todas' ? 'Todas' : 'Completadas'}
           </Chip>
         ))}
+        <select
+          value={modo}
+          onChange={(e) => void guardarAjustes({ orden_tareas: e.target.value as OrdenTareas })}
+          title="Como ordenar las tareas"
+          className="ml-auto rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[10px] font-semibold text-slate-300 outline-none hover:bg-white/10"
+        >
+          <option value="fecha">Orden: fecha</option>
+          <option value="prioridad">Orden: prioridad</option>
+          <option value="tiempo">Orden: tiempo</option>
+          <option value="materia">Orden: materia</option>
+        </select>
       </div>
 
       {visibles.length === 0 ? (

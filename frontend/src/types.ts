@@ -244,6 +244,11 @@ export interface Dashboard {
   }>
 }
 
+export type TemaId = 'medianoche' | 'oceano' | 'bosque' | 'atardecer'
+export type OrdenTareas = 'fecha' | 'prioridad' | 'tiempo' | 'materia'
+export type OrdenGastos = 'fecha' | 'monto' | 'categoria'
+export type OrdenEventos = 'hora' | 'categoria' | 'duracion'
+
 export interface Ajustes {
   proveedor: string
   modelo: string
@@ -252,6 +257,20 @@ export interface Ajustes {
   fin_jornada: string
   tiene_api_key: boolean
   proveedor_efectivo: string
+  /** Como quieres que te llame el asistente. */
+  nombre_usuario: string
+  /** Tema visual de la aplicacion. */
+  tema: TemaId
+  /** Como se ordenan las tareas academicas. */
+  orden_tareas: OrdenTareas
+  /** Como se ordenan los gastos de la bitacora. */
+  orden_gastos: OrdenGastos
+  /** Como se ordenan los bloques del dia. */
+  orden_eventos: OrdenEventos
+  /** Etiquetas propias para clasificar lo que registras. */
+  etiquetas: string[]
+  /** Ya completo el formulario de bienvenida. */
+  onboarding_completo: boolean
 }
 
 // --------------------------------------------------------------------------- //

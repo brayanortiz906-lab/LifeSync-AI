@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import { AlertTriangle, CheckCircle2, Plus, Receipt, TrendingUp, Wrench } from 'lucide-react'
 import { useLifeSync } from '../store/useLifeSync'
 import { aIso, fechaCorta, monto } from '../lib/format'
-import { COLOR_GASTO, type CategoriaGasto } from '../types'
+import { COLOR_GASTO, type CategoriaGasto, type OrdenGastos } from '../types'
 import { Boton, Chip, Panel, Vacio } from './ui'
 
 export default function LogbookPanel() {
@@ -11,6 +11,25 @@ export default function LogbookPanel() {
   const dashboard = useLifeSync((s) => s.dashboard)
   const mantenimiento = useLifeSync((s) => s.mantenimiento)
   const crearRegistro = useLifeSync((s) => s.crearRegistro)
+  const ajustes = useLifeSync((s) => s.ajustes)
+  const guardarAjustes = useLifeSync((s) => s.guardarAjustes)
+
+  const modo = ajustes?.orden_gastos ?? 'fecha'
+  const registrosOrdenados = useMemo(() => {
+    const copia = [...registros]
+    if (modo === 'monto') {
+      copia.sort((a, b) => (b.monto ?? 0) - (a.monto ?? 0))
+    } else if (modo === 'categoria') {
+      copia.sort(
+        (a, b) =>
+          (a.categoria ?? '').localeCompare(b.categoria ?? '') ||
+          (a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : 0),
+      )
+    } else {
+      copia.sort((a, b) => (a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : 0))
+    }
+    return copia
+  }, [registros, modo])
   const completarMantenimiento = useLifeSync((s) => s.completarMantenimiento)
 
   const [descripcion, setDescripcion] = useState('')
@@ -179,8 +198,24 @@ export default function LogbookPanel() {
       {registros.length === 0 ? (
         <Vacio icono={<Receipt size={24} />} texto="Bitácora vacía" sub="Registra un gasto o cuéntale al agente." />
       ) : (
-        <ul className="divide-y divide-white/5">
-          {registros.slice(0, 30).map((r) => (
+        <>
+          <div className="flex items-center gap-2 border-t border-white/8 px-3 py-1.5">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+              Movimientos
+            </span>
+            <select
+              value={modo}
+              onChange={(e) => void guardarAjustes({ orden_gastos: e.target.value as OrdenGastos })}
+              title="Como ordenar los gastos"
+              className="ml-auto rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[10px] font-semibold text-slate-300 outline-none hover:bg-white/10"
+            >
+              <option value="fecha">Orden: fecha</option>
+              <option value="monto">Orden: monto</option>
+              <option value="categoria">Orden: categoria</option>
+            </select>
+          </div>
+          <ul className="divide-y divide-white/5">
+            {registrosOrdenados.slice(0, 30).map((r) => (
             <li key={r.id} className="flex items-center gap-2 px-3 py-2">
               <span className={`h-2 w-2 shrink-0 rounded-full ${COLOR_GASTO[r.categoria] ?? COLOR_GASTO.otro}`} />
               <div className="min-w-0 flex-1">
@@ -190,11 +225,12 @@ export default function LogbookPanel() {
                 </p>
               </div>
               <span className="shrink-0 text-xs font-semibold tabular-nums text-slate-300">
-                {r.monto !== null ? monto(r.monto, r.moneda) : '—'}
+                {r.monto !== null ? monto(r.monto, r.moneda) : '-'}
               </span>
             </li>
-          ))}
-        </ul>
+            ))}
+          </ul>
+        </>
       )}
     </Panel>
   )

@@ -294,18 +294,33 @@ Detalle completo en [06-CONE-XIONES.md](06-CONE-XIONES.md).
 | Cada bloque muestra **"se cruza con X"** en rojo y un **resumen del día** (nº bloques, tiempo ocupado, cruces) | Los cruces se ven sin tener que comparar mentalmente dos columnas |
 | Leyenda de colores y marca **"fijo"** (inamovible) siempre visible | El usuario sabe qué puede moverse y qué no |
 | La agenda incluye una tarjeta **"Habla con tu asistente"** con botón "Abrir el chat" | Acceso directo al agente sin salir de la vista operativa |
+| La burbuja del chat es **arrastrable** (position recordada en `localStorage`) y en móvil el panel ocupa **toda la pantalla** | El asistente se usa a una mano, en cualquier lugar, sin tapar la agenda |
+| Existe una pestaña **«Ajustes»** con un **formulario de bienvenida** de 3 pasos la primera vez | La persona configura su ritmo, su tema y su orden **antes** de tocar nada |
+
+### 8ter-ter. Personalización (temas, órdenes y etiquetas)
+
+| Decisión | Motivo |
+|---|---|
+| Los **temas se aplican por variables CSS** (`data-tema` en `<html>`) y no por clases | Tailwind v4 compila a `var(--color-*)`: cambiar el tema es instantáneo, sin recargar ni recompilar |
+| Las reglas del tema viven **fuera de `@layer`** | En Tailwind v4 el CSS sin capa gana a las utilidades de las capas |
+| Cada bloque tiene **su propio criterio de orden** (tareas / gastos / agenda) | "Lo que más me importa" cambia según el panel: una entrega por fecha, un gasto por monto, una agenda por hora |
+| Los ajustes viven en el **servidor** (`app_settings`), no en el navegador | La configuración acompaña a la persona a cualquier equipo |
+| La migración de esquema es **idempotente** (`_asegurar_columnas`) y corre en el `lifespan` | Una base de datos vieja se actualiza sola al arrancar |
+
+Detalle completo en [07-AJUSTES.md](07-AJUSTES.md).
 
 Árbol de la interfaz:
 
 ```
 App.tsx                      Vista inicial = agenda; monta <ChatFlotante/> global
 ├── TopBar.tsx               marca, fecha, KPIs, chip de conexión, botón Chat
-├── CalendarPanel.tsx        agenda por franjas (día / semana / mes)
+├── CalendarPanel.tsx        agenda por franjas (día / semana / mes) + filtros y orden
 ├── ContextoLateral.tsx      resumen (hoy, entregas, mes) — solo en pantallas anchas
-├── AcademicPanel.tsx        tareas y resúmenes
-├── LogbookPanel.tsx         gastos y mantenimiento
+├── AcademicPanel.tsx        tareas y resúmenes (ordenables)
+├── LogbookPanel.tsx         gastos y mantenimiento (ordenables)
+├── AjustesPanel.tsx         ajustes + asistente de bienvenida (primera vez)
 ├── ResponsibilityPanel.tsx  aprobaciones, auditoría, política, cumplimiento
-└── ChatFlotante.tsx         burbuja + panel + modo pantalla casi completa
+└── ChatFlotante.tsx         burbuja arrastrable + panel + pantalla completa en móvil
     └── ChatBody.tsx         burbujas, ficha del agente, input, sugerencias
 ```
 
@@ -319,6 +334,8 @@ App.tsx                      Vista inicial = agenda; monta <ChatFlotante/> globa
 | **v1.05 (este repo)** | IA responsable: gobierno, auditoría, aprobación humana, PII, cumplimiento |
 | **v1.10 (este repo)** | Centro de Conexiones (cualquier IA sin jerga), agenda rediseñada por franjas |
 | **v1.11 (este repo)** | Chat flotante (widget aparte) y agenda como vista inicial |
+| **v1.12 (este repo)** | «Conectar con Google» y elección de cualquier IA (468 modelos vía OpenRouter) |
+| **v1.13 (este repo)** | Chat móvil arrastrable, 4 temas, órdenes por bloque y formulario de ajustes inicial |
 | v1.1 | Login multiusuario, Postgres, Alembic, tests unitarios del planner |
 | v1.2 | OAuth Google Classroom (tareas/entregas) y Notion (bases de datos) |
 | v1.3 | Worker asíncrono para PDFs largos + vectorización para el chat de material |

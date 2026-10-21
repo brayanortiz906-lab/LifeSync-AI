@@ -22,7 +22,7 @@ import {
   aFecha, duracionLegible, etiquetaDia, hhmm, HORA_FIN, HORA_INICIO, mismoDia,
 } from '../lib/format'
 import { COLOR_EVENTO } from '../types'
-import type { Evento } from '../types'
+import type { Evento, OrdenEventos } from '../types'
 import { Boton, Chip, Vacio } from './ui'
 
 type Vista = 'dia' | 'semana' | 'mes'
@@ -44,13 +44,42 @@ export default function CalendarPanel({
 }) {
   const eventos = useLifeSync((s) => s.eventos)
   const eliminarEvento = useLifeSync((s) => s.eliminarEvento)
+  const ajustes = useLifeSync((s) => s.ajustes)
+  const guardarAjustes = useLifeSync((s) => s.guardarAjustes)
   const [vista, setVista] = useState<Vista>('dia')
   const [seleccion, setSeleccion] = useState<Evento | null>(null)
+  const [categoria, setCategoria] = useState<string | null>(null)
+  const [soloFijos, setSoloFijos] = useState(false)
 
-  const delDia = useMemo(
-    () => eventos.filter((e) => mismoDia(e.inicio, fecha)).sort((a, b) => a.inicio.localeCompare(b.inicio)),
+  const modo = ajustes?.orden_eventos ?? 'hora'
+
+  const categorias = useMemo(
+    () => [
+      ...new Set(
+        eventos.filter((e) => mismoDia(e.inicio, fecha)).map((e) => e.categoria),
+      ),
+    ],
     [eventos, fecha],
   )
+
+  const delDia = useMemo(() => {
+    let lista = eventos.filter((e) => mismoDia(e.inicio, fecha))
+    if (categoria) lista = lista.filter((e) => e.categoria === categoria)
+    if (soloFijos) lista = lista.filter((e) => e.inamovible)
+    const copia = [...lista]
+    if (modo === 'categoria') {
+      copia.sort(
+        (a, b) =>
+          (a.categoria ?? '').localeCompare(b.categoria ?? '') ||
+          a.inicio.localeCompare(b.inicio),
+      )
+    } else if (modo === 'duracion') {
+      copia.sort((a, b) => (b.duracion_min ?? 0) - (a.duracion_min ?? 0))
+    } else {
+      copia.sort((a, b) => a.inicio.localeCompare(b.inicio))
+    }
+    return copia
+  }, [eventos, fecha, categoria, soloFijos, modo])
 
   return (
     <section className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-white/8 bg-slate-900/60 shadow-xl shadow-black/30 backdrop-blur">
@@ -80,6 +109,53 @@ export default function CalendarPanel({
           ))}
         </div>
       </header>
+
+      {/* Filtros y formas de ordenar lo que se ve */}
+      <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-white/8 px-4 py-2">
+        <Chip
+          onClick={() => setCategoria(null)}
+          className={
+            categoria === null
+              ? 'cursor-pointer bg-indigo-500/20 text-indigo-300 ring-indigo-500/40'
+              : 'cursor-pointer bg-white/5 text-slate-400 ring-white/10 hover:bg-white/10'
+          }
+        >
+          Todas
+        </Chip>
+        {categorias.map((c) => (
+          <Chip
+            key={c}
+            onClick={() => setCategoria(categoria === c ? null : c)}
+            className={
+              categoria === c
+                ? 'cursor-pointer bg-indigo-500/20 text-indigo-300 ring-indigo-500/40'
+                : 'cursor-pointer bg-white/5 text-slate-400 ring-white/10 hover:bg-white/10'
+            }
+          >
+            {c}
+          </Chip>
+        ))}
+        <Chip
+          onClick={() => setSoloFijos((v) => !v)}
+          className={
+            soloFijos
+              ? 'cursor-pointer bg-amber-500/20 text-amber-300 ring-amber-500/40'
+              : 'cursor-pointer bg-white/5 text-slate-400 ring-white/10 hover:bg-white/10'
+          }
+        >
+          solo fijos
+        </Chip>
+        <select
+          value={modo}
+          onChange={(e) => void guardarAjustes({ orden_eventos: e.target.value as OrdenEventos })}
+          title="Como ordenar los bloques del dia"
+          className="ml-auto rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[10px] font-semibold text-slate-300 outline-none hover:bg-white/10"
+        >
+          <option value="hora">Orden: hora</option>
+          <option value="categoria">Orden: categoria</option>
+          <option value="duracion">Orden: duracion</option>
+        </select>
+      </div>
 
       <div className="min-h-0 flex-1 overflow-auto">
         {vista === 'dia' && (

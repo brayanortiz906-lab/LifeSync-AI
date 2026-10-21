@@ -134,6 +134,12 @@ async def ingerir(payload: IngestRequest, db: Session = Depends(get_db, scope="f
 @router.get("/settings", response_model=SettingsOut)
 def leer_settings(db: Session = Depends(get_db, scope="function")):
     app = _get_app_settings(db)
+    try:
+        etiquetas = json.loads(app.etiquetas or "[]")
+        if not isinstance(etiquetas, list):
+            etiquetas = []
+    except Exception:
+        etiquetas = []
     return SettingsOut(
         proveedor=app.proveedor,
         modelo=app.modelo,
@@ -142,6 +148,13 @@ def leer_settings(db: Session = Depends(get_db, scope="function")):
         fin_jornada=app.fin_jornada,
         tiene_api_key=bool(app.api_key_cifrada),
         proveedor_efectivo=app.proveedor if app.api_key_cifrada else "mock",
+        nombre_usuario=app.nombre_usuario or "",
+        tema=app.tema or "medianoche",
+        orden_tareas=app.orden_tareas or "fecha",
+        orden_gastos=app.orden_gastos or "fecha",
+        orden_eventos=app.orden_eventos or "hora",
+        etiquetas=[str(e) for e in etiquetas],
+        onboarding_completo=bool(app.onboarding_completo),
     )
 
 
@@ -158,6 +171,20 @@ def guardar_settings(payload: SettingsUpdate, db: Session = Depends(get_db, scop
         app.inicio_jornada = payload.inicio_jornada
     if payload.fin_jornada:
         app.fin_jornada = payload.fin_jornada
+    if payload.nombre_usuario is not None:
+        app.nombre_usuario = payload.nombre_usuario.strip()[:60]
+    if payload.tema:
+        app.tema = payload.tema
+    if payload.orden_tareas:
+        app.orden_tareas = payload.orden_tareas
+    if payload.orden_gastos:
+        app.orden_gastos = payload.orden_gastos
+    if payload.orden_eventos:
+        app.orden_eventos = payload.orden_eventos
+    if payload.etiquetas is not None:
+        app.etiquetas = json.dumps([str(e).strip() for e in payload.etiquetas if str(e).strip()])
+    if payload.onboarding_completo is not None:
+        app.onboarding_completo = payload.onboarding_completo
     if payload.borrar_api_key:
         app.api_key_cifrada = None
     if payload.api_key:

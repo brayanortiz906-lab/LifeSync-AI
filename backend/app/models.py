@@ -116,6 +116,15 @@ class AppSettings(Base):
     moneda: Mapped[str] = mapped_column(String(8), default="COP")
     inicio_jornada: Mapped[str] = mapped_column(String(5), default="07:00")
     fin_jornada: Mapped[str] = mapped_column(String(5), default="22:00")
+    # --- Preferencias de la persona (v8) ---------------------------------- #
+    nombre_usuario: Mapped[str] = mapped_column(String(60), default="")
+    tema: Mapped[str] = mapped_column(String(24), default="medianoche")
+    orden_tareas: Mapped[str] = mapped_column(String(24), default="fecha")
+    orden_gastos: Mapped[str] = mapped_column(String(24), default="fecha")
+    orden_eventos: Mapped[str] = mapped_column(String(24), default="hora")
+    #: Etiquetas personalization por la persona (JSON con lista de textos).
+    etiquetas: Mapped[str] = mapped_column(Text, default="")
+    onboarding_completo: Mapped[bool] = mapped_column(Boolean, default=False)
     actualizado_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
 

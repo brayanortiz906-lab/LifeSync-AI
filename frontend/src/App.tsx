@@ -8,6 +8,10 @@
  * Vistas:
  *   - "agenda"          -> vista inicial: agenda + tareas + bitacora + resumen
  *   - "responsabilidad" -> gobernanza, auditoria, aprobaciones
+ *   - "ajustes"         -> formulario: tus datos, tema y formas de ordenar
+ *
+ * Primera vez: se muestra el formulario de bienvenida (AsistenteBienvenida)
+ * antes de que la persona toque nada; al terminar la deja en la agenda.
  *
  * Chat:
  *   - burbuja flotante fija (abajo a la derecha), se abre y se cierra con Ctrl+K
@@ -15,7 +19,8 @@
  */
 import { useEffect, useState } from 'react'
 import {
-  AlertTriangle, CalendarCheck, LayoutGrid, MessageSquare, RefreshCw, ShieldCheck, Sparkles,
+  AlertTriangle, CalendarCheck, LayoutGrid, MessageSquare, RefreshCw, Settings,
+  ShieldCheck, Sparkles,
 } from 'lucide-react'
 import { useLifeSync } from './store/useLifeSync'
 import TopBar from './components/TopBar'
@@ -23,11 +28,12 @@ import CalendarPanel from './components/CalendarPanel'
 import AcademicPanel from './components/AcademicPanel'
 import LogbookPanel from './components/LogbookPanel'
 import ResponsibilityPanel from './components/ResponsibilityPanel'
+import AjustesPanel, { AsistenteBienvenida } from './components/AjustesPanel'
 import ContextoLateral from './components/ContextoLateral'
 import ChatFlotante from './components/ChatFlotante'
 import { Boton, Panel } from './components/ui'
 
-type Vista = 'agenda' | 'responsabilidad'
+type Vista = 'agenda' | 'responsabilidad' | 'ajustes'
 
 export default function App() {
   const cargarTodo = useLifeSync((s) => s.cargarTodo)
@@ -35,9 +41,12 @@ export default function App() {
   const cargando = useLifeSync((s) => s.cargando)
   const error = useLifeSync((s) => s.error)
   const aprobaciones = useLifeSync((s) => s.aprobaciones)
+  const ajustes = useLifeSync((s) => s.ajustes)
   const [fecha, setFecha] = useState(new Date())
   const [chatAbierto, setChatAbierto] = useState(false)
   const [vista, setVista] = useState<Vista>('agenda')
+  const [conexionesAbiertas, setConexionesAbiertas] = useState(false)
+  const [bienvenidaSaltada, setBienvenidaSaltada] = useState(false)
 
   useEffect(() => {
     cargarTodo()
@@ -64,7 +73,13 @@ export default function App() {
   const pestanas: Array<{ id: Vista; texto: string; icono: typeof LayoutGrid; color: string }> = [
     { id: 'agenda', texto: 'Mi agenda', icono: LayoutGrid, color: 'emerald' },
     { id: 'responsabilidad', texto: 'Responsabilidad', icono: ShieldCheck, color: 'rose' },
+    { id: 'ajustes', texto: 'Ajustes', icono: Settings, color: 'indigo' },
   ]
+
+  // Primera vez: el formulario de bienvenida manda hasta que la persona lo
+  // completa (o decide saltarlo).
+  const mostrarBienvenida =
+    !cargando && !!ajustes && !ajustes.onboarding_completo && !bienvenidaSaltada
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
@@ -73,9 +88,12 @@ export default function App() {
         onCambiarFecha={setFecha}
         onAbrirChat={() => setChatAbierto((v) => !v)}
         chatAbierto={chatAbierto}
+        conexionesAbiertas={conexionesAbiertas}
+        onAbrirConexiones={() => setConexionesAbiertas(true)}
+        onCerrarConexiones={() => setConexionesAbiertas(false)}
       />
 
-      {/* Navegacion principal: agenda / responsabilidad */}
+      {/* Navegacion principal: agenda / responsabilidad / ajustes */}
       <nav className="flex shrink-0 items-center gap-1.5 border-b border-white/8 bg-slate-950/40 px-3 py-2">
         {pestanas.map((p) => (
           <button
@@ -85,7 +103,9 @@ export default function App() {
               vista === p.id
                 ? p.color === 'emerald'
                   ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'
-                  : 'bg-rose-500 text-white shadow-lg shadow-rose-500/20'
+                  : p.color === 'rose'
+                    ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/20'
+                    : 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20'
                 : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-200'
             }`}
           >
@@ -154,6 +174,12 @@ export default function App() {
         </main>
       )}
 
+      {vista === 'ajustes' && (
+        <main className="min-h-0 flex-1 overflow-y-auto p-3">
+          <AjustesPanel onAbrirConexiones={() => setConexionesAbiertas(true)} />
+        </main>
+      )}
+
       {/* El chat vive aparte: burbuja flotante disponible en cualquier vista. */}
       <ChatFlotante abierto={chatAbierto} onToggle={() => setChatAbierto((v) => !v)} />
 
@@ -161,6 +187,13 @@ export default function App() {
         <div className="pointer-events-none fixed bottom-4 left-4 rounded-full border border-white/10 bg-slate-900/90 px-3 py-1.5 text-[11px] text-slate-400 shadow-lg backdrop-blur">
           Cargando tu vida…
         </div>
+      )}
+
+      {mostrarBienvenida && (
+        <AsistenteBienvenida
+          alTerminar={() => setVista('agenda')}
+          onAbrirConexiones={() => setConexionesAbiertas(true)}
+        />
       )}
     </div>
   )

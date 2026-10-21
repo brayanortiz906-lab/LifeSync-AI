@@ -8,18 +8,33 @@ import ConexionesPanel from './ConexionesPanel'
 
 export default function TopBar({
   fecha, onCambiarFecha, onAbrirChat, chatAbierto,
+  conexionesAbiertas, onAbrirConexiones, onCerrarConexiones,
 }: {
   fecha: Date
   onCambiarFecha: (d: Date) => void
   onAbrirChat?: () => void
   /** Estado del chat flotante (para pintar el boton como activo). */
   chatAbierto?: boolean
+  /** Centro de conexiones controlado desde fuera (p. ej. desde Ajustes). */
+  conexionesAbiertas?: boolean
+  onAbrirConexiones?: () => void
+  onCerrarConexiones?: () => void
 }) {
   const dashboard = useLifeSync((s) => s.dashboard)
   const proveedor = useLifeSync((s) => s.proveedor)
   const apiKey = useLifeSync((s) => s.apiKey)
   const limpiarChat = useLifeSync((s) => s.limpiarChat)
-  const [conexiones, setConexiones] = useState(false)
+  const [conexionesInternas, setConexionesInternas] = useState(false)
+
+  const conexiones = conexionesAbiertas ?? conexionesInternas
+  const abrirConexiones = () => {
+    setConexionesInternas(true)
+    onAbrirConexiones?.()
+  }
+  const cerrarConexiones = () => {
+    setConexionesInternas(false)
+    onCerrarConexiones?.()
+  }
 
   const dia = (offset: number) => {
     const d = new Date(fecha)
@@ -96,13 +111,13 @@ export default function TopBar({
             {chatAbierto ? 'Cerrar chat' : 'Chat'}
           </Boton>
         )}
-        <Boton variante={conectado ? 'secundario' : 'primario'} onClick={() => setConexiones(true)}>
+        <Boton variante={conectado ? 'secundario' : 'primario'} onClick={abrirConexiones}>
           <Plug size={14} />
           {conectado ? 'Conexiones' : 'Conectar IA'}
         </Boton>
       </div>
 
-      <ConexionesPanel abierto={conexiones} onCerrar={() => setConexiones(false)} />
+      <ConexionesPanel abierto={conexiones} onCerrar={cerrarConexiones} />
     </header>
   )
 }

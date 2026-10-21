@@ -7,6 +7,12 @@ import type {
   Politica, Registro, ReporteCumplimiento, ResumenAuditoria, RespuestaAgente, Tarea,
 } from '../types'
 
+/** Aplica el tema visual al <html>: Tailwind lee las variables con [data-tema]. */
+export function aplicarTema(tema: string | undefined | null) {
+  if (typeof document === 'undefined') return
+  document.documentElement.setAttribute('data-tema', tema || 'medianoche')
+}
+
 interface Estado {
   cargando: boolean
   enviando: boolean
@@ -21,6 +27,8 @@ interface Estado {
   modelo: string
   apiKey: string
   ultimoPlan: Record<string, unknown> | null
+  /** Preferencias de la persona (tema, ordenes, nombre, onboarding). */
+  ajustes: Ajustes | null
 
   // --- Sistema responsable -------------------------------------------------
   politica: Politica | null
@@ -62,6 +70,7 @@ export const useLifeSync = create<Estado>((set, get) => ({
   modelo: 'gpt-4o-mini',
   apiKey: leerApiKeyLocal(),
   ultimoPlan: null,
+  ajustes: null,
   politica: null,
   aprobaciones: [],
   auditoria: [],
@@ -88,6 +97,7 @@ export const useLifeSync = create<Estado>((set, get) => ({
         dashboard, tareas, registros, mantenimiento, eventos, cargando: false,
         proveedor: ajustes.proveedor,
         modelo: ajustes.modelo,
+        ajustes,
         mensajes: historial.map((h) => {
           const plan = (h.payload?.resumen_estado?.plan as Record<string, unknown>) ?? undefined
           return {
@@ -100,6 +110,7 @@ export const useLifeSync = create<Estado>((set, get) => ({
           }
         }),
       })
+      aplicarTema(ajustes.tema)
     } catch (e) {
       set({ cargando: false, error: (e as Error).message })
     }
@@ -199,7 +210,8 @@ export const useLifeSync = create<Estado>((set, get) => ({
       guardarApiKeyLocal(datos.api_key)
       set({ apiKey: datos.api_key })
     }
-    set({ proveedor: ajustes.proveedor, modelo: ajustes.modelo })
+    set({ proveedor: ajustes.proveedor, modelo: ajustes.modelo, ajustes })
+    aplicarTema(ajustes.tema)
   },
 
   setApiKey(key) {

@@ -78,7 +78,11 @@ export default function ResponsibilityPanel() {
   const [guardando, setGuardando] = useState(false)
   const [nota, setNota] = useState<Record<number, string>>({})
   const [pruebaTexto, setPruebaTexto] = useState('')
-  const [prueba, setPrueba] = useState<{ texto_redactado: string; categorias: string[] } | null>(null)
+  const [prueba, setPrueba] = useState<{
+    texto_original: string
+    texto_redactado: string
+    categorias: string[]
+  } | null>(null)
   const [inventario, setInventario] = useState<Awaited<ReturnType<typeof api.inventario>> | null>(null)
 
   useEffect(() => {
@@ -424,21 +428,23 @@ export default function ResponsibilityPanel() {
               icono={<Lock className="h-4 w-4 text-emerald-400" />}
               cuerpoClass="p-3 space-y-2"
             >
-              <p className="text-[11px] text-slate-500">
+              <p className="max-w-2xl text-[11px] text-slate-500">
                 Escribe un texto con datos personales y comprueba qué se ocultaría antes de enviarlo al modelo.
               </p>
-              <textarea
-                value={pruebaTexto}
-                onChange={(e) => setPruebaTexto(e.target.value)}
-                rows={3}
-                placeholder="Ej.: llama a Juan al 3105551234, correo juan@correo.com, cedula 1094884721"
-                className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-2.5 py-2 text-xs text-slate-200 placeholder:text-slate-600 focus:border-indigo-500/60 focus:outline-none"
-              />
-              <Boton variante="secundario" onClick={() => void probarRedaccion()}>
-                <ShieldCheck className="h-3.5 w-3.5" /> Comprobar
-              </Boton>
+              <div className="flex max-w-2xl flex-col gap-2 sm:flex-row sm:items-start">
+                <textarea
+                  value={pruebaTexto}
+                  onChange={(e) => setPruebaTexto(e.target.value)}
+                  rows={3}
+                  placeholder="Ej.: llama a Juan al 3105551234, correo juan@correo.com, cedula 1094884721"
+                  className="min-h-[72px] flex-1 resize-y rounded-lg border border-white/10 bg-slate-950/60 px-2.5 py-2 text-xs text-slate-200 placeholder:text-slate-600 focus:border-indigo-500/60 focus:outline-none"
+                />
+                <Boton variante="secundario" onClick={() => void probarRedaccion()} className="shrink-0 sm:mt-0.5">
+                  <ShieldCheck className="h-3.5 w-3.5" /> Comprobar
+                </Boton>
+              </div>
               {prueba && (
-                <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-2.5">
+                <div className="max-w-2xl space-y-2">
                   <div className="flex flex-wrap gap-1.5">
                     {prueba.categorias.length === 0 ? (
                       <Chip className="bg-emerald-500/12 text-emerald-300 ring-emerald-500/25">
@@ -452,9 +458,24 @@ export default function ResponsibilityPanel() {
                       ))
                     )}
                   </div>
-                  <p className="mt-2 whitespace-pre-wrap break-words text-[11px] leading-relaxed text-slate-300">
-                    {prueba.texto_redactado}
-                  </p>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <div className="rounded-lg border border-white/8 bg-white/3 p-2.5">
+                      <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                        Original
+                      </div>
+                      <p className="whitespace-pre-wrap break-words text-[11px] leading-relaxed text-slate-400">
+                        {prueba.texto_original}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-2.5">
+                      <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-400/80">
+                        Lo que ve el modelo
+                      </div>
+                      <p className="whitespace-pre-wrap break-words text-[11px] leading-relaxed text-slate-300">
+                        {prueba.texto_redactado}
+                      </p>
+                    </div>
+                  </div>
                 </div>
               )}
             </Panel>

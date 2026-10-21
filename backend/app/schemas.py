@@ -225,6 +225,13 @@ class SettingsUpdate(BaseModel):
     moneda: str | None = None
     inicio_jornada: str | None = None
     fin_jornada: str | None = None
+    nombre_usuario: str | None = None
+    tema: str | None = None
+    orden_tareas: str | None = None
+    orden_gastos: str | None = None
+    orden_eventos: str | None = None
+    etiquetas: list[str] | None = None
+    onboarding_completo: bool | None = None
 
 
 class SettingsOut(BaseModel):
@@ -235,6 +242,13 @@ class SettingsOut(BaseModel):
     fin_jornada: str
     tiene_api_key: bool = False
     proveedor_efectivo: str = "mock"
+    nombre_usuario: str = ""
+    tema: str = "medianoche"
+    orden_tareas: str = "fecha"
+    orden_gastos: str = "fecha"
+    orden_eventos: str = "hora"
+    etiquetas: list[str] = Field(default_factory=list)
+    onboarding_completo: bool = False
 
 
 # --------------------------------------------------------------------------- #
