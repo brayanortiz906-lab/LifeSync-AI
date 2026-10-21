@@ -426,6 +426,29 @@ export interface EstadoGoogle {
   pista: string
 }
 
+/** Una cuenta con la que se puede entrar (Google, Outlook, GitHub). */
+export interface ProveedorAcceso {
+  id: string
+  nombre: string
+  detalle: string
+  icono: string
+  /** ¿Este servidor ya tiene activado ese acceso? */
+  disponible: boolean
+  /** Lo que ve la persona, en palabras llanas. */
+  mensaje: string
+  /** Donde se activa (para quien instala). */
+  url_registro: string
+  instrucciones: string[]
+}
+
+/** Que vias de acceso ofrece el servidor ahora mismo (v24). */
+export interface InfoProveedores {
+  ok: boolean
+  proveedores: ProveedorAcceso[]
+  correo: { disponible: boolean; mensaje: string }
+  local: { disponible: boolean; mensaje: string }
+}
+
 /** Un permiso que la app pide a la cuenta (Drive, Calendar, correo...). */
 export interface Permiso {
   id: string

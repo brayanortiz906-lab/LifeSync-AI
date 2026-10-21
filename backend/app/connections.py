@@ -513,9 +513,11 @@ ALIAS = {
     "claudecuenta": "claude_cuenta",
     "cuenta": "google_cuenta",
     "outlook": "outlook_cuenta",
+    "outlookcuenta": "outlook_cuenta",
     "microsoft": "outlook_cuenta",
     "hotmail": "outlook_cuenta",
     "github": "github_cuenta",
+    "githubcuenta": "github_cuenta",
 }
 
 
@@ -523,7 +525,15 @@ def normalizar_proveedor(nombre: str | None) -> str:
     """Normaliza el nombre del proveedor a su id de catálogo."""
     if not nombre:
         return "demo"
-    clave = nombre.strip().lower().replace(" ", "").replace("_", "").replace("-", "")
+    original = nombre.strip().lower()
+    # Primero se prueba el nombre tal cual: los ids del catalogo llevan "_"
+    # (outlook_cuenta, github_cuenta...) y si se limpian antes de buscar,
+    # el proveedor deja de encontrarse y el acceso queda roto.
+    if original in CATALOGO:
+        return original
+    if original in PROVEEDORES_SOPORTADOS:
+        return original
+    clave = original.replace(" ", "").replace("_", "").replace("-", "")
     if clave in ALIAS:
         return ALIAS[clave]
     if clave in CATALOGO:

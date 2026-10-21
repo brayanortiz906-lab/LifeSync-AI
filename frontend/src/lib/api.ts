@@ -2,7 +2,7 @@
 import type {
   Ajustes, Aprobacion, AutorizacionCuenta, CatalogoModelos, Conexion, Dashboard, DatosPanel,
   EntradaAuditoria, EstadoGoogle,
-  EstadoPermisos, MiembroPanel, Panel, Permiso,
+  EstadoPermisos, InfoProveedores, MiembroPanel, Panel, Permiso,
   PerfilCuenta, Respaldo, ResultadoCodigo, ResultadoSesion, Usuario,
   Evento, HistorialMsg, Mantenimiento, MotorLocal, Politica, ProveedorCatalogo, Registro,
   ReporteCumplimiento, ResumenAuditoria, RespuestaAgente, ResultadoAutorizacion, Tarea,
@@ -279,6 +279,8 @@ export const cuentas = {
   /** ¿El servidor tiene el acceso con Google activado? (v19) */
   googleDisponible: () =>
     request<{ ok: boolean; disponible: boolean; mensaje: string }>('/cuentas/google/disponible'),
+  /** Que cuentas se pueden usar para entrar y cuales estan activadas aqui (v24). */
+  proveedores: () => request<InfoProveedores>('/cuentas/proveedores'),
   pedirCodigo: (correo: string, nombre = '') =>
     request<ResultadoCodigo>('/cuentas/codigo', {
       method: 'POST',

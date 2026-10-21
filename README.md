@@ -649,9 +649,24 @@ que nadie tenga que configurar nada:
 Tu contrasena **nunca** se guarda en claro (PBKDF2 con 120.000 iteraciones y sal
 por usuario) y la cuenta se crea **pendiente de confirmar** con un codigo (si no
 hay SMTP, el codigo se ve en pantalla, para que nadie quede con una cuenta sin
-verificar). La tarjeta de Google, si no esta activada, lo dice de forma amable:
-*"El acceso con Google todavia no esta activado en este servidor. Entra con tu
-correo: funciona igual de bien."*
+verificar).
+
+**El apartado de cuentas (v24)** muestra ahora las cuatro vias, cada una con su
+estado real (lo que el servidor tiene activado, sin prometer lo que no hay):
+
+| Opcion en pantalla | Que es | Estado |
+|---|---|---|
+| **Google** | Gmail, Google Workspace, cuentas escolares | «Listo, un clic» si esta activado, si no «No disponible aqui» |
+| **Outlook / Hotmail** | Hotmail, Outlook, Microsoft 365, cuentas escolares | igual |
+| **GitHub** | cualquier cuenta de GitHub | igual |
+| **Cualquier correo** | Google, Hotmail, Yahoo, iCloud... con contrasena o con un codigo de 6 digitos | **siempre disponible** |
+| **Seguir en este equipo** | modo local: nada sale de tu computador | siempre disponible |
+
+El estado lo dice el propio servidor: `GET /api/cuentas/proveedores` devuelve
+`{ok, proveedores:[{id, nombre, detalle, icono, disponible, mensaje,
+url_registro, instrucciones}], correo, local}`. Si pulsas una cuenta que no esta
+activada, la pantalla te lo explica y te ofrece las dos salidas: activarlo (si
+eres quien instala) o entrar con tu correo.
 
 Ademas, desde la misma pantalla de cuenta puedes pulsar **"Pedir todos los
 permisos de una vez"** (Drive + Calendar + correo en un solo paso).

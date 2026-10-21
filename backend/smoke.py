@@ -745,6 +745,38 @@ def main() -> int:
             )
         else:
             check("[RESPALDO] el contenido vuelve en la cuenta nueva", False, "no se pudo crear la cuenta")
+
+    # ------------------------------------------------------------------ #
+    # Apartado de cuentas: que cuentas se pueden poner para entrar (v24)
+    # ------------------------------------------------------------------ #
+    print("\n" + "=" * 70)
+    print("APARTADO DE CUENTAS (v24)")
+    print("=" * 70)
+    cod, r = pedir_suave("GET", "/api/cuentas/proveedores")
+    proveedores = (r or {}).get("proveedores", []) if isinstance(r, dict) else []
+    ids = [p.get("id") for p in proveedores]
+    check(
+        "[CUENTA] el apartado ofrece Google, Outlook y GitHub",
+        cod == 200 and set(ids) >= {"google_cuenta", "outlook_cuenta", "github_cuenta"},
+        f"-> cod={cod} ids={ids}",
+    )
+    check(
+        "[CUENTA] cada cuenta de entrada explica como se activa",
+        bool(proveedores)
+        and all(
+            p.get("nombre") and p.get("detalle") and p.get("icono") and p.get("url_registro")
+            for p in proveedores
+        ),
+        f"-> {[p.get('id') for p in proveedores]}",
+    )
+    check(
+        "[CUENTA] el correo y el modo local siempre estan disponibles",
+        isinstance(r, dict)
+        and (r.get("correo") or {}).get("disponible") is True
+        and (r.get("local") or {}).get("disponible") is True,
+        f"-> correo={(r or {}).get('correo', {}).get('disponible')} local={(r or {}).get('local', {}).get('disponible')}",
+    )
+
     print("=" * 70)
     if fallos:
         print(f"RESULTADO: {len(fallos)} CASO(S) FALLIDO(S): {fallos}")

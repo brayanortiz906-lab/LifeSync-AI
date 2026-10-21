@@ -8,13 +8,13 @@
  *  El paso tecnico (configurar un cliente OAuth) lo hace una sola vez quien
  *  instala LifeSync; aqui jamas se le pide nada a quien usa la app.
  */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Check, CircleAlert, Cpu, FlaskConical, LogIn, Mail, ShieldCheck, Sparkles, X,
 } from 'lucide-react'
 import { cuentas, guardarToken } from '../lib/api'
 import { PLANTILLAS } from '../lib/plantillas'
-import type { Usuario } from '../types'
+import type { InfoProveedores, Usuario } from '../types'
 import { Aviso, Boton } from './ui'
 
 type Proveedor = 'google_cuenta' | 'outlook_cuenta' | 'github_cuenta'
@@ -62,6 +62,16 @@ export default function Bienvenida({
   const [ocupado, setOcupado] = useState(false)
   const [estado, setEstado] = useState<{ ok: boolean; texto: string } | null>(null)
   const [textoPegado, setTextoPegado] = useState('')
+  /** Que cuentas estan activadas en este servidor (para no prometer lo que no hay). */
+  const [info, setInfo] = useState<InfoProveedores | null>(null)
+
+  useEffect(() => {
+    if (!abierto) return
+    void cuentas
+      .proveedores()
+      .then((r) => setInfo(r))
+      .catch(() => setInfo(null))
+  }, [abierto])
 
   if (!abierto) return null
 
@@ -168,20 +178,42 @@ export default function Bienvenida({
         {/* Opciones de acceso */}
         {!pendiente && (
           <div className="grid gap-3 sm:grid-cols-3">
-            {OPCIONES.map((o) => (
-              <button
-                key={o.id}
-                onClick={() => void iniciar(o.id)}
-                disabled={ocupado}
-                className="flex flex-col items-center gap-2 rounded-2xl border border-white/10 bg-white/4 p-5 text-center transition hover:border-white/20 hover:bg-white/8 disabled:opacity-60"
-              >
-                <span className="grid h-12 w-12 place-items-center rounded-2xl bg-white/8 text-xl font-black text-white">
-                  {o.icono}
-                </span>
-                <span className="text-[13px] font-bold text-white">{o.titulo}</span>
-                <span className="text-[11px] leading-relaxed text-slate-400">{o.texto}</span>
-              </button>
-            ))}
+            {OPCIONES.map((o) => {
+              const estadoProv = info?.proveedores.find((p) => p.id === o.id)
+              const listo = estadoProv ? estadoProv.disponible : true
+              return (
+                <button
+                  key={o.id}
+                  onClick={() => {
+                    if (listo) void iniciar(o.id)
+                    else setEstado({ ok: false, texto: estadoProv?.mensaje ?? 'Ese acceso no esta disponible en este servidor.' })
+                  }}
+                  disabled={ocupado}
+                  className={`flex flex-col items-center gap-2 rounded-2xl border p-5 text-center transition disabled:opacity-60 ${
+                    listo
+                      ? 'border-white/10 bg-white/4 hover:border-white/20 hover:bg-white/8'
+                      : 'border-white/8 bg-white/2 hover:bg-white/5'
+                  }`}
+                >
+                  <span className="grid h-12 w-12 place-items-center rounded-2xl bg-white/8 text-xl font-black text-white">
+                    {o.icono}
+                  </span>
+                  <span className="text-[13px] font-bold text-white">{o.titulo}</span>
+                  <span className="text-[11px] leading-relaxed text-slate-400">
+                    {listo ? o.texto : 'Este servidor aun no lo tiene activado: usa tu correo o el modo local.'}
+                  </span>
+                  <span
+                    className={`mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-bold ${
+                      listo
+                        ? 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/30'
+                        : 'bg-amber-500/12 text-amber-300 ring-1 ring-amber-500/25'
+                    }`}
+                  >
+                    {listo ? 'Listo, un clic' : 'No disponible aqui'}
+                  </span>
+                </button>
+              )
+            })}
           </div>
         )}
 
@@ -198,8 +230,8 @@ export default function Bienvenida({
               <span>
                 <span className="block text-[12px] font-bold text-white">Más opciones</span>
                 <span className="block text-[11px] leading-relaxed text-slate-400">
-                  Entrar con un correo cualquiera (Hotmail, Yahoo, Gmail) mediante un
-                  codigo de 6 digitos.
+                  Entrar con un correo cualquiera (Hotmail, Yahoo, Gmail) con tu contrasena o con
+                  un codigo de 6 digitos.
                 </span>
               </span>
             </button>

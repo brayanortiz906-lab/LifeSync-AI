@@ -11,7 +11,7 @@
 import { useEffect, useState } from 'react'
 import { Check, CircleAlert, Download, HardDriveDownload, KeyRound, LogIn, LogOut, Mail, ShieldCheck, User } from 'lucide-react'
 import { api, borrarToken, cuentas, guardarToken, permisos as apiPermisos } from '../lib/api'
-import type { Usuario } from '../types'
+import type { InfoProveedores, Usuario } from '../types'
 import { Aviso, Boton, Campo, Modal } from './ui'
 
 export default function AccesoPanel({
@@ -43,6 +43,8 @@ export default function AccesoPanel({
   const [codigoDePrueba, setCodigoDePrueba] = useState('')
   const [ocupado, setOcupado] = useState(false)
   const [googleDisponible, setGoogleDisponible] = useState<boolean | null>(null)
+  const [info, setInfo] = useState<InfoProveedores | null>(null)
+  const [proveedorActivo, setProveedorActivo] = useState<string | null>(null)
   const [estado, setEstado] = useState<{ ok: boolean; texto: string } | null>(null)
 
   const cargar = async () => {
@@ -68,6 +70,11 @@ export default function AccesoPanel({
         .googleDisponible()
         .then((r) => setGoogleDisponible(r.disponible))
         .catch(() => setGoogleDisponible(null))
+      // Que cuentas se pueden usar para entrar y cuales estan activadas aqui.
+      void cuentas
+        .proveedores()
+        .then((r) => setInfo(r))
+        .catch(() => setInfo(null))
     }
   }, [abierto])
 
@@ -81,12 +88,13 @@ export default function AccesoPanel({
   }
 
   /** Paso 1: pedir el codigo de autorizacion (la app ya tiene el permiso). */
-  const entrarConGoogle = async () => {
+  const entrarConGoogle = async (proveedor = 'google_cuenta') => {
     setOcupado(true)
     setEstado(null)
     try {
-      const r = await cuentas.iniciarAccesoGoogle()
+      const r = await cuentas.iniciarAccesoGoogle(proveedor)
       setGoogleAuth({ user_code: r.user_code, verification_uri: r.verification_uri, device_code: r.device_code })
+      setProveedorActivo(proveedor)
       setPaso('google')
     } catch (e) {
       setEstado({ ok: false, texto: (e as Error).message })
@@ -95,13 +103,22 @@ export default function AccesoPanel({
     }
   }
 
+  /** Un proveedor que este servidor no tiene: explica y ofrece salida. */
+  const avisarNoDisponible = (proveedor: string) => {
+    const p = info?.proveedores.find((x) => x.id === proveedor)
+    setEstado({
+      ok: false,
+      texto: p?.mensaje ?? 'Este servidor todavia no tiene ese acceso activado.',
+    })
+  }
+
   /** Paso 2: la persona ya autorizo en su navegador -> abrir su sesion. */
   const confirmarGoogle = async () => {
     if (!googleAuth) return
     setOcupado(true)
     setEstado(null)
     try {
-      const r = await cuentas.terminarAccesoGoogle(googleAuth.device_code)
+      const r = await cuentas.terminarAccesoGoogle(googleAuth.device_code, proveedorActivo ?? 'google_cuenta')
       if (r.ok && r.token && r.usuario) {
         entrar(r.token, r.usuario)
         setGoogleAuth(null)
@@ -313,47 +330,68 @@ export default function AccesoPanel({
 
         {!conectado && paso === 'inicio' && (
           <div className="space-y-3">
-            <button
-              onClick={() => void entrarConGoogle()}
-              disabled={ocupado}
-              className="flex w-full items-start gap-3 rounded-2xl border border-white/10 bg-white/4 p-4 text-left transition hover:bg-white/8 disabled:opacity-60"
-            >
-              <span className="grid h-11 w-11 place-items-center rounded-xl bg-white/6 text-lg font-bold text-white">G</span>
-              <div className="min-w-0 flex-1">
-                <div className="text-xs font-bold text-white">Continuar con Google</div>
-                <div className="text-[11px] leading-relaxed text-slate-400">
-                  {googleDisponible === false
-                    ? 'El acceso con Google todavia no esta activado en este servidor. Entra con tu correo: funciona igual de bien.'
-                    : 'Un clic y ya estas dentro. No necesitas claves ni archivos.'}
+            <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
+              Entra con la cuenta que tengas
+            </div>
+            <div className="grid gap-2.5 sm:grid-cols-2">
+              {(info?.proveedores ?? []).map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => (p.disponible ? void entrarConGoogle(p.id) : avisarNoDisponible(p.id))}
+                  disabled={ocupado}
+                  className={`flex items-start gap-3 rounded-2xl border p-3.5 text-left transition disabled:opacity-60 ${
+                    p.disponible
+                      ? 'border-white/10 bg-white/4 hover:bg-white/8'
+                      : 'border-white/8 bg-white/2 hover:bg-white/5'
+                  }`}
+                >
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/6 text-base">
+                    {p.icono || p.nombre.charAt(0)}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs font-bold text-white">{p.nombre}</div>
+                    <div className="text-[10px] leading-relaxed text-slate-400">{p.detalle}</div>
+                    <span
+                      className={`mt-1.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-bold ${
+                        p.disponible
+                          ? 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/30'
+                          : 'bg-amber-500/12 text-amber-300 ring-1 ring-amber-500/25'
+                      }`}
+                    >
+                      {p.disponible ? 'Listo, un clic' : 'No disponible aqui'}
+                    </span>
+                  </div>
+                </button>
+              ))}
+
+              <div className="rounded-2xl border border-indigo-500/30 bg-indigo-500/8 p-3.5">
+                <div className="flex items-start gap-3">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-indigo-500/15">
+                    <Mail size={16} className="text-indigo-300" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs font-bold text-white">Cualquier correo</div>
+                    <div className="text-[10px] leading-relaxed text-slate-400">
+                      Google, Hotmail, Yahoo, iCloud... el que sea. Funciona siempre.
+                    </div>
+                    <span className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[9px] font-bold text-emerald-300 ring-1 ring-emerald-500/30">
+                      Listo, un clic
+                    </span>
+                  </div>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Boton variante="primario" onClick={() => { setModoCorreo('entrar'); setPaso('password') }}>
+                    Entrar
+                  </Boton>
+                  <Boton variante="secundario" onClick={() => setPaso('correo')}>
+                    Usar un codigo
+                  </Boton>
                 </div>
               </div>
-              <LogIn size={15} className="mt-1 shrink-0 text-slate-500" />
-            </button>
-
-            <button
-              onClick={() => { setModoCorreo('entrar'); setPaso('password') }}
-              className="flex w-full items-start gap-3 rounded-2xl border border-indigo-500/30 bg-indigo-500/8 p-4 text-left transition hover:bg-indigo-500/14"
-            >
-              <span className="grid h-11 w-11 place-items-center rounded-xl bg-indigo-500/15">
-                <Mail size={17} className="text-indigo-300" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="text-xs font-bold text-white">Entrar con mi correo y mi contrasena</div>
-                <div className="text-[11px] leading-relaxed text-slate-400">
-                  Google, Hotmail, Yahoo... cualquiera. Escribes tu correo y tu contrasena y entras.
-                </div>
-              </div>
-            </button>
-
-            <button
-              onClick={() => setPaso('correo')}
-              className="w-full rounded-xl border border-white/8 bg-white/2 px-3 py-2 text-left text-[11px] text-slate-400 transition hover:bg-white/5 hover:text-slate-200"
-            >
-              Prefiero un codigo de un solo uso en vez de contrasena
-            </button>
+            </div>
 
             <div className="flex items-start gap-3 rounded-2xl border border-emerald-500/25 bg-emerald-500/8 p-4">
-              <span className="grid h-11 w-11 place-items-center rounded-xl bg-emerald-500/15">
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-emerald-500/15">
                 <ShieldCheck size={17} className="text-emerald-300" />
               </span>
               <div className="min-w-0 flex-1">
@@ -604,21 +642,46 @@ export default function AccesoPanel({
           </div>
         )}
 
-        {estado && !estado.ok && onAbrirConexiones && (estado.texto.toLowerCase().includes('google') || estado.texto.toLowerCase().includes('acceso con')) && (
-          <div className="rounded-2xl border border-white/10 bg-white/4 p-4">
-            <div className="text-[11px] font-bold text-slate-200">¿Eres quien instala LifeAgente?</div>
-            <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
-              El acceso con Google se activa una sola vez, en el servidor. Si esta es tu maquina,
-              puedes dejarlo listo aqui (tarda un minuto) y a partir de ahora todo el mundo entra
-              con un clic.
-            </p>
-            <div className="mt-2">
-              <Boton variante="secundario" onClick={() => { onAbrirConexiones(); onCerrar() }}>
-                Configurar el acceso con Google
-              </Boton>
+        {!conectado && estado && !estado.ok && onAbrirConexiones && (() => {
+          const txt = estado.texto.toLowerCase()
+          const fallaProveedor =
+            txt.includes('google') ||
+            txt.includes('acceso con') ||
+            txt.includes('activado') ||
+            txt.includes('outlook') ||
+            txt.includes('github')
+          if (!fallaProveedor) return null
+          const enFalta = (info?.proveedores ?? []).find((p) => !p.disponible)
+          return (
+            <div className="rounded-2xl border border-white/10 bg-white/4 p-4">
+              <div className="text-[11px] font-bold text-slate-200">¿Eres quien instala LifeAgente?</div>
+              <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+                Los accesos con cuenta (Google, Outlook, GitHub) se activan una sola vez, en el
+                servidor. Si esta es tu maquina puedes dejarlo listo aqui (tarda un minuto) y a
+                partir de ahora todo el mundo entra con un clic. Mientras tanto, entrar con tu
+                correo funciona igual de bien.
+              </p>
+              {enFalta?.url_registro && (
+                <a
+                  href={enFalta.url_registro}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-2 inline-block text-[11px] font-semibold text-indigo-300 underline hover:text-indigo-200"
+                >
+                  Abrir el panel de {enFalta.nombre} <LogIn size={11} className="inline" />
+                </a>
+              )}
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Boton variante="secundario" onClick={() => { onAbrirConexiones(); onCerrar() }}>
+                  Activar el acceso con cuenta
+                </Boton>
+                <Boton variante="fantasma" onClick={() => { setModoCorreo('entrar'); setPaso('password') }}>
+                  Entrar con mi correo
+                </Boton>
+              </div>
             </div>
-          </div>
-        )}
+          )
+        })()}
 
         {estado && (
           <Aviso tono={estado.ok ? 'ok' : 'error'}>

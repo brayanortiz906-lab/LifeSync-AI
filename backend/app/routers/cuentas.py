@@ -281,6 +281,62 @@ def entrar(payload: EntrarIn, db: Session = Depends(get_db, scope="function")):
     return {"ok": True, "token": token, "usuario": _perfil(usuario)}
 
 
+@router.get("/proveedores")
+def proveedores(db: Session = Depends(get_db, scope="function")):
+    """Que cuentas se pueden usar para entrar y cuales estan activadas aqui.
+
+    La interfaz usa esto para mostrar las opciones REALES (Google, Outlook,
+    GitHub, cualquier correo) y para no dejar a nadie en un callejon sin
+    salida: si un proveedor no esta activado, se ve de entrada que use su
+    correo, que funciona siempre.
+    """
+    from ..connections import obtener_proveedor
+
+    nombres = {
+        "google_cuenta": ("Google", "Gmail, Google Workspace, cuentas escolares"),
+        "outlook_cuenta": ("Outlook / Hotmail", "Hotmail, Outlook, Microsoft 365, cuentas escolares"),
+        "github_cuenta": ("GitHub", "Cualquier cuenta de GitHub"),
+    }
+    salida: list[dict] = []
+    for pid in ("google_cuenta", "outlook_cuenta", "github_cuenta"):
+        prov = obtener_proveedor(pid)
+        nombre, detalle = nombres.get(pid, (pid, ""))
+        try:
+            client_id_de(db, pid)
+            disponible = True
+        except HTTPException:
+            disponible = False
+        salida.append(
+            {
+                "id": pid,
+                "nombre": nombre,
+                "detalle": detalle,
+                "icono": getattr(prov, "icono", "") or "",
+                "disponible": disponible,
+                "mensaje": (
+                    "Un clic y ya estas dentro. No necesitas claves ni archivos."
+                    if disponible
+                    else "Este servidor todavia no lo tiene activado. Entra con tu correo: "
+                    "funciona igual de bien."
+                ),
+                "url_registro": getattr(prov, "url_client_id", "") or getattr(prov, "url_registro", ""),
+                "instrucciones": list(getattr(prov, "instrucciones", []) or []),
+            }
+        )
+    return {
+        "ok": True,
+        "proveedores": salida,
+        "correo": {
+            "disponible": True,
+            "mensaje": "Escribe tu correo y tu contrasena, o pide un codigo de un solo uso.",
+        },
+        "local": {
+            "disponible": True,
+            "mensaje": "Sin cuenta y sin subir nada: todo vive en tu computador.",
+        },
+    }
+
+
 @router.get("/google/disponible")
 def google_disponible(db: Session = Depends(get_db, scope="function")):
     """¿Este servidor tiene el acceso con Google activado?
