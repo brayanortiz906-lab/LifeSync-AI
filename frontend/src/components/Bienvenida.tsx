@@ -13,6 +13,7 @@ import {
   Check, CircleAlert, Cpu, FlaskConical, LogIn, Mail, ShieldCheck, Sparkles, X,
 } from 'lucide-react'
 import { cuentas, guardarToken } from '../lib/api'
+import { PLANTILLAS } from '../lib/plantillas'
 import type { Usuario } from '../types'
 import { Aviso, Boton } from './ui'
 
@@ -41,6 +42,7 @@ const OPCIONES: Array<{ id: Proveedor; titulo: string; texto: string; icono: str
 
 export default function Bienvenida({
   abierto, onCerrar, onSesion, onAbrirAcceso, onModoPrueba, onContinuarLocal,
+  onCargarPlantilla, onPegarTexto,
 }: {
   abierto: boolean
   onCerrar: () => void
@@ -48,6 +50,8 @@ export default function Bienvenida({
   onAbrirAcceso: () => void
   onModoPrueba: () => void
   onContinuarLocal: () => void
+  onCargarPlantilla: (id: string) => void
+  onPegarTexto: (texto: string) => void
 }) {
   const [pendiente, setPendiente] = useState<{
     proveedor: Proveedor
@@ -57,6 +61,7 @@ export default function Bienvenida({
   } | null>(null)
   const [ocupado, setOcupado] = useState(false)
   const [estado, setEstado] = useState<{ ok: boolean; texto: string } | null>(null)
+  const [textoPegado, setTextoPegado] = useState('')
 
   if (!abierto) return null
 
@@ -239,6 +244,61 @@ export default function Bienvenida({
             {estado.ok ? <Check size={12} className="mr-1 inline" /> : <CircleAlert size={12} className="mr-1 inline" />}
             {estado.texto}
           </Aviso>
+        )}
+
+        {/* Organizadores preestablecidos: informacion de ejemplo lista para usar. */}
+        {!pendiente && (
+          <div className="rounded-2xl border border-white/8 bg-white/3 p-4">
+            <div className="mb-1 text-[12px] font-bold text-white">
+              O empieza con un organizador listo
+            </div>
+            <p className="mb-3 text-[11px] leading-relaxed text-slate-400">
+              Plantillas con agenda, tareas y gastos de ejemplo. Cargalas con un clic y
+              cambiala por la tuya. Funciona aunque no haya ninguna IA conectada.
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {PLANTILLAS.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => onCargarPlantilla(p.id)}
+                  className="flex items-start gap-2.5 rounded-xl border border-white/8 bg-white/3 p-3 text-left transition hover:border-white/20 hover:bg-white/6"
+                >
+                  <span className="text-lg leading-none">{p.icono}</span>
+                  <span>
+                    <span className="block text-[11.5px] font-bold text-white">{p.nombre}</span>
+                    <span className="block text-[10.5px] leading-relaxed text-slate-400">
+                      {p.para}
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-3 border-t border-white/8 pt-3">
+              <label className="ls-label">Ya tienes la info en otro chat? Pegala aqui</label>
+              <textarea
+                value={textoPegado}
+                onChange={(e) => setTextoPegado(e.target.value)}
+                rows={2}
+                placeholder="Mañana tengo clase a las 9 y gaste 20 mil en gasolina..."
+                className="ls-input mt-1.5 resize-y"
+              />
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <span className="text-[10.5px] text-slate-500">
+                  LifeAgente lee fechas, horas, montos y palabras clave. Sin IA, sin claves.
+                </span>
+                <Boton
+                  variante="secundario"
+                  onClick={() => {
+                    onPegarTexto(textoPegado)
+                    setTextoPegado('')
+                  }}
+                >
+                  Registrar lo pegado
+                </Boton>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Pie */}

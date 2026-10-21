@@ -55,6 +55,10 @@ export default function App() {
   const [portadaAbierta, setPortadaAbierta] = useState(() => !leerToken())
   const [mostrarAvisoPrueba, setMostrarAvisoPrueba] = useState(false)
   const activarModoPrueba = useLifeSync((s) => s.activarModoPrueba)
+  const activarModoLocal = useLifeSync((s) => s.activarModoLocal)
+  const cargarPlantilla = useLifeSync((s) => s.cargarPlantilla)
+  const importarTexto = useLifeSync((s) => s.importarTexto)
+  const modoLocal = useLifeSync((s) => s.modoLocal)
 
   useEffect(() => {
     cargarTodo()
@@ -219,7 +223,12 @@ export default function App() {
       <ChatFlotante abierto={chatAbierto} onToggle={() => setChatAbierto((v) => !v)} />
     {mostrarAvisoPrueba && (
       <div className="fixed left-1/2 top-3 z-30 -translate-x-1/2 rounded-full border border-amber-500/30 bg-amber-500/15 px-4 py-1.5 text-[11px] font-semibold text-amber-100 backdrop-blur">
-        Modo de prueba · los datos desaparecen al recargar la pagina
+        Modo de prueba · los datos desaparecen al recargar la pagina (maximo 6 bloques, 4 tareas y 6 gastos)
+      </div>
+    )}
+    {modoLocal && !mostrarAvisoPrueba && (
+      <div className="fixed left-1/2 top-3 z-30 -translate-x-1/2 rounded-full border border-sky-500/30 bg-sky-500/15 px-4 py-1.5 text-[11px] font-semibold text-sky-100 backdrop-blur">
+        Modo local · LifeAgente funciona con su motor de reglas y guarda todo en este navegador
       </div>
     )}
     <Bienvenida
@@ -239,7 +248,19 @@ export default function App() {
         activarModoPrueba()
         setMostrarAvisoPrueba(true)
       }}
-      onContinuarLocal={() => setPortadaAbierta(false)}
+      onContinuarLocal={() => {
+        activarModoLocal()
+        setPortadaAbierta(false)
+      }}
+      onCargarPlantilla={(id) => {
+        if (!modoLocal && !useLifeSync.getState().modoPrueba) activarModoLocal()
+        cargarPlantilla(id)
+        setPortadaAbierta(false)
+      }}
+      onPegarTexto={(texto) => {
+        importarTexto(texto)
+        setPortadaAbierta(false)
+      }}
     />
     <AccesoPanel
       abierto={accesoAbierto}

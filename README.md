@@ -420,6 +420,7 @@ el centro de conexiones y los permisos con piloto automático) y compila el fron
 | [docs/10-DESPLIEGUE.md](docs/10-DESPLIEGUE.md) | Publicar la app (Codespaces, Pages + Render, Docker) y quién hace qué |
 | [docs/11-AUTENTICACION.md](docs/11-AUTENTICACION.md) | Acceso con un clic: Google/Outlook/GitHub y sistemas alojados (Firebase, Supabase) |
 | [docs/12-PERMISOS-Y-NUBE.md](docs/12-PERMISOS-Y-NUBE.md) | Permisos de la cuenta, piloto automático y cómo trabaja sin que abras la app |
+| [docs/13-MOTOR-LOCAL.md](docs/13-MOTOR-LOCAL.md) | El motor de reglas: la app funciona sin IA, sin claves y sin servidor |
 
 ---
 
@@ -574,3 +575,29 @@ Donde vive cada cosa:
 
 Detalle tecnico (endpoints, scopes, renovacion del token, tabla
 `permisos_cuenta`): `docs/12-PERMISOS-Y-NUBE.md`.
+
+---
+
+## La app funciona aunque no haya ninguna IA conectada
+
+LifeAgente trae un **motor local de reglas** (`frontend/src/lib/motorLocal.ts`):
+no necesita modelo, ni clave, ni servidor. Reconoce **palabras clave, fechas,
+horas y montos**, y registra lo que le digas.
+
+| Modo | Donde viven los datos | Limite | Como se entra |
+|---|---|---|---|
+| **Modo de prueba** | solo en memoria | 6 bloques, 4 tareas, 6 gastos | botón «Modo de prueba» de la pantalla de bienvenida |
+| **Modo local** | en el navegador (`localStorage`) | ninguno | botón «Sin cuenta, en este equipo», o **solo** si la API no responde |
+| **Con cuenta** | en el servidor, aislado por `usuario_id` | ninguno | Google, Outlook, GitHub o tu correo |
+
+Ademas, la pantalla de bienvenida trae **5 organizadores preestablecidos**
+(Estudiante, Trabajo de oficina, Emprendedor, Moto y mantenimiento, Semana
+simple) y una caja para **pegar informacion de otro chat**: el motor la
+descompone y la registra sola.
+
+```
+"Mañana tengo una cita a las 3 PM y además gasté 25 mil en gasolina"
+-> Agende "Cita" (2026-10-22 15:00) · Registre 25.000 en combustible
+```
+
+Detalle tecnico: `docs/13-MOTOR-LOCAL.md`.

@@ -2,10 +2,217 @@
 import { create } from 'zustand'
 import { api, guardarApiKeyLocal, leerApiKeyLocal } from '../lib/api'
 import { aIso } from '../lib/format'
+import { analizarLocal } from '../lib/motorLocal'
+import type { DatoLocal } from '../lib/motorLocal'
+import { materializarPlantilla, PLANTILLAS } from '../lib/plantillas'
 import type {
   Ajustes, Aprobacion, Dashboard, EntradaAuditoria, Evento, Mantenimiento, MensajeChat,
-  Politica, Registro, ReporteCumplimiento, ResumenAuditoria, RespuestaAgente, Tarea,
+  Politica, Registro, RegistroDetallado, ReporteCumplimiento, ResumenAuditoria, RespuestaAgente, Tarea,
 } from '../types'
+
+/** Clave de localStorage donde viven los datos del modo local (sin servidor). */
+const CLAVE_LOCAL = 'lifesync.local'
+
+/** Cuanto se puede guardar en el modo de prueba (es temporal, es una demo). */
+export const LIMITE_PRUEBA = { eventos: 6, tareas: 4, gastos: 6 }
+
+interface DatosLocales {
+  eventos: Evento[]
+  tareas: Tarea[]
+  registros: Registro[]
+  mantenimiento: Mantenimiento[]
+}
+
+function leerLocales(): DatosLocales | null {
+  try {
+    const crudo = localStorage.getItem(CLAVE_LOCAL)
+    if (!crudo) return null
+    const d = JSON.parse(crudo) as DatosLocales
+    return {
+      eventos: d.eventos ?? [],
+      tareas: d.tareas ?? [],
+      registros: d.registros ?? [],
+      mantenimiento: d.mantenimiento ?? [],
+    }
+  } catch {
+    return null
+  }
+}
+
+function guardarLocales(d: DatosLocales) {
+  try {
+    localStorage.setItem(CLAVE_LOCAL, JSON.stringify(d))
+  } catch {
+    /* sin espacio o sin permiso: la app sigue funcionando en memoria */
+  }
+}
+
+/** Suma minutos a una fecha-hora local en texto. */
+function sumarMinutos(fechaHora: string, minutos: number): string {
+  const [fecha, hora = '00:00'] = fechaHora.split('T')
+  const [h, m] = hora.split(':').map(Number)
+  const total = (h || 0) * 60 + (m || 0) + minutos
+  const hh = Math.floor(total / 60) % 24
+  const mm = total % 60
+  return `${fecha}T${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:00`
+}
+
+/** Suma dias a una fecha local en texto (YYYY-MM-DD). */
+function sumarDias(fecha: string, dias: number): string {
+  const f = new Date(`${fecha}T12:00:00`)
+  f.setDate(f.getDate() + dias)
+  return aIso(f)
+}
+
+/**
+ * Aplica lo que detecto el motor local de reglas a las listas del estado.
+ * En el modo de prueba respeta el limite (es una demo: 3 bloques, 2 tareas, 3 gastos).
+ */
+function aplicarLocal(
+  base: DatosLocales,
+  datos: DatoLocal[],
+  enPrueba: boolean,
+): { resultado: DatosLocales; registros: RegistroDetallado[]; aviso?: string } {
+  const resultado: DatosLocales = {
+    eventos: [...base.eventos],
+    tareas: [...base.tareas],
+    registros: [...base.registros],
+    mantenimiento: [...base.mantenimiento],
+  }
+  const registros: RegistroDetallado[] = []
+  let id = -1000
+  let aviso: string | undefined
+
+  for (const d of datos) {
+    if (d.tipo === 'evento') {
+      if (enPrueba && resultado.eventos.length >= LIMITE_PRUEBA.eventos) {
+        aviso = `En el modo de prueba caben ${LIMITE_PRUEBA.eventos} bloques, ${LIMITE_PRUEBA.tareas} tareas y ${LIMITE_PRUEBA.gastos} gastos. Con una cuenta guardas todo sin limites.`
+        continue
+      }
+      const duracion = d.duracion ?? 60
+      const inicio = `${d.fecha ?? aIso(new Date())}T${d.hora ?? '09:00'}:00`
+      resultado.eventos.push({
+        id: id--,
+        titulo: d.titulo,
+        categoria: (d.categoria ?? 'personal') as Evento['categoria'],
+        inicio,
+        fin: sumarMinutos(inicio, duracion),
+        inamovible: false,
+        notas: '',
+        fuente: 'local',
+        duracion_min: duracion,
+      })
+      registros.push({ tipo: 'evento', titulo: d.titulo, detalle: `${d.fecha ?? aIso(new Date())} ${d.hora ?? '09:00'}` })
+    } else if (d.tipo === 'tarea') {
+      if (enPrueba && resultado.tareas.length >= LIMITE_PRUEBA.tareas) {
+        aviso = `En el modo de prueba caben ${LIMITE_PRUEBA.eventos} bloques, ${LIMITE_PRUEBA.tareas} tareas y ${LIMITE_PRUEBA.gastos} gastos. Con una cuenta guardas todo sin limites.`
+        continue
+      }
+      resultado.tareas.push({
+        id: id--,
+        titulo: d.titulo,
+        materia: null,
+        fecha_entrega: d.fecha ?? aIso(new Date()),
+        estado: 'pendiente',
+        prioridad: 'media',
+        minutos_estimados: 90,
+        resumen: null,
+        material: null,
+        preguntas: [],
+        fuente: 'local',
+      })
+      registros.push({ tipo: 'tarea', titulo: d.titulo, detalle: `Entrega ${d.fecha ?? aIso(new Date())}` })
+    } else if (d.tipo === 'gasto') {
+      if (enPrueba && resultado.registros.length >= LIMITE_PRUEBA.gastos) {
+        aviso = `En el modo de prueba caben ${LIMITE_PRUEBA.eventos} bloques, ${LIMITE_PRUEBA.tareas} tareas y ${LIMITE_PRUEBA.gastos} gastos. Con una cuenta guardas todo sin limites.`
+        continue
+      }
+      const categoria = (d.categoria ?? 'otro') as Registro['categoria']
+      resultado.registros.push({
+        id: id--,
+        descripcion: d.titulo,
+        monto: d.monto ?? 0,
+        moneda: 'COP',
+        categoria,
+        fecha: d.fecha ?? aIso(new Date()),
+        notas: '',
+      })
+      registros.push({
+        tipo: 'gasto',
+        titulo: d.titulo,
+        detalle: `${(d.monto ?? 0).toLocaleString('es-CO')} COP · ${categoria}`,
+      })
+    } else {
+      const proxima = sumarDias(d.fecha ?? aIso(new Date()), 90)
+      resultado.mantenimiento.push({
+        id: id--,
+        activo: d.activo ?? 'hogar',
+        tarea: d.titulo,
+        intervalo_dias: 90,
+        ultima_realizacion: d.fecha ?? aIso(new Date()),
+        proxima_fecha: proxima,
+        costo_estimado: null,
+        notas: '',
+        dias_restantes: 90,
+        vencido: false,
+      })
+      registros.push({ tipo: 'mantenimiento', titulo: d.titulo, detalle: `Proxima: ${proxima}` })
+    }
+  }
+  return { resultado, registros, aviso }
+}
+
+/**
+ * Responde con el motor local de reglas (sin IA) y registra lo que detecta.
+ * Se usa en el modo de prueba, en el modo local y cuando la API no esta disponible
+ * (por ejemplo, la version publicada en GitHub Pages sin servidor detras).
+ */
+function registrarConMotorLocal(texto: string) {
+  const estado = useLifeSync.getState()
+  const enPrueba = estado.modoPrueba
+  const analisis = analizarLocal(texto, new Date())
+  const base: DatosLocales = {
+    eventos: estado.eventos,
+    tareas: estado.tareas,
+    registros: estado.registros,
+    mantenimiento: estado.mantenimiento,
+  }
+  const { resultado, registros, aviso } = aplicarLocal(base, analisis.datos, enPrueba)
+  const detalle = registros.map((r) => `${r.titulo} (${r.detalle})`).join(', ')
+  const mensaje = `${analisis.mensaje}${detalle ? ` Quedó registrado: ${detalle}.` : ''}${aviso ? ` ${aviso}` : ''}`
+  const agente: RespuestaAgente = {
+    categoria: (analisis.categorias[0] ?? 'CONVERSACION') as RespuestaAgente['categoria'],
+    categorias: analisis.categorias,
+    intencion: analisis.categorias.join(' + '),
+    confianza: analisis.confianza,
+    mensaje_usuario: mensaje,
+    requiere_confirmacion: false,
+    acciones: analisis.datos.map((d) => ({
+      tipo: d.tipo,
+      datos: { ...d } as unknown as Record<string, unknown>,
+      motivo: 'Detectado por palabras clave',
+    })),
+    alertas: [],
+    resumen_estado: { registros_detallados: registros, motor: 'local' },
+  }
+  const usuario: MensajeChat = { id: `u-${Date.now()}`, rol: 'user', contenido: texto }
+  const respuesta: MensajeChat = {
+    id: `a-${Date.now()}`,
+    rol: 'assistant',
+    contenido: mensaje,
+    categoria: agente.categoria,
+    agente,
+  }
+  if (!enPrueba) guardarLocales(resultado)
+  useLifeSync.setState({
+    ...resultado,
+    dashboard: null,
+    mensajes: [...estado.mensajes, usuario, respuesta],
+    ultimoPlan: null,
+    enviando: false,
+    error: null,
+  })
+}
 
 /** Aplica el tema visual al <html>: Tailwind lee las variables con [data-tema]. */
 export function aplicarTema(tema: string | undefined | null) {
@@ -40,10 +247,20 @@ interface Estado {
 
   /** Modo de prueba: los datos viven solo en memoria y se borran al recargar. */
   modoPrueba: boolean
+  /** Modo local: la API no esta disponible; todo se guarda en este navegador. */
+  modoLocal: boolean
 
   cargarTodo: () => Promise<void>
   activarModoPrueba: () => void
   salirModoPrueba: () => void
+  /** Modo local: todo se guarda en este navegador, sin servidor. */
+  activarModoLocal: () => void
+  /** Pega texto (por ejemplo un historial de chat) y lo registra con el motor local. */
+  importarTexto: (texto: string) => void
+  /** Carga un organizador preestablecido (plantilla) de un clic. */
+  cargarPlantilla: (id: string) => void
+  /** Borra los datos locales (modo local o de prueba). */
+  limpiarLocal: () => void
   enviarMensaje: (texto: string) => Promise<void>
   refrescarEventos: () => Promise<void>
   completarTarea: (id: number) => Promise<void>
@@ -83,18 +300,73 @@ export const useLifeSync = create<Estado>((set, get) => ({
   cumplimiento: null,
   cargandoResponsable: false,
   modoPrueba: false,
+  modoLocal: false,
 
   activarModoPrueba() {
-    set({ modoPrueba: true, ...datosDePrueba() })
+    set({ modoPrueba: true, modoLocal: false, ...datosDePrueba() })
   },
 
   salirModoPrueba() {
     set({ modoPrueba: false })
   },
 
+  activarModoLocal() {
+    const d = leerLocales() ?? { eventos: [], tareas: [], registros: [], mantenimiento: [] }
+    set({ modoLocal: true, modoPrueba: false, ...d, dashboard: null, error: null })
+  },
+
+  importarTexto(texto) {
+    const limpio = texto.trim()
+    if (!limpio) return
+    if (!get().modoPrueba) get().activarModoLocal()
+    registrarConMotorLocal(limpio)
+  },
+
+  cargarPlantilla(id) {
+    const plantilla = PLANTILLAS.find((p) => p.id === id)
+    if (!plantilla) return
+    const datos = materializarPlantilla(plantilla, new Date())
+    const enPrueba = get().modoPrueba
+    const recorte: DatosLocales = enPrueba
+      ? {
+          eventos: datos.eventos.slice(0, LIMITE_PRUEBA.eventos),
+          tareas: datos.tareas.slice(0, LIMITE_PRUEBA.tareas),
+          registros: datos.registros.slice(0, LIMITE_PRUEBA.gastos),
+          mantenimiento: datos.mantenimiento,
+        }
+      : datos
+    if (!enPrueba && get().modoLocal) guardarLocales(recorte)
+    set({
+      ...recorte,
+      dashboard: null,
+      mensajes: [
+        ...get().mensajes,
+        {
+          id: `a-${Date.now()}`,
+          rol: 'assistant',
+          contenido: `Cargue la plantilla "${plantilla.nombre}". ${plantilla.para} Ya puedes ver como queda una agenda real; cambiala por la tuya cuando quieras.`,
+        },
+      ],
+    })
+  },
+
+  limpiarLocal() {
+    try {
+      localStorage.removeItem(CLAVE_LOCAL)
+    } catch {
+      /* nada que hacer */
+    }
+    set({ eventos: [], tareas: [], registros: [], mantenimiento: [], dashboard: null, mensajes: [] })
+  },
+
   async cargarTodo() {
     if (get().modoPrueba) {
       set({ ...datosDePrueba(), cargando: false, error: null })
+      return
+    }
+    if (get().modoLocal) {
+      const d = leerLocales() ?? { eventos: [], tareas: [], registros: [], mantenimiento: [] }
+      set({ ...d, dashboard: null, cargando: false, error: null })
       return
     }
     set({ cargando: true, error: null })
@@ -130,22 +402,23 @@ export const useLifeSync = create<Estado>((set, get) => ({
       })
       aplicarTema(ajustes.tema)
     } catch (e) {
-      set({ cargando: false, error: (e as Error).message })
+      const mensaje = (e as Error).message || ''
+      // Si la API no esta disponible (Pages sin servidor, API apagada, sin internet)
+      // la app sigue funcionando con el motor local de reglas.
+      if (/404|405|fetch|network|failed to fetch|load failed/i.test(mensaje)) {
+        const d = leerLocales() ?? { eventos: [], tareas: [], registros: [], mantenimiento: [] }
+        set({ modoLocal: true, ...d, dashboard: null, cargando: false, error: null })
+        return
+      }
+      set({ cargando: false, error: mensaje })
     }
   },
 
   async enviarMensaje(texto) {
     const trimmed = texto.trim()
     if (!trimmed) return
-    if (get().modoPrueba) {
-      const usuario: MensajeChat = { id: `u-${Date.now()}`, rol: 'user', contenido: trimmed }
-      const respuesta: MensajeChat = {
-        id: `a-${Date.now()}`,
-        rol: 'assistant',
-        contenido:
-          'Modo de prueba: puedes mirar como funciona la agenda, pero no hay IA conectada. En cuanto recargues la pagina, todo esto desaparece.',
-      }
-      set((s) => ({ mensajes: [...s.mensajes, usuario, respuesta], enviando: false }))
+    if (get().modoPrueba || get().modoLocal) {
+      registrarConMotorLocal(trimmed)
       return
     }
     const usuario: MensajeChat = { id: `u-${Date.now()}`, rol: 'user', contenido: trimmed }
@@ -180,18 +453,25 @@ export const useLifeSync = create<Estado>((set, get) => ({
       // el panel de responsabilidad para que el badge y la lista no queden obsoletos.
       await get().cargarResponsable()
     } catch (e) {
+      const mensaje = (e as Error).message || ''
+      // Sin IA disponible (ni servidor ni clave): el motor local de reglas responde.
+      if (/404|405|fetch|network|failed to fetch|load failed|no hay|proveedor/i.test(mensaje)) {
+        set({ modoLocal: true })
+        registrarConMotorLocal(trimmed)
+        return
+      }
       set((s) => ({
         mensajes: [
           ...s.mensajes,
           {
             id: `e-${Date.now()}`,
             rol: 'assistant',
-            contenido: `No pude completar la acción: ${(e as Error).message}`,
+            contenido: `No pude completar la acción: ${mensaje}`,
             pendiente: true,
           },
         ],
         enviando: false,
-        error: (e as Error).message,
+        error: mensaje,
       }))
     }
   },
