@@ -12,20 +12,55 @@ import type {
 // La URL de la API, en este orden de prioridad:
 // 1. Lo que el usuario guardo en el navegador (util cuando la interfaz esta en
 //    GitHub Pages y la API vive en otro sitio: se puede cambiar sin recompilar).
+//    PERO si esa direccion apunta a un sitio estatico (GitHub Pages) no vale:
+//    ahi no hay API y por eso se ignoraba y la peticion se quedaba en el
+//    sitio estatico (error 405 "Method Not Allowed").
 // 2. Variable de entorno VITE_API_URL (la inyecta el workflow de Pages).
 // 3. El mismo origen (./api) cuando la API se sirve junto a la interfaz.
 const CLAVE_API_URL = 'lifesync.apiUrl'
 
+/** Sitios que solo sirven archivos estaticos: ahi no hay API que responder. */
+function esSitioEstatico(url: string): boolean {
+  if (!url) return false
+  try {
+    const host = new URL(url, window.location.origin).hostname.toLowerCase()
+    return host === 'github.io' || host.endsWith('.github.io')
+  } catch {
+    return false
+  }
+}
+
+function sinBarras(url: string): string {
+  return url.trim().replace(/\/+$/, '')
+}
+
 export function leerUrlApi(): string {
   const guardada = localStorage.getItem(CLAVE_API_URL)?.trim()
-  if (guardada) return guardada.replace(/\/+$/, '')
-  return (import.meta.env.VITE_API_URL || `${import.meta.env.BASE_URL}api`).replace(/\/+$/, '')
+  const delBuild = (import.meta.env.VITE_API_URL || '').trim()
+  // 1. La guardada, siempre que NO apunte a un sitio estatico.
+  if (guardada && !esSitioEstatico(guardada)) return sinBarras(guardada)
+  // 2. La que trae el build (la del despliegue).
+  if (delBuild) return sinBarras(delBuild)
+  // 3. El mismo origen (la API va junto a la interfaz).
+  return sinBarras(`${import.meta.env.BASE_URL}api`)
 }
 
 export function guardarUrlApi(url: string): void {
   const limpio = url.trim()
   if (limpio) localStorage.setItem(CLAVE_API_URL, limpio)
   else localStorage.removeItem(CLAVE_API_URL)
+}
+
+/** True si la direccion guardada en este navegador apunta a un sitio sin API. */
+export function apiGuardadaEsEstatica(): boolean {
+  const guardada = localStorage.getItem(CLAVE_API_URL)?.trim()
+  if (!guardada) return false
+  return esSitioEstatico(guardada)
+}
+
+/** La direccion que se esta usando ahora mismo (la que veria el servidor). */
+export function urlApiEnUso(): string {
+  return leerUrlApi()
 }
 
 // --- Token de sesion (v11) ------------------------------------------------
@@ -55,6 +90,27 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Traduce los errores tecnicos a un mensaje que la persona entienda.
+ * Antes salia el texto crudo del servidor ("Method Not Allowed", "Failed to
+ * fetch") y no decia donde se arregla.
+ */
+function traducirDetalle(detalle: string, status: number): string {
+  const d = (detalle || '').trim()
+  const donde = 'Conectar IA > Direccion de la API'
+  if (status === 0 || /failed to fetch|networkerror|load failed|network request failed/i.test(d)) {
+    return `No pudimos comunicarnos con el servidor. Revisa tu conexion o cambia la direccion de la API en ${donde}.`
+  }
+  if (status === 404) {
+    return `No encontramos ese servicio. Si abriste LifeAgente en GitHub Pages, la API no esta ahi: pon su direccion en ${donde}.`
+  }
+  if (status === 405 || /method not allowed/i.test(d)) {
+    return `El servidor no entendio la peticion. Si abriste LifeAgente en GitHub Pages falta la API detras: pon su direccion en ${donde}.`
+  }
+  if (!d) return `Error ${status}`
+  return d
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const cabeceras: Record<string, string> = { 'Content-Type': 'application/json' }
   const token = leerToken()
@@ -71,7 +127,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     } catch {
       detalle = await res.text().catch(() => detalle)
     }
-    throw new ApiError(detalle, res.status)
+    throw new ApiError(traducirDetalle(detalle, res.status), res.status)
   }
   if (res.status === 204) return undefined as T
   return (await res.json()) as T

@@ -857,6 +857,33 @@ def main() -> int:
         f"-> cod={cod_bad}",
     )
 
+    # ------------------------------------------------------------------ #
+    # Errores claros cuando la API no esta donde se cree (v27)
+    # ------------------------------------------------------------------ #
+    print("\n" + "=" * 70)
+    print("ERRORES CLAROS DE LA API (v27)")
+    print("=" * 70)
+    cod_404, r_404 = pedir_suave("POST", "/api/cuentas/esta-ruta-no-existe", {})
+    check(
+        "[API] una ruta de la API que no existe responde 404 (no 405 confuso)",
+        cod_404 == 404,
+        f"-> cod={cod_404} (el 405 de Starlette hacia que la persona viera 'Method Not Allowed')",
+    )
+    check(
+        "[API] el 404 llega con un mensaje que dice donde arreglarlo",
+        isinstance(r_404, dict) and isinstance(r_404.get("detail"), str)
+        and "direccion de la API" in r_404.get("detail", ""),
+        f"-> {(r_404 or {}).get('detail')}",
+    )
+    cod_405, r_405 = pedir_suave("PUT", "/api/cuentas/registro", {})
+    check(
+        "[API] un metodo equivocado en una ruta de la API tambien explica (no queda mudo)",
+        cod_405 in (404, 405)
+        and isinstance(r_405, dict)
+        and "Direccion de la API" in r_405.get("detail", ""),
+        f"-> cod={cod_405} {(r_405 or {}).get('detail')}",
+    )
+
     print("=" * 70)
     if fallos:
         print(f"RESULTADO: {len(fallos)} CASO(S) FALLIDO(S): {fallos}")

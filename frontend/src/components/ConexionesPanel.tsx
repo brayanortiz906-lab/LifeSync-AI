@@ -14,7 +14,7 @@ import {
   ArrowRight, Check, CircleAlert, Cpu, Eye, EyeOff, Loader2, LogIn,
   Plug, RefreshCw, Search, Server, Sparkles, Trash2, Wifi,
 } from 'lucide-react'
-import { api, guardarUrlApi, leerUrlApi } from '../lib/api'
+import { api, apiGuardadaEsEstatica, guardarUrlApi, leerUrlApi, urlApiEnUso } from '../lib/api'
 import type {
   AutorizacionCuenta, CatalogoModelos, Conexion, EstadoGoogle, ModeloCatalogo, MotorLocal,
   ProveedorCatalogo,
@@ -377,6 +377,29 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
               Guardar
             </Boton>
           </div>
+          {apiGuardadaEsEstatica() && (
+            <div className="mt-2">
+              <Aviso tono="aviso">
+                La direccion guardada apunta a <strong>GitHub Pages</strong>, que solo sirve
+                archivos: ahi no hay API y por eso las cuentas fallaban. Ya se esta usando la del
+                despliegue (<code className="text-slate-300">{urlApiEnUso()}</code>), pero puedes
+                corregirla aqui.
+                <div className="mt-2">
+                  <Boton
+                    variante="fantasma"
+                    onClick={() => {
+                      guardarUrlApi('')
+                      setApiUrl(urlApiEnUso())
+                      setEstado({ ok: true, texto: 'Direccion guardada borrada. Recargando…' })
+                      setTimeout(() => window.location.reload(), 600)
+                    }}
+                  >
+                    Borrar la direccion guardada
+                  </Boton>
+                </div>
+              </Aviso>
+            </div>
+          )}
         </div>
 
         {paso === 'inicio' ? (
