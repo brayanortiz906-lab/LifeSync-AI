@@ -1,4 +1,4 @@
-﻿"""Verificación end-to-end de LifeSync AI contra el backend en marcha.
+"""Verificación end-to-end de LifeSync AI contra el backend en marcha.
 
 Uso (con el backend corriendo en http://127.0.0.1:8000):
     .\\.venv\\Scripts\\python.exe smoke.py

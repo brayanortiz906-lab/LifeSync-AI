@@ -1,4 +1,4 @@
-﻿/** Panel central: calendario / rutina del dia.
+/** Panel central: calendario / rutina del dia.
  *
  * DISENO: en vez de una rejilla de horas "pixel" (dificil de leer y facil de
  * malinterpretar), el dia se presenta como una LINEA DE TIEMPO CLARA:
@@ -27,11 +27,11 @@ import { Boton, Chip, Vacio } from './ui'
 
 type Vista = 'dia' | 'semana' | 'mes'
 
-const ETIQUETAS = ['Lun', 'Mar', 'MiÃ©', 'Jue', 'Vie', 'SÃ¡b', 'Dom']
+const ETIQUETAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 
 /** Franjas del dia: cada bloque se muestra en su franja con su hora exacta. */
 const FRANJAS = [
-  { id: 'manana', titulo: 'MaÃ±ana', desde: 0, hasta: 12 },
+  { id: 'manana', titulo: 'Mañana', desde: 0, hasta: 12 },
   { id: 'tarde', titulo: 'Tarde', desde: 12, hasta: 18 },
   { id: 'noche', titulo: 'Noche', desde: 18, hasta: 24 },
 ]
@@ -92,7 +92,7 @@ export default function CalendarPanel({
 
         <div className="ml-auto flex items-center gap-1 rounded-lg border border-white/10 bg-white/4 p-0.5">
           {([
-            ['dia', 'DÃ­a', Rows3],
+            ['dia', 'Día', Rows3],
             ['semana', 'Semana', List],
             ['mes', 'Mes', LayoutGrid],
           ] as const).map(([v, label, Icono]) => (
@@ -348,7 +348,7 @@ function TarjetaEvento({
   const fin = aFecha(evento.fin)
   const enCurso = esHoy && ahora >= inicio && ahora < fin
   const cruzados = eventos.filter((o) => o.id !== evento.id && seCruzan(evento, o))
-  // TÃ­tulos Ãºnicos: si 5 bloques se cruzan con el mismo tÃ­tulo, se dice una vez.
+  // Títulos únicos: si 5 bloques se cruzan con el mismo título, se dice una vez.
   const titulosCruce = Array.from(new Set(cruzados.map((c) => c.titulo)))
   const otrosCruces = titulosCruce.length - 1
 
@@ -389,7 +389,7 @@ function TarjetaEvento({
               {otrosCruces > 0 && (
                 <span className="font-normal opacity-90">
                   {' '}
-                  y {otrosCruces} {otrosCruces === 1 ? 'bloque mÃ¡s' : 'bloques mÃ¡s'}
+                  y {otrosCruces} {otrosCruces === 1 ? 'bloque más' : 'bloques más'}
                 </span>
               )}
             </span>
@@ -449,7 +449,7 @@ function VistaSemana({
                 </span>
               </div>
               <div className="text-[10px] text-slate-500">
-                {delDia.length === 0 ? 'libre' : `${delDia.length} Â· ${duracionLegible(minutos)}`}
+                {delDia.length === 0 ? 'libre' : `${delDia.length} · ${duracionLegible(minutos)}`}
               </div>
             </button>
 
@@ -604,7 +604,7 @@ function DetalleEvento({
           </div>
           <p className="mt-1 flex items-center gap-1 text-xs text-slate-400">
             <AlarmClock size={12} />
-            {hhmm(evento.inicio)} â€“ {hhmm(evento.fin)} Â· {duracionLegible(evento.duracion_min)}
+            {hhmm(evento.inicio)} â€“ {hhmm(evento.fin)} · {duracionLegible(evento.duracion_min)}
           </p>
           {evento.notas && <p className="mt-1 text-xs text-slate-500">{evento.notas}</p>}
           {evento.inamovible && (

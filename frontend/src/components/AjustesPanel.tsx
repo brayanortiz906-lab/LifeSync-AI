@@ -1,4 +1,4 @@
-﻿/** Ajustes de LifeSync: formulario guiado, temas y formas de organizar.
+/** Ajustes de LifeSync: formulario guiado, temas y formas de organizar.
  *
  * DISENO: la persona no es tecnica. Por eso el formulario va en pasos cortos
  * (una idea por pantalla, botones grandes, lenguaje llano) y los cambios se
@@ -25,7 +25,7 @@ import { Boton, Chip, Panel } from './ui'
 // --------------------------------------------------------------------------- //
 const TEMAS: Array<{ id: TemaId; nombre: string; desc: string; muestra: string[] }> = [
   { id: 'medianoche', nombre: 'Medianoche', desc: 'Violeta y verde. El clasico.', muestra: ['bg-indigo-500', 'bg-violet-500', 'bg-emerald-500'] },
-  { id: 'oceano', nombre: 'OceanÃ­a', desc: 'Cian y azul profundo.', muestra: ['bg-cyan-500', 'bg-indigo-500', 'bg-sky-500'] },
+  { id: 'oceano', nombre: 'Oceanía', desc: 'Cian y azul profundo.', muestra: ['bg-cyan-500', 'bg-indigo-500', 'bg-sky-500'] },
   { id: 'bosque', nombre: 'Bosque', desc: 'Verdes y turquesa.', muestra: ['bg-lime-500', 'bg-teal-500', 'bg-emerald-500'] },
   { id: 'atardecer', nombre: 'Atardecer', desc: 'Naranja y fucsia.', muestra: ['bg-orange-500', 'bg-fuchsia-500', 'bg-rose-500'] },
 ]
@@ -284,7 +284,7 @@ export default function AjustesPanel({ onAbrirConexiones }: { onAbrirConexiones?
               Motor actual: {ajustes.proveedor_efectivo === 'mock' ? 'asistente demo (local)' : ajustes.proveedor}
             </div>
             <div className="text-[10px] text-slate-500">
-              Modelo {ajustes.modelo} Â· moneda {ajustes.moneda}
+              Modelo {ajustes.modelo} · moneda {ajustes.moneda}
             </div>
           </div>
           {onAbrirConexiones && (

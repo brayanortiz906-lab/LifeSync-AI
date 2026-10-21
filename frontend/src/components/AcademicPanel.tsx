@@ -1,4 +1,4 @@
-﻿/** Panel derecho (superior): tareas acadÃ©micas, resÃºmenes y material importado. */
+/** Panel derecho (superior): tareas académicas, resúmenes y material importado. */
 import { useMemo, useState } from 'react'
 import {
   BookOpen, CheckCircle2, Circle, FileUp, GraduationCap, Loader2, Sparkles,
@@ -72,7 +72,7 @@ export default function AcademicPanel() {
       titulo={
         <>
           <GraduationCap size={15} className="text-violet-400" />
-          Tareas acadÃ©micas
+          Tareas académicas
         </>
       }
       acciones={
@@ -111,7 +111,7 @@ export default function AcademicPanel() {
       </div>
 
       {visibles.length === 0 ? (
-        <Vacio icono={<BookOpen size={24} />} texto="Sin tareas por aquÃ­" sub="PÃ­dele al agente que registre una entrega." />
+        <Vacio icono={<BookOpen size={24} />} texto="Sin tareas por aquí" sub="Pídele al agente que registre una entrega." />
       ) : (
         <ul className="divide-y divide-white/5">
           {visibles.map((t) => (
@@ -173,7 +173,7 @@ function TareaItem({
                       : 'bg-white/5 text-slate-400 ring-white/10'
                 }
               >
-                {dias !== null && dias < 0 ? 'vencida' : dias === 0 ? 'hoy' : `en ${dias}d`} Â·{' '}
+                {dias !== null && dias < 0 ? 'vencida' : dias === 0 ? 'hoy' : `en ${dias}d`} ·{' '}
                 {tarea.fecha_entrega}
               </Chip>
             )}
@@ -253,13 +253,13 @@ function ModalImportar({
     <Modal abierto={abierto} onCerrar={onCerrar} titulo="Importar material de estudio">
       <div className="space-y-3">
         <p className="text-xs text-slate-400">
-          Pega el contenido (o el texto extraÃ­do de un PDF / Notion / Classroom). El agente lo resume,
-          genera preguntas de estudio y agenda un bloque de prÃ¡ctica en tu calendario.
+          Pega el contenido (o el texto extraído de un PDF / Notion / Classroom). El agente lo resume,
+          genera preguntas de estudio y agenda un bloque de práctica en tu calendario.
         </p>
         <input
           value={titulo}
           onChange={(e) => setTitulo(e.target.value)}
-          placeholder="TÃ­tulo (ej. CapÃ­tulo 4 â€” LÃ­mites)"
+          placeholder="Título (ej. Capítulo 4 â€” Límites)"
           className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 outline-none focus:border-indigo-500/60"
         />
         <input
@@ -272,7 +272,7 @@ function ModalImportar({
           value={material}
           onChange={(e) => setMaterial(e.target.value)}
           rows={8}
-          placeholder="Pega aquÃ­ el materialâ€¦"
+          placeholder="Pega aquí el materialâ€¦"
           className="w-full resize-y rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 outline-none focus:border-indigo-500/60"
         />
         {error && <p className="text-xs text-rose-300">{error}</p>}

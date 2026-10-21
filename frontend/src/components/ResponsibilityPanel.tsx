@@ -1,4 +1,4 @@
-﻿/** Panel de Responsabilidad: gobierno, aprobaciones, auditoria y cumplimiento. */
+/** Panel de Responsabilidad: gobierno, aprobaciones, auditoria y cumplimiento. */
 import { useEffect, useMemo, useState } from 'react'
 import {
   Activity, AlertTriangle, BookOpen, CheckCircle2, FileText, Fingerprint, Info,
@@ -114,8 +114,8 @@ export default function ResponsibilityPanel() {
 
   const subTabs: { id: SubPanel; label: string; icono: typeof ShieldCheck; badge?: number }[] = [
     { id: 'aprobaciones', label: 'Aprobaciones', icono: ShieldAlert, badge: pendientes.length },
-    { id: 'auditoria', label: 'AuditorÃ­a', icono: Fingerprint },
-    { id: 'politica', label: 'PolÃ­tica', icono: Scale },
+    { id: 'auditoria', label: 'Auditoría', icono: Fingerprint },
+    { id: 'politica', label: 'Política', icono: Scale },
     { id: 'cumplimiento', label: 'Cumplimiento', icono: BookOpen },
   ]
 
@@ -183,8 +183,8 @@ export default function ResponsibilityPanel() {
             {pendientes.length === 0 ? (
               <Vacio
                 icono={<CheckCircle2 className="h-8 w-8" />}
-                texto="Nada espera tu aprobaciÃ³n"
-                sub="El agente solo te consulta cuando una acciÃ³n es sensible: borrados, gastos altos o confianza baja."
+                texto="Nada espera tu aprobación"
+                sub="El agente solo te consulta cuando una acción es sensible: borrados, gastos altos o confianza baja."
               />
             ) : (
               pendientes.map((p) => (
@@ -216,7 +216,7 @@ export default function ResponsibilityPanel() {
                   <input
                     value={nota[p.id] ?? ''}
                     onChange={(e) => setNota((n) => ({ ...n, [p.id]: e.target.value }))}
-                    placeholder="Nota para la bitÃ¡cora (opcional)"
+                    placeholder="Nota para la bitácora (opcional)"
                     className="mt-2 w-full rounded-lg border border-white/10 bg-slate-950/60 px-2.5 py-1.5 text-xs text-slate-200 placeholder:text-slate-600 focus:border-indigo-500/60 focus:outline-none"
                   />
 
@@ -244,13 +244,13 @@ export default function ResponsibilityPanel() {
         {sub === 'auditoria' && (
           <Panel
             className="h-full"
-            titulo="BitÃ¡cora de auditorÃ­a"
+            titulo="Bitácora de auditoría"
             icono={<Fingerprint className="h-4 w-4 text-indigo-400" />}
             acciones={
               <Boton
                 variante="fantasma"
                 onClick={() => void purgarAuditoria()}
-                titulo="Purgar entradas mÃ¡s antiguas que la retenciÃ³n configurada"
+                titulo="Purgar entradas más antiguas que la retención configurada"
               >
                 <Trash2 className="h-3.5 w-3.5" /> Purgar
               </Boton>
@@ -281,8 +281,8 @@ export default function ResponsibilityPanel() {
             {auditoria.length === 0 ? (
               <Vacio
                 icono={<Activity className="h-8 w-8" />}
-                texto="Sin registros todavÃ­a"
-                sub="Cada decisiÃ³n del agente (aplicada, bloqueada, aprobada o rechazada) quedarÃ¡ anotada aquÃ­."
+                texto="Sin registros todavía"
+                sub="Cada decisión del agente (aplicada, bloqueada, aprobada o rechazada) quedará anotada aquí."
               />
             ) : (
               auditoria.map((e) => <FilaAuditoria key={e.id} entrada={e} />)
@@ -294,12 +294,12 @@ export default function ResponsibilityPanel() {
         {sub === 'politica' && (
           <div className="h-full overflow-y-auto space-y-3">
             <Panel
-              titulo="ParÃ¡metros de gobierno"
+              titulo="Parámetros de gobierno"
               icono={<Scale className="h-4 w-4 text-slate-400" />}
               cuerpoClass="p-4 space-y-3"
             >
               {!politica ? (
-                <Vacio texto="Cargando polÃ­tica..." />
+                <Vacio texto="Cargando política..." />
               ) : (
                 <>
                   <Interruptor
@@ -311,38 +311,38 @@ export default function ResponsibilityPanel() {
                   <Interruptor
                     activo={politica.eliminar_requiere_aprobacion}
                     onChange={(v) => void alternar('eliminar_requiere_aprobacion', v)}
-                    etiqueta="Borrados requieren aprobaciÃ³n"
-                    descripcion="Eliminar un registro es irreversible, asÃ­ que siempre te lo consulta."
+                    etiqueta="Borrados requieren aprobación"
+                    descripcion="Eliminar un registro es irreversible, así que siempre te lo consulta."
                   />
                   <Interruptor
                     activo={politica.gasto_alto_requiere_aprobacion}
                     onChange={(v) => void alternar('gasto_alto_requiere_aprobacion', v)}
-                    etiqueta="Gastos altos requieren aprobaciÃ³n"
+                    etiqueta="Gastos altos requieren aprobación"
                     descripcion={`Los gastos por encima de ${monto(politica.gasto_max_autonomo)} pasan a tu bandeja.`}
                   />
                   <Interruptor
                     activo={politica.baja_confianza_requiere_aprobacion}
                     onChange={(v) => void alternar('baja_confianza_requiere_aprobacion', v)}
-                    etiqueta="Baja confianza requiere aprobaciÃ³n"
+                    etiqueta="Baja confianza requiere aprobación"
                     descripcion={`Si el modelo duda (menos de ${(politica.umbral_confianza * 100).toFixed(0)}% de confianza), te pregunta antes de actuar.`}
                   />
                   <Interruptor
                     activo={politica.exigir_motivo}
                     onChange={(v) => void alternar('exigir_motivo', v)}
                     etiqueta="Exigir motivo"
-                    descripcion="Ninguna acciÃ³n se aplica sin una explicaciÃ³n de por quÃ©."
+                    descripcion="Ninguna acción se aplica sin una explicación de por qué."
                   />
                   <Interruptor
                     activo={politica.redactar_pii}
                     onChange={(v) => void alternar('redactar_pii', v)}
                     etiqueta="Redactar datos personales"
-                    descripcion="CÃ©dulas, telÃ©fonos, correos, tarjetas y claves se ocultan antes de enviar nada al modelo."
+                    descripcion="Cédulas, teléfonos, correos, tarjetas y claves se ocultan antes de enviar nada al modelo."
                   />
                   <Interruptor
                     activo={politica.registrar_auditoria}
                     onChange={(v) => void alternar('registrar_auditoria', v)}
-                    etiqueta="Registrar auditorÃ­a"
-                    descripcion="Guarda quiÃ©n hizo quÃ©, con quÃ© motivo y con quÃ© riesgo."
+                    etiqueta="Registrar auditoría"
+                    descripcion="Guarda quién hizo qué, con qué motivo y con qué riesgo."
                   />
                   <Interruptor
                     activo={politica.permitir_ia_externa}
@@ -351,14 +351,14 @@ export default function ResponsibilityPanel() {
                     descripcion="Si lo desactivas, todo se procesa con el motor local y nada sale de tu equipo."
                   />
                   {guardando && (
-                    <p className="text-[11px] text-slate-500">Guardando polÃ­tica...</p>
+                    <p className="text-[11px] text-slate-500">Guardando política...</p>
                   )}
                 </>
               )}
             </Panel>
 
             <Panel
-              titulo="Umbrales numÃ©ricos"
+              titulo="Umbrales numéricos"
               icono={<AlertTriangle className="h-4 w-4 text-amber-400" />}
               cuerpoClass="p-4 space-y-3.5"
             >
@@ -382,7 +382,7 @@ export default function ResponsibilityPanel() {
                   </label>
                   <label className="block">
                     <span className="text-xs font-semibold text-slate-300">
-                      Gasto mÃ¡ximo autÃ³nomo: {monto(politica.gasto_max_autonomo)}
+                      Gasto máximo autónomo: {monto(politica.gasto_max_autonomo)}
                     </span>
                     <input
                       type="number"
@@ -395,7 +395,7 @@ export default function ResponsibilityPanel() {
                   </label>
                   <label className="block">
                     <span className="text-xs font-semibold text-slate-300">
-                      MÃ¡ximo de acciones por mensaje: {politica.max_acciones_por_mensaje}
+                      Máximo de acciones por mensaje: {politica.max_acciones_por_mensaje}
                     </span>
                     <input
                       type="number"
@@ -408,7 +408,7 @@ export default function ResponsibilityPanel() {
                   </label>
                   <label className="block">
                     <span className="text-xs font-semibold text-slate-300">
-                      RetenciÃ³n de auditorÃ­a: {politica.dias_retencion_auditoria} dÃ­as
+                      Retención de auditoría: {politica.dias_retencion_auditoria} días
                     </span>
                     <input
                       type="number"
@@ -424,12 +424,12 @@ export default function ResponsibilityPanel() {
             </Panel>
 
             <Panel
-              titulo="Prueba de redacciÃ³n de datos personales"
+              titulo="Prueba de redacción de datos personales"
               icono={<Lock className="h-4 w-4 text-emerald-400" />}
               cuerpoClass="p-4 space-y-3"
             >
               <p className="max-w-2xl text-[11px] text-slate-500">
-                Escribe un texto con datos personales y comprueba quÃ© se ocultarÃ­a antes de enviarlo al modelo.
+                Escribe un texto con datos personales y comprueba qué se ocultaría antes de enviarlo al modelo.
               </p>
               <div className="flex max-w-2xl flex-col gap-2 sm:flex-row sm:items-start">
                 <textarea
@@ -541,7 +541,7 @@ export default function ResponsibilityPanel() {
                 <table className="w-full text-left text-[11px]">
                   <thead>
                     <tr className="text-slate-500">
-                      <th className="py-1.5 pr-3 font-semibold">CategorÃ­a</th>
+                      <th className="py-1.5 pr-3 font-semibold">Categoría</th>
                       <th className="py-1.5 pr-3 font-semibold">Dato</th>
                       <th className="py-1.5 pr-3 font-semibold">Finalidad</th>
                       <th className="py-1.5 font-semibold">Base legal</th>
@@ -572,7 +572,7 @@ export default function ResponsibilityPanel() {
                     <div key={t.nombre} className="rounded-xl border border-white/8 bg-white/3 px-3 py-2.5">
                       <p className="text-xs font-semibold text-slate-200">{t.nombre}</p>
                       <p className="mt-0.5 text-[11px] text-slate-400">
-                        Dato enviado: {t.dato} Â· PropÃ³sito: {t.proposito}
+                        Dato enviado: {t.dato} · Propósito: {t.proposito}
                       </p>
                       <p className="mt-0.5 text-[11px] text-emerald-300">Control: {t.control}</p>
                     </div>
@@ -614,23 +614,23 @@ function FilaAuditoria({ entrada }: { entrada: EntradaAuditoria }) {
       )}
       <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-slate-500">
         <span className={COLOR_ACTOR[entrada.actor] ?? 'text-slate-400'}>{entrada.actor}</span>
-        <span>Â·</span>
+        <span>·</span>
         <span>{entrada.tipo}</span>
-        <span>Â·</span>
+        <span>·</span>
         <span className={COLOR_RESULTADO[entrada.resultado] ?? 'text-slate-400'}>
           {entrada.resultado}
         </span>
         {entrada.confianza != null && (
           <>
-            <span>Â·</span>
+            <span>·</span>
             <span>confianza {(entrada.confianza * 100).toFixed(0)}%</span>
           </>
         )}
-        <span>Â·</span>
+        <span>·</span>
         <span>{new Date(entrada.creado_en).toLocaleString('es-CO')}</span>
         {!entrada.reversible && (
           <>
-            <span>Â·</span>
+            <span>·</span>
             <span className="text-rose-300">irreversible</span>
           </>
         )}

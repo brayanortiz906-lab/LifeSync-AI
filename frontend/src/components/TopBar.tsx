@@ -1,4 +1,4 @@
-﻿/** Barra superior: marca, navegaciÃ³n de fecha, KPIs y conexiones de IA. */
+/** Barra superior: marca, navegación de fecha, KPIs y conexiones de IA. */
 import { useState } from 'react'
 import { CalendarDays, ChevronLeft, ChevronRight, MessageSquare, Plug, Sparkles, Trash2 } from 'lucide-react'
 import { useLifeSync } from '../store/useLifeSync'
@@ -57,14 +57,14 @@ export default function TopBar({
       </div>
 
       <div className="flex items-center gap-1 rounded-xl border border-white/8 bg-white/4 px-1 py-1">
-        <button onClick={() => dia(-1)} className="rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-white" aria-label="DÃ­a anterior">
+        <button onClick={() => dia(-1)} className="rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-white" aria-label="Día anterior">
           <ChevronLeft size={16} />
         </button>
         <div className="flex min-w-[150px] items-center justify-center gap-1.5 px-1 text-xs font-semibold text-slate-200">
           <CalendarDays size={14} className="text-indigo-400" />
           {etiquetaDia(fecha)}
         </div>
-        <button onClick={() => dia(1)} className="rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-white" aria-label="DÃ­a siguiente">
+        <button onClick={() => dia(1)} className="rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-white" aria-label="Día siguiente">
           <ChevronRight size={16} />
         </button>
         <Boton variante="fantasma" onClick={() => onCambiarFecha(new Date())} className="ml-1">
@@ -76,7 +76,7 @@ export default function TopBar({
         {dashboard && (
           <>
             <Chip className="bg-indigo-500/15 text-indigo-300 ring-indigo-500/30">
-              {dashboard.carga.total_bloques} bloques Â·{' '}
+              {dashboard.carga.total_bloques} bloques ·{' '}
               {duracionLegible(dashboard.carga.minutos_productivos)} productivas
             </Chip>
             <Chip className="bg-emerald-500/15 text-emerald-300 ring-emerald-500/30">
