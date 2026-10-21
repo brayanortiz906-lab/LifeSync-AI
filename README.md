@@ -183,15 +183,19 @@ reorganización de agenda) sin gastar tokens. Para conectar una IA real, ve a
 ### El Centro de Conexiones (conecta **cualquier** IA, sin jerga)
 
 LifeAgente no te obliga a saber qué es un token o una API key. El botón **Conectar IA**
-abre un asistente con cuatro caminos, explicados en lenguaje llano:
+abre un asistente con **cuatro secciones numeradas**, de la más fácil a la más manual:
 
-| Camino | Qué necesitas | Costo |
-|---|---|---|
-| **Continuar con Google** | Un clic: entras con tu cuenta de Google y **después eliges con qué IA trabajar** | El de tu plan |
-| **Ya tengo mi cuenta de IA** | Iniciar sesión con tu cuenta (Google, ChatGPT, Claude) — sin escribir tokens | El de tu plan |
-| **Usar la IA de mi computador** | Nada: detecta el motor local solo (Ollama o LM Studio) | **Gratis, sin internet** |
-| **Tengo una clave de API** | Una clave, con el link a la consola y los pasos numerados | Según el uso |
-| **Solo quiero ver cómo funciona** | Nada | Gratis |
+| # | Sección | Qué encuentras | Costo |
+|---|---|---|---|
+| **1** | **Entra con tu cuenta** | la tarjeta grande de **Google** (un clic, autorizas en el navegador) y los botones de **Outlook/Hotmail** y **GitHub** | El de tu plan |
+| **2** | **Usa la IA de tu computador** | los motores locales detectados (Ollama, LM Studio, Jan…) con su botón «Conectar»; si no hay ninguno, la tarjeta **«Descarga una IA ligera»** (4 modelos, 400 MB el recomendado) | **Gratis, sin internet** |
+| **3** | **Conecta una IA con clave** | los chips de los proveedores con clave: OpenAI, Anthropic, Gemini y OpenRouter (300+ modelos) | Según el uso |
+| **4** | **Solo quiero ver cómo funciona** | el **asistente demo** integrado, que no necesita nada | Gratis |
+
+Debajo: **«Tus conexiones»** (las que ya guardaste) y, **plegado y al final**, el bloque
+**«Ajustes técnicos (solo si algo va mal)»** con la *Dirección de la API* y la
+*Configuración avanzada* (activar el acceso con una cuenta: tarea de una sola vez de
+quien instala). *Regla de oro: lo que usas todos los días arriba; lo técnico abajo y plegado.*
 
 El camino de **cuenta** usa **OAuth 2.0 Device Authorization**, el estándar de "inicia
 sesión con tu cuenta": LifeAgente te da un **código corto**, abres el sitio del proveedor

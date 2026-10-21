@@ -275,6 +275,28 @@ ollama pull qwen2.5:7b
 
 ---
 
+---
+
+## 10. Como esta organizado el Centro de Conexiones (v30)
+
+La ventana "Conectar tu IA" esta dividida en **cuatro secciones numeradas**, de la
+mas facil a la mas manual, para que se entienda de un vistazo:
+
+| # | Seccion | Que encuentras | Para quien |
+|---|---|---|---|
+| 1 | **Entra con tu cuenta** | la tarjeta grande de **Google** (un clic, autorizas en el navegador) y los botones de las demas cuentas (Outlook/Hotmail, GitHub) | quien quiere entrar con su cuenta y ya |
+| 2 | **Usa la IA de tu computador** | los motores locales detectados (Ollama, LM Studio, Jan...) con su boton "Conectar"; si no hay ninguno, la tarjeta **"Descarga una IA ligera"** con 4 modelos y su barra de progreso | quien quiere todo privado y gratis |
+| 3 | **Conecta una IA con clave** | los chips de los proveedores con clave (OpenAI, Anthropic, Gemini, OpenRouter) y los motores locales compatibles | quien ya tiene una clave de API |
+| 4 | **Solo quiero ver como funciona** | el **asistente demo** integrado, que no necesita nada | quien solo quiere ver como se ve |
+
+Debajo van **"Tus conexiones"** (las que ya guardaste) y, plegado y al final, el bloque
+**"Ajustes tecnicos (solo si algo va mal)"** con la *Direccion de la API* y el acceso a
+la *Configuracion avanzada* (activar el acceso con una cuenta: tarea de una sola vez
+de quien instala).
+
+Regla de oro de esta pantalla: **lo que la persona usa todos los dias esta arriba y a
+la vista; lo tecnico esta abajo y plegado.**
+
 ## 9. Referencias
 
 - `backend/app/connections.py` — catálogo, detección local y verificación.

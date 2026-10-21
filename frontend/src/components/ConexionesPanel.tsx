@@ -11,8 +11,8 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import {
-  ArrowRight, Check, CircleAlert, Cpu, Eye, EyeOff, Loader2, LogIn,
-  Plug, RefreshCw, Search, Server, Sparkles, Trash2, Wifi,
+  ArrowRight, Check, ChevronDown, CircleAlert, Cpu, Eye, EyeOff, Loader2, LogIn,
+  Plug, RefreshCw, Search, Server, Settings, Sparkles, Trash2, Wifi,
 } from 'lucide-react'
 import { api, apiGuardadaEsEstatica, guardarUrlApi, leerUrlApi, urlApiEnUso } from '../lib/api'
 import type {
@@ -54,6 +54,34 @@ const CAMINOS: Array<{ id: string; titulo: string; texto: string; icono: string;
   },
 ]
 
+/** Seccion numerada: separa los caminos para que se entienda de un vistazo. */
+function BloqueSeccion({
+  numero,
+  titulo,
+  descripcion,
+  children,
+}: {
+  numero: string
+  titulo: string
+  descripcion: string
+  children: React.ReactNode
+}) {
+  return (
+    <section className="space-y-2.5">
+      <div className="flex items-start gap-2.5">
+        <span className="grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-indigo-500/20 text-[11px] font-black text-indigo-200 ring-1 ring-indigo-400/30">
+          {numero}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-bold text-white">{titulo}</div>
+          <div className="text-[11px] leading-relaxed text-slate-400">{descripcion}</div>
+        </div>
+      </div>
+      <div className="pl-0 sm:pl-[34px]">{children}</div>
+    </section>
+  )
+}
+
 export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolean; onCerrar: () => void }) {
   const [catalogo, setCatalogo] = useState<ProveedorCatalogo[]>([])
   const [conexiones, setConexiones] = useState<Conexion[]>([])
@@ -75,6 +103,8 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
   const [autorizacion, setAutorizacion] = useState<AutorizacionCuenta | null>(null)
   const [esperando, setEsperando] = useState(false)
   const [apiUrl, setApiUrl] = useState(() => leerUrlApi())
+  /** Ajustes tecnicos plegados (solo para quien instala). */
+  const [verAjustes, setVerAjustes] = useState(false)
   const [modelos, setModelos] = useState<ModeloCatalogo[]>([])
   const [familias, setFamilias] = useState<{ familia: string; modelos: number }[]>([])
   const [filtroModelo, setFiltroModelo] = useState('')
@@ -292,6 +322,8 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
 
   const porModo = (modo: string) => catalogo.filter((c) => c.modo === modo)
   const motoresDisponibles = motores.filter((m) => porModo('local').some((c) => c.id === m.id))
+  /** Cuentas de entrada que no son Google (Outlook, GitHub). */
+  const otrasCuentas = porModo('cuenta').filter((c) => c.id !== 'google_cuenta')
   const activa = conexiones.find((c) => c.activa)
   // "Google (con mi cuenta de Google)" -> "Google": evita titles duplicados.
   const nombreCorto =
@@ -348,220 +380,173 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
           )}
         </div>
 
-        {/* Direccion de la API: util cuando la interfaz esta en GitHub Pages */}
-        <div className="rounded-2xl border border-white/8 bg-white/4 p-4">
-          <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
-            <Server size={13} />
-            Direccion de la API
-          </div>
-          <p className="mt-1 text-[10px] leading-relaxed text-slate-400">
-            Si abriste LifeAgente desde GitHub Pages, pon aqui la direccion donde vive el
-            servidor (por ejemplo <code className="text-slate-300">https://lifesync-api.onrender.com/api</code>).
-            Se guarda solo en este navegador.
-          </p>
-          <div className="mt-2 flex gap-2">
-            <input
-              value={apiUrl}
-              onChange={(e) => setApiUrl(e.target.value)}
-              placeholder="dejala vacio si la API esta en este mismo sitio"
-              className="min-w-0 flex-1 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[11px] text-slate-100 outline-none transition focus:border-indigo-500/60"
-            />
-            <Boton
-              variante="secundario"
-              onClick={() => {
-                guardarUrlApi(apiUrl)
-                setEstado({ ok: true, texto: 'Dirección de la API guardada. Recargando…' })
-                setTimeout(() => window.location.reload(), 600)
-              }}
-            >
-              Guardar
-            </Boton>
-          </div>
-          {apiGuardadaEsEstatica() && (
-            <div className="mt-2">
-              <Aviso tono="aviso">
-                La direccion guardada no sirve: no es una direccion de API valida (o apunta a
-                <strong>GitHub Pages</strong>, que solo sirve archivos). Ahi no hay API y por eso
-                las cuentas fallaban. Ya se esta usando la del despliegue (
-                <code className="text-slate-300">{urlApiEnUso()}</code>), pero puedes corregirla aqui.
-                <div className="mt-2">
-                  <Boton
-                    variante="fantasma"
-                    onClick={() => {
-                      guardarUrlApi('')
-                      setApiUrl(urlApiEnUso())
-                      setEstado({ ok: true, texto: 'Direccion guardada borrada. Recargando…' })
-                      setTimeout(() => window.location.reload(), 600)
-                    }}
-                  >
-                    Borrar la direccion guardada
-                  </Boton>
-                </div>
-              </Aviso>
-            </div>
-          )}
-        </div>
 
         {paso === 'inicio' ? (
           <>
             <p className="text-[11px] leading-relaxed text-slate-400">
-              Elige como quieres conectarte. <strong className="text-slate-300">No necesitas saber
-              qué es una API key</strong>: si eliges una cuenta, te guio con cada paso.
+              Cuatro caminos, del mas facil al mas manual. <strong className="text-slate-300">No
+              necesitas saber que es una API key</strong>: si eliges una cuenta, te guio con cada
+              paso.
             </p>
 
-            {/* Camino destacado: entrar con Google y luego elegir IA (un clic, sin configuracion) */}
-            <div className="rounded-2xl border border-blue-500/30 bg-gradient-to-br from-blue-500/15 via-slate-900/60 to-slate-900/60 p-4">
-              <div className="flex items-start gap-3">
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white text-lg font-black text-blue-600 shadow-lg">
-                  G
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-bold text-white">Continuar con Google</div>
-                  <p className="mt-0.5 text-[11px] leading-relaxed text-slate-300">
-                    Entra con la misma cuenta de Google que usas para el correo. Despues eliges
-                    con que IA quieres trabajar: <strong className="text-slate-200">Gemini, GPT,
-                    Claude, Llama, DeepSeek</strong> y mas de 300 modelos.
-                  </p>
-                  {googleInfo?.configurado ? (
-                    <p className="mt-1 text-[10px] font-semibold text-emerald-300">
-                      Listo: el acceso con Google ya esta configurado en esta instalacion.
+            {/* ============ 1 · Entrar con tu cuenta ============ */}
+            <BloqueSeccion
+              numero="1"
+              titulo="Entra con tu cuenta"
+              descripcion="Lo mas facil: un clic, autorizas en el navegador y ya estas dentro. Tu agenda queda guardada en tu cuenta."
+            >
+              <div className="rounded-2xl border border-blue-500/30 bg-gradient-to-br from-blue-500/15 via-slate-900/60 to-slate-900/60 p-4">
+                <div className="flex items-start gap-3">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white text-lg font-black text-blue-600 shadow-lg">
+                    G
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-bold text-white">Continuar con Google</div>
+                    <p className="mt-0.5 text-[11px] leading-relaxed text-slate-300">
+                      Entra con la misma cuenta de Google que usas para el correo. Despues eliges
+                      con que IA quieres trabajar: <strong className="text-slate-200">Gemini, GPT,
+                      Claude, Llama, DeepSeek</strong> y mas de 300 modelos.
                     </p>
-                  ) : (
-                    <p className="mt-1 text-[10px] text-slate-400">
-                      Te guio con los pasos la primera vez (queda guardado para siempre).
-                    </p>
-                  )}
-                  <div className="mt-2.5 flex flex-wrap gap-1.5">
-                    <Boton
-                      variante="primario"
-                      onClick={() => void entrarConGoogle()}
-                      disabled={!catalogo.some((c) => c.id === 'google_cuenta')}
-                    >
-                      <LogIn size={13} />
-                      Entrar con Google
-                    </Boton>
-                    <span className="self-center text-[10px] text-slate-500">
-                      Tu contrasena nunca pasa por LifeAgente
-                    </span>
+                    {googleInfo?.configurado ? (
+                      <p className="mt-1 text-[10px] font-semibold text-emerald-300">
+                        Listo: el acceso con Google ya esta configurado en esta instalacion.
+                      </p>
+                    ) : (
+                      <p className="mt-1 text-[10px] text-slate-400">
+                        Te guio con los pasos la primera vez (queda guardado para siempre).
+                      </p>
+                    )}
+                    <div className="mt-2.5 flex flex-wrap gap-1.5">
+                      <Boton
+                        variante="primario"
+                        onClick={() => void entrarConGoogle()}
+                        disabled={!catalogo.some((c) => c.id === 'google_cuenta')}
+                      >
+                        <LogIn size={13} />
+                        Entrar con Google
+                      </Boton>
+                      <span className="self-center text-[10px] text-slate-500">
+                        Tu contrasena nunca pasa por LifeAgente
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* Motores locales detectados */}
-            {motoresDisponibles.length > 0 && (
-              <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/8 p-3">
-                <div className="flex items-center gap-2 text-xs font-bold text-emerald-200">
-                  <Wifi size={13} />
-                  Detectamos IA en tu computador
-                </div>
-                {autoconectado && (
-                  <div className="mt-2 flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-2 text-[10px] font-semibold text-emerald-200">
-                    <Check size={12} />
-                    Conectado automaticamente a {autoconectado.nombre} ({autoconectado.modelo})
-                  </div>
-                )}
-                <div className="mt-2 space-y-1.5">
-                  {motoresDisponibles.map((m) => (
-                    <div key={m.id} className="flex items-center gap-2 rounded-lg bg-black/20 px-2.5 py-2">
-                      <Cpu size={13} className="text-emerald-300" />
-                      <div className="min-w-0 flex-1">
-                        <div className="text-[11px] font-semibold text-slate-200">{m.nombre}</div>
-                        <div className="truncate text-[10px] text-slate-500">
-                          {m.modelos_disponibles} modelo(s) · {m.url}
-                        </div>
-                      </div>
-                      <Boton
-                        variante="secundario"
-                        onClick={() => conectarLocal(m)}
-                        disabled={ocupado}
-                        className="!px-2 !py-1 text-[10px]"
-                      >
-                        Conectar
-                      </Boton>
-                    </div>
+              {otrasCuentas.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[10px] text-slate-500">O entra con:</span>
+                  {otrasCuentas.map((o) => (
+                    <button
+                      key={o.id}
+                      onClick={() => abrirDetalle(o)}
+                      className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-semibold text-slate-300 transition hover:bg-white/12"
+                    >
+                      {o.icono} {o.nombre}
+                    </button>
                   ))}
                 </div>
-              </div>
-            )}
+              )}
+            </BloqueSeccion>
 
-            {/* Si no hay ninguna IA en el equipo, dejamos una forma de bajar una ligera */}
-            {motoresDisponibles.length === 0 && (
-              <BloqueIaLigera alCambiar={() => void cargar()} />
-            )}
-
-            {/* Los 4 caminos */}
-            <div className="space-y-3">
-              {CAMINOS.map((c) => {
-                const opciones = porModo(c.modo)
-                if (c.modo === 'local') {
-                  return (
-                    <div key={c.id} className="rounded-2xl border border-white/8 bg-white/3 p-4">
-                      <div className="flex items-start gap-3">
-                        <span className="text-xl">{c.icono}</span>
+            {/* ============ 2 · La IA de tu computador ============ */}
+            <BloqueSeccion
+              numero="2"
+              titulo="Usa la IA de tu computador"
+              descripcion="Gratis y privado: la IA se queda en tu equipo y nadie mas la ve."
+            >
+              {motoresDisponibles.length > 0 ? (
+                <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/8 p-3">
+                  <div className="flex items-center gap-2 text-xs font-bold text-emerald-200">
+                    <Wifi size={13} />
+                    Detectamos IA en tu computador
+                  </div>
+                  {autoconectado && (
+                    <div className="mt-2 flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-2 text-[10px] font-semibold text-emerald-200">
+                      <Check size={12} />
+                      Conectado automaticamente a {autoconectado.nombre} ({autoconectado.modelo})
+                    </div>
+                  )}
+                  <div className="mt-2 space-y-1.5">
+                    {motoresDisponibles.map((m) => (
+                      <div key={m.id} className="flex items-center gap-2 rounded-lg bg-black/20 px-2.5 py-2">
+                        <Cpu size={13} className="text-emerald-300" />
                         <div className="min-w-0 flex-1">
-                          <div className="text-xs font-bold text-white">{c.titulo}</div>
-                          <div className="text-[11px] leading-relaxed text-slate-400">{c.texto}</div>
-                          <div className="mt-2 flex flex-wrap gap-1.5">
-                            {opciones.map((o) => (
-                              <button
-                                key={o.id}
-                                onClick={() => abrirDetalle(o)}
-                                className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-semibold text-slate-300 transition hover:bg-white/12"
-                              >
-                                {o.nombre}
-                              </button>
-                            ))}
+                          <div className="text-[11px] font-semibold text-slate-200">{m.nombre}</div>
+                          <div className="truncate text-[10px] text-slate-500">
+                            {m.modelos_disponibles} modelo(s) · {m.url}
                           </div>
                         </div>
+                        <Boton
+                          variante="secundario"
+                          onClick={() => conectarLocal(m)}
+                          disabled={ocupado}
+                          className="!px-2 !py-1 text-[10px]"
+                        >
+                          Conectar
+                        </Boton>
                       </div>
-                    </div>
-                  )
-                }
-                if (c.modo === 'cuenta' || c.modo === 'api_key') {
-                  return (
-                    <div key={c.id} className="rounded-2xl border border-white/8 bg-white/3 p-4">
-                      <div className="flex items-start gap-3">
-                        <span className="text-xl">{c.icono}</span>
-                        <div className="min-w-0 flex-1">
-                          <div className="text-xs font-bold text-white">{c.titulo}</div>
-                          <div className="text-[11px] leading-relaxed text-slate-400">{c.texto}</div>
-                          <div className="mt-2 flex flex-wrap gap-1.5">
-                            {opciones.map((o) => (
-                              <button
-                                key={o.id}
-                                onClick={() => abrirDetalle(o)}
-                                className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-semibold text-slate-300 transition hover:bg-white/12"
-                              >
-                                {o.icono} {o.nombre}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                }
-                // demo
-                const demo = opciones[0]
-                return (
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <BloqueIaLigera alCambiar={() => void cargar()} />
+              )}
+            </BloqueSeccion>
+
+            {/* ============ 3 · Conectar una IA con clave ============ */}
+            <BloqueSeccion
+              numero="3"
+              titulo="Conecta una IA con clave"
+              descripcion="Si ya tienes una clave de API (OpenAI, Anthropic, Gemini, OpenRouter...). Te digo donde conseguirla."
+            >
+              <div className="flex flex-wrap gap-1.5">
+                {porModo('api_key').map((o) => (
                   <button
-                    key={c.id}
-                    onClick={() => demo && abrirDetalle(demo)}
-                    className="flex w-full items-start gap-3 rounded-xl border border-white/10 bg-white/3 p-3 text-left transition hover:bg-white/8"
+                    key={o.id}
+                    onClick={() => abrirDetalle(o)}
+                    className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-[10px] font-semibold text-slate-300 transition hover:bg-white/12"
                   >
-                    <span className="text-xl">{c.icono}</span>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-xs font-bold text-white">{c.titulo}</div>
-                      <div className="text-[11px] leading-relaxed text-slate-400">{c.texto}</div>
-                    </div>
-                    <ArrowRight size={14} className="mt-1 shrink-0 text-slate-500" />
+                    {o.icono} {o.nombre}
                   </button>
-                )
-              })}
-            </div>
+                ))}
+                {porModo('local').map((o) => (
+                  <button
+                    key={o.id}
+                    onClick={() => abrirDetalle(o)}
+                    className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-[10px] font-semibold text-slate-300 transition hover:bg-white/12"
+                  >
+                    {o.icono} {o.nombre}
+                  </button>
+                ))}
+              </div>
+            </BloqueSeccion>
 
-            {/* Conexiones guardadas */}
+            {/* ============ 4 · Solo quiero ver como funciona ============ */}
+            <BloqueSeccion
+              numero="4"
+              titulo="Solo quiero ver como funciona"
+              descripcion="El asistente de prueba, sin cuentas ni claves. Ideal para echar un vistazo."
+            >
+              <button
+                onClick={() => {
+                  const demo = porModo('demo')[0]
+                  if (demo) abrirDetalle(demo)
+                }}
+                className="flex w-full items-start gap-3 rounded-xl border border-white/10 bg-white/3 p-3 text-left transition hover:bg-white/8"
+              >
+                <span className="text-xl">✨</span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-bold text-white">Asistente demo (integrado)</div>
+                  <div className="text-[11px] leading-relaxed text-slate-400">
+                    Funciona sin configurar nada. Puedes conectarte a una IA de verdad cuando quieras.
+                  </div>
+                </div>
+                <ArrowRight size={14} className="mt-1 shrink-0 text-slate-500" />
+              </button>
+            </BloqueSeccion>
+
+            {/* ============ Tus conexiones ============ */}
             {conexiones.length > 0 && (
               <div>
                 <div className="mb-1.5 flex items-center justify-between">
@@ -595,6 +580,95 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
                 </div>
               </div>
             )}
+
+            {/* ============ Ajustes tecnicos (colapsado) ============ */}
+            <div className="rounded-2xl border border-white/8 bg-white/3 p-3">
+              <button
+                onClick={() => setVerAjustes((v) => !v)}
+                className="flex w-full items-center gap-2 text-left"
+              >
+                <Settings size={13} className="text-slate-400" />
+                <span className="text-[11px] font-bold text-slate-300">
+                  Ajustes tecnicos (solo si algo va mal)
+                </span>
+                <ChevronDown
+                  size={14}
+                  className={`ml-auto text-slate-500 transition ${verAjustes ? 'rotate-180' : ''}`}
+                />
+              </button>
+              {verAjustes && (
+                <div className="mt-3 space-y-3">
+                  <p className="text-[10px] leading-relaxed text-slate-400">
+                    Esta parte es para quien instala LifeAgente en su servidor. Si solo quieres
+                    usar la app, no tienes que tocar nada de aqui.
+                  </p>
+
+                  <div className="rounded-xl border border-white/8 bg-black/20 p-3">
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
+                      <Server size={13} />
+                      Direccion de la API
+                    </div>
+                    <p className="mt-1 text-[10px] leading-relaxed text-slate-400">
+                      Si abriste LifeAgente desde GitHub Pages, pon aqui la direccion donde vive el
+                      servidor (por ejemplo{' '}
+                      <code className="text-slate-300">https://lifesync-api.onrender.com/api</code>).
+                      Se guarda solo en este navegador.
+                    </p>
+                    <div className="mt-2 flex gap-2">
+                      <input
+                        value={apiUrl}
+                        onChange={(e) => setApiUrl(e.target.value)}
+                        placeholder="dejala vacio si la API esta en este mismo sitio"
+                        className="min-w-0 flex-1 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[11px] text-slate-100 outline-none transition focus:border-indigo-500/60"
+                      />
+                      <Boton
+                        variante="secundario"
+                        onClick={() => {
+                          guardarUrlApi(apiUrl)
+                          setEstado({ ok: true, texto: 'Dirección de la API guardada. Recargando…' })
+                          setTimeout(() => window.location.reload(), 600)
+                        }}
+                      >
+                        Guardar
+                      </Boton>
+                    </div>
+                    {apiGuardadaEsEstatica() && (
+                      <div className="mt-2">
+                        <Aviso tono="aviso">
+                          La direccion guardada no sirve: no es una direccion de API valida (o apunta
+                          a <strong>GitHub Pages</strong>, que solo sirve archivos). Ahi no hay API y
+                          por eso las cuentas fallaban. Ya se esta usando la del despliegue (
+                          <code className="text-slate-300">{urlApiEnUso()}</code>), pero puedes
+                          corregirla aqui.
+                          <div className="mt-2">
+                            <Boton
+                              variante="fantasma"
+                              onClick={() => {
+                                guardarUrlApi('')
+                                setApiUrl(urlApiEnUso())
+                                setEstado({ ok: true, texto: 'Direccion guardada borrada. Recargando…' })
+                                setTimeout(() => window.location.reload(), 600)
+                              }}
+                            >
+                              Borrar la direccion guardada
+                            </Boton>
+                          </div>
+                        </Aviso>
+                      </div>
+                    )}
+                  </div>
+
+                  <Boton
+                    variante="fantasma"
+                    className="w-full"
+                    onClick={() => setPaso('wizard')}
+                  >
+                    <Settings size={13} />
+                    Configuracion avanzada (activar el acceso con una cuenta)
+                  </Boton>
+                </div>
+              )}
+            </div>
           </>
         ) : paso === 'wizard' ? (
           /* ---------------------------------------------------------------- */
