@@ -33,8 +33,8 @@ def _asegurar_columnas(conn, tabla: str, columnas: dict[str, str]) -> None:
     """Agrega a una tabla las columnas que falten.
 
     SQLite permite agregar columnas con `ALTER TABLE ... ADD COLUMN` y la
-    operacion es idempotente si primero se revisa `PRAGMA table_info`. Asi una
-    base creada por una version anterior sigue funcionando sin recrearla.
+    operación es idempotente si primero se revisa `PRAGMA table_info`. Así una
+    base creada por una versión anterior sigue funcionando sin recrearla.
 
     Si la tabla todavia no existe (base de datos recien creada, todavia sin
     `create_all`), no se hace nada: las columnas vendran ya definidas en el
@@ -56,9 +56,9 @@ def _asegurar_columnas(conn, tabla: str, columnas: dict[str, str]) -> None:
 def _migrar_sqlite() -> None:
     """Correcciones de esquema aplicables sobre bases ya creadas.
 
-    La version 1 de `Task.tarea_id` apuntaba a `tasks.id` cuando en realidad
+    La versión 1 de `Task.tarea_id` apuntaba a `tasks.id` cuando en realidad
     guarda el id del evento de calendario (bloque de estudio). SQLite no altera
-    constraints con ALTER TABLE, asi que se reconstruye la tabla.
+    constraints con ALTER TABLE, así que se reconstruye la tabla.
     """
     if not settings.database_url.startswith("sqlite"):
         return
@@ -89,7 +89,7 @@ def _migrar_sqlite() -> None:
                 """
                 CREATE TABLE tasks (
                     id INTEGER NOT NULL,
-                    titulo VARCHAR(220) NOT NULL,
+                    título VARCHAR(220) NOT NULL,
                     materia VARCHAR(120),
                     fecha_entrega DATE,
                     estado VARCHAR(24) NOT NULL,
@@ -108,10 +108,10 @@ def _migrar_sqlite() -> None:
             )
             conn.exec_driver_sql(
                 """
-                INSERT INTO tasks (id, titulo, materia, fecha_entrega, estado, prioridad,
+                INSERT INTO tasks (id, título, materia, fecha_entrega, estado, prioridad,
                                    minutos_estimados, resumen, material, preguntas,
                                    fuente, tarea_id, creado_en)
-                SELECT id, titulo, materia, fecha_entrega, estado, prioridad,
+                SELECT id, título, materia, fecha_entrega, estado, prioridad,
                        minutos_estimados, resumen, material, preguntas,
                        fuente, tarea_id, creado_en
                 FROM tasks_old
@@ -126,11 +126,11 @@ class Base(DeclarativeBase):
 
 
 def get_db() -> Generator[Session, None, None]:
-    """Sesion por request.
+    """Sesión por request.
 
     IMPORTANTE: los routers la usan con `Depends(get_db, scope="function")`.
     Con el scope por defecto ("request") FastAPI cierra la dependencia DESPUES
-    de enviar la respuesta, asi que el `commit` ocurre tarde y un GET
+    de enviar la respuesta, así que el `commit` ocurre tarde y un GET
     inmediato posterior todavia no ve los datos. Con scope="function" el
     commit se confirma antes de responder y la lectura siguiente es consistente.
     """

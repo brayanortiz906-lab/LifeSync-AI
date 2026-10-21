@@ -138,9 +138,9 @@ cd backend
 
 ```
 [OK  ] [CALENDARIO] devuelve plan de reorganizacion -> movidos=2
-[OK  ] [MULTI] detecta 2 categorias -> categorias=['CALENDARIO', 'BITACORA_GASTO']
+[OK  ] [MULTI] detecta 2 categorías -> categorías=['CALENDARIO', 'BITACORA_GASTO']
 [OK  ] [CASCADA] tarea genera bloque de estudio
-[OK  ] [RESP] gasto alto queda pendiente de aprobacion
+[OK  ] [RESP] gasto alto queda pendiente de aprobación
 [OK  ] [RESP] tras aprobar, el gasto SI queda registrado
 ...
 RESULTADO: TODOS LOS CASOS PASARON
@@ -160,7 +160,7 @@ varias intenciones a la vez, y el agente registra **todo** automáticamente:
 | `Hoy tanqueé la moto por $20.000` | Gasto 20.000 COP, categoría **combustible** |
 | `Tengo que entregar el ensayo el viernes` | Tarea con entrega + **bloque de estudio** agendado |
 | `me toca cambiar el aceite de la moto` | Mantenimiento **Cambio de aceite** + evento en el calendario |
-| `Pagué el cambio de aceite de la moto por 120 mil` | Gasto + **actualiza el próximo mantenimiento** |
+| `Pagué el cambió de aceite de la moto por 120 mil` | Gasto + **actualiza el próximo mantenimiento** |
 | `Mañana tengo reunión a las 9 AM, además entrego el informe el jueves y me toca revisar los frenos` | Las **3 cosas** a la vez (3 categorías, 5 registros) |
 
 Claves de la experiencia:
@@ -253,7 +253,7 @@ ejecutarse, y todo queda auditado.
 
 Verificado en la interfaz: un gasto de 2.000.000 con umbral de 100.000 queda en la
 bandeja con el motivo *"supera el límite autónomo"*, y al aprobarlo se registra, se audita
-(`solicitud_aprobacion → aprobacion → accion → ejecucion_aprobada`) y desaparece de la
+(`solicitud_aprobacion → aprobación → acción → ejecucion_aprobada`) y desaparece de la
 bandeja. Detalle completo en [docs/05-RESPONSABILIDAD.md](docs/05-RESPONSABILIDAD.md).
 
 ### Modo producción (un solo proceso)

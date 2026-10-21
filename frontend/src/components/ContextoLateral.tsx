@@ -74,7 +74,7 @@ export default function ContextoLateral({
         )}
       </Panel>
 
-      <Panel titulo="Entregas proximas" icono={<ListTodo size={13} className="text-violet-400" />}>
+      <Panel titulo="Entregas próximas" icono={<ListTodo size={13} className="text-violet-400" />}>
         {proximas.length === 0 ? (
           <p className="text-[11px] text-slate-500">Sin entregas pendientes.</p>
         ) : (

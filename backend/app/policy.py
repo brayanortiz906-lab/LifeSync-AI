@@ -1,20 +1,20 @@
 """Motor de gobierno del agente: politicas, explicabilidad y trazabilidad.
 
-Este modulo implementa la capa de "IA responsable" de LifeSync AI. Encaja
+Este módulo implementa la capa de "IA responsable" de LifeSync AI. Encaja
 exactamente entre el LLM (que propone intenciones) y la base de datos (que
-ejecuta). Ninguna accion llega a la BD sin pasar por aqui.
+ejecuta). Ninguna acción llega a la BD sin pasar por aquí.
 
 Pilares implementados
 ---------------------
-1. **Autonomia graduada** — cada accion se clasifica en `autonomo`,
+1. **Autonomia graduada** — cada acción se clasifica en `autónomo`,
    `requiere_aprobacion` o `bloqueado` segun reglas explicitas y umbrales
    configurables por el usuario.
-2. **Supervision humana** — las acciones sensibles (borrados, gastos altos,
+2. **Supervisión humana** — las acciones sensibles (borrados, gastos altos,
    baja confianza) NO se ejecutan: quedan en una cola de aprobaciones
    (`ApprovalRequest`) que el usuario resuelve desde la interfaz.
-3. **Explicabilidad** — cada decision lleva un `motivo` legible en espanol que
+3. **Explicabilidad** — cada decisión lleva un `motivo` legible en espanol que
    explica que se hizo y por que regla se disparo.
-4. **Trazabilidad** — cada decision (aplicada, bloqueada, aprobada, rechazada,
+4. **Trazabilidad** — cada decisión (aplicada, bloqueada, aprobada, rechazada,
    redactada) queda en `AuditLog` con actor, riesgo, confianza e impacto.
 5. **Privacidad** — los datos personales identificables (PII) se redactan antes
    de enviar nada a un proveedor externo de IA.
@@ -22,7 +22,7 @@ Pilares implementados
 
 Marco de referencia: ISO/IEC 42001, NIST AI RMF 1.0, principios de la OCDE
 para IA y Union Europea AI Act (sistema de riesgo limitado: transparencia y
-supervision humana obligatorias).
+supervisión humana obligatorias).
 """
 from __future__ import annotations
 
@@ -37,13 +37,13 @@ from sqlalchemy.orm import Session
 from .models import ApprovalRequest, AuditLog, PolicySettings
 
 # --------------------------------------------------------------------------- #
-# Niveles de decision
+# Niveles de decisión
 # --------------------------------------------------------------------------- #
 AUTONOMO = "autonomo"
 REQUIERE_APROBACION = "requiere_aprobacion"
 BLOQUEADO = "bloqueado"
 
-# Riesgo inherente por tipo de accion. Sirve para ordenar y para colorear el panel.
+# Riesgo inherente por tipo de acción. Sirve para ordenar y para colorear el panel.
 RIESGO_ACCION: dict[str, str] = {
     "crear_evento": "bajo",
     "actualizar_evento": "medio",
@@ -61,7 +61,7 @@ RIESGO_ACCION: dict[str, str] = {
     "marcar_realizado": "bajo",
 }
 
-# Acciones que NUNCA deben ejecutarse de forma autonoma.
+# Acciones que NUNCA deben ejecutarse de forma autónoma.
 ACCIONES_SENSIBLES = {
     "eliminar_evento",
     "actualizar_evento",
@@ -72,7 +72,7 @@ ACCIONES_SENSIBLES = {
 }
 
 # --------------------------------------------------------------------------- #
-# Redaccion de datos personales (PII)
+# Redacción de datos personales (PII)
 # --------------------------------------------------------------------------- #
 _RE_EMAIL = re.compile(r"\b[\w.+-]+@[\w-]+\.[\w.-]+\b", re.IGNORECASE)
 _RE_TARJETA = re.compile(r"\b(?:\d{4}[ -]?){3}\d{4}\b")
@@ -82,22 +82,22 @@ _RE_DIRECCION = re.compile(
     r"\b(?:calle|carrera|av|cra|diag|manzana|barrio)\s+\d+[A-Za-z]?\s*(?:n[°ºo]|#\s?\d+)?\b",
     re.IGNORECASE,
 )
-# Identificacion explicita: "mi cedula 1234567890", "CC 123456", "NIT 900.123".
+# Identificacion explícita: "mi cedula 1234567890", "CC 123456", "NIT 900.123".
 _RE_ID_CON_TEXTO = re.compile(
     r"\b(c[eé]dula|cc|cc\.|nit|documento|dni|pasaporte|identificaci[oó]n)\s*"
     r"(?:n[°ºo]\s*|num(?:ero)?\s*|de\s+identificaci[oó]n\s*)?"
     r"(\d[\d\s.-]{4,18})\b",
     re.IGNORECASE,
 )
-# Numero suelto de 6-10 digitos (sin puntuacion de miles).
+# Número suelto de 6-10 digitos (sin puntuacion de miles).
 _RE_ID_SUELTO = re.compile(r"(?<![\d.,])\d{6,10}(?![\d.,])")
-# Palabras que indican que el numero es un MONTO, no un identificador.
+# Palabras que indican que el número es un MONTO, no un identificador.
 _CTX_MONTO = re.compile(
     r"(?:\$|usd|cop|eur|pesos|bol[ií]var|d[oó]lares|por|costo|coste|precio|valor|vale|"
     r"gast\w*|pagu\w*|compr\w*|cobr\w*|pag[oó]|mil|miles|millones|millon)\s*$",
     re.IGNORECASE,
 )
-# Palabras que indican que el numero es un identificador.
+# Palabras que indican que el número es un identificador.
 _CTX_ID = re.compile(
     r"(?:c[eé]dula|cc|cc\.|nit|documento|dni|pasaporte|identificaci[oó]n|"
     r"n[°ºo]|num(?:ero)?)\s*[:#]?\s*$",
@@ -105,9 +105,9 @@ _CTX_ID = re.compile(
 )
 
 CATEGORIAS_PII = {
-    "email": "correo electronico",
+    "email": "correo electrónico",
     "telefono": "telefono",
-    "cedula": "numero de identificacion",
+    "cedula": "número de identificacion",
     "tarjeta": "dato de tarjeta",
     "api_key": "clave de API",
     "direccion": "direccion",
@@ -115,11 +115,11 @@ CATEGORIAS_PII = {
 
 
 def _redactar_identificadores(texto: str) -> tuple[str, bool]:
-    """Redacta numeros de identificacion sin confundirlos con montos.
+    """Redacta números de identificacion sin confundirlos con montos.
 
     "por 800000" es un monto y se conserva; "mi cedula 1234567890" es un ID y
-    se enmascara. Un numero suelto de 6-10 digitos se enmascara por presuncion
-    de privacidad (minimizacion de datos).
+    se enmascara. Un número suelto de 6-10 digitos se enmascara por presuncion
+    de privacidad (minimización de datos).
     """
     # 1) Identificacion con contexto explicito: gana sobre cualquier otra regla.
     def _con_contexto(m: re.Match[str]) -> str:
@@ -129,7 +129,7 @@ def _redactar_identificadores(texto: str) -> tuple[str, bool]:
     hubo_id = out != texto
     texto_base = out
 
-    # 2) Numero suelto de 6-10 digitos: se enmascara salvo que sea un monto.
+    # 2) Número suelto de 6-10 digitos: se enmascara salvo que sea un monto.
     def _suelto(m: re.Match[str]) -> str:
         antes = texto_base[: m.start()]
         if _CTX_MONTO.search(antes) or _CTX_ID.search(antes):
@@ -167,10 +167,10 @@ def redactar_pii(texto: str) -> tuple[str, list[str]]:
 
 
 # --------------------------------------------------------------------------- #
-# Politica
+# Política
 # --------------------------------------------------------------------------- #
 def obtener_politica(db: Session) -> PolicySettings:
-    """Devuelve la politica activa; la crea con los valores por defecto."""
+    """Devuelve la política activa; la crea con los valores por defecto."""
     politica = db.get(PolicySettings, 1)
     if politica is None:
         politica = PolicySettings(id=1)
@@ -180,7 +180,7 @@ def obtener_politica(db: Session) -> PolicySettings:
 
 
 class Decision:
-    """Resultado de evaluar una accion contra la politica."""
+    """Resultado de evaluar una acción contra la política."""
 
     __slots__ = ("nivel", "regla", "motivo", "riesgo", "confianza", "accion")
 
@@ -232,24 +232,24 @@ def _monto_de(accion: dict[str, Any]) -> float:
 
 
 def _resumen_accion(accion: dict[str, Any]) -> str:
-    """Descripcion corta y legible de una acción, para la cola de aprobaciones."""
+    """Descripción corta y legible de una acción, para la cola de aprobaciones."""
     tipo = str(accion.get("tipo") or "")
     datos = accion.get("datos") or {}
     if tipo in {"crear_evento", "actualizar_evento"}:
-        return f"Evento: {datos.get('titulo', 'sin titulo')}"
+        return f"Evento: {datos.get('titulo', 'sin título')}"
     if tipo == "eliminar_evento":
         return f"Eliminar evento #{datos.get('id', '?')}"
     if tipo in {"crear_tarea", "actualizar_tarea"}:
-        return f"Tarea: {datos.get('titulo', 'sin titulo')}"
+        return f"Tarea: {datos.get('titulo', 'sin título')}"
     if tipo == "registrar_gasto":
         monto = _monto_de(accion)
-        return f"Gasto: {datos.get('descripcion', 'sin descripcion')} ({monto:,.0f})"
+        return f"Gasto: {datos.get('descripcion', 'sin descripción')} ({monto:,.0f})"
     if tipo in {"registrar_mantenimiento", "programar_mantenimiento"}:
         return f"Mantenimiento: {datos.get('tarea', 'sin tarea')}"
     if tipo == "marcar_realizado":
         return f"Marcar realizado: {datos.get('tarea', datos.get('id', '?'))}"
     if tipo == "replanificar_dia":
-        return f"Reorganizar el dia {datos.get('fecha', '?')}"
+        return f"Reorganizar el día {datos.get('fecha', '?')}"
     if tipo == "mover_bloque":
         return f"Mover bloque {datos.get('id', '?')}"
     if tipo == "programar_estudio":
@@ -266,7 +266,7 @@ def evaluar_accion(
     politica: PolicySettings,
     confianza: float | None = None,
 ) -> Decision:
-    """Evalua una accion contra la politica. NUNCA ejecuta: solo decide."""
+    """Evalua una acción contra la política. NUNCA ejecuta: solo decide."""
     tipo = str(accion.get("tipo") or "")
     datos = accion.get("datos") or {}
     riesgo = RIESGO_ACCION.get(tipo, "medio")
@@ -277,18 +277,18 @@ def evaluar_accion(
         return Decision(
             REQUIERE_APROBACION,
             "modo_prudente",
-            "El modo prudente esta activo: toda accion se revisa antes de aplicarse.",
+            "El modo prudente esta activo: toda acción se revisa antes de aplicarse.",
             riesgo,
             confianza_efectiva,
             accion,
         )
 
-    # --- Regla 2: tipo de accion desconocido --------------------------------- #
+    # --- Regla 2: tipo de acción desconocido --------------------------------- #
     if tipo not in RIESGO_ACCION:
         return Decision(
             BLOQUEADO,
             "accion_no_reconocida",
-            f"La accion '{tipo}' no esta en el catalogo permitido, por seguridad no se ejecuta.",
+            f"La acción '{tipo}' no esta en el catálogo permitido, por seguridad no se ejecuta.",
             "alto",
             confianza_efectiva,
             accion,
@@ -316,7 +316,7 @@ def evaluar_accion(
         return Decision(
             REQUIERE_APROBACION,
             "borrado_irreversible",
-            "Eliminar informacion es irreversible: quedo a la espera de tu confirmacion.",
+            "Eliminar información es irreversible: quedó a la espera de tu confirmacion.",
             "alto",
             confianza_efectiva,
             accion,
@@ -330,8 +330,8 @@ def evaluar_accion(
                 REQUIERE_APROBACION,
                 "gasto_sobre_umbral",
                 (
-                    f"El gasto ({monto:,.0f}) supera el limite autonomo "
-                    f"({politica.gasto_max_autonomo:,.0f}); lo dejo pendiente de tu visto bueno."
+                    f"El gasto ({monto:,.0f}) supera el límite autónomo "
+                    f"({politica.gasto_max_autonomo:,.0f}); lo dejó pendiente de tu visto bueno."
                 ),
                 "medio",
                 confianza_efectiva,
@@ -356,7 +356,7 @@ def evaluar_accion(
             return Decision(
                 REQUIERE_APROBACION,
                 "motivo_ausente",
-                "El modelo no explico el motivo de esta accion, asi que te la consulto.",
+                "El modelo no explico el motivo de esta acción, así que te la consulto.",
                 riesgo,
                 confianza_efectiva,
                 accion,
@@ -366,7 +366,7 @@ def evaluar_accion(
     return Decision(
         AUTONOMO,
         "dentro_de_politica",
-        f"Accion de riesgo {riesgo} dentro de los limites de la politica vigente.",
+        f"Acción de riesgo {riesgo} dentro de los límites de la política vigente.",
         riesgo,
         confianza_efectiva,
         accion,
@@ -394,7 +394,7 @@ def evaluar_lote(
 
 
 # --------------------------------------------------------------------------- #
-# Auditoria
+# Auditoría
 # --------------------------------------------------------------------------- #
 def registrar_auditoria(
     db: Session,
@@ -412,7 +412,7 @@ def registrar_auditoria(
     entidad_id: int | None = None,
     datos: dict[str, Any] | None = None,
 ) -> AuditLog | None:
-    """Anota una decision en la bitacora de auditoria (append-only)."""
+    """Anota una decisión en la bitacora de auditoría (append-only)."""
     politica = obtener_politica(db)
     if not politica.registrar_auditoria:
         return None
@@ -436,7 +436,7 @@ def registrar_auditoria(
 
 
 def purgar_auditoria(db: Session, dias: int | None = None) -> int:
-    """Elimina entradas de auditoria mas antiguas que la retencion configurada."""
+    """Elimina entradas de auditoría más antiguas que la retención configurada."""
     politica = obtener_politica(db)
     limite = dias if dias is not None else politica.dias_retencion_auditoria
     if limite <= 0:
@@ -454,7 +454,7 @@ def crear_aprobacion(
     decision: Decision,
     chat_message_id: int | None = None,
 ) -> ApprovalRequest:
-    """Encola una accion sensible para que el usuario la apruebe o la rechace."""
+    """Encola una acción sensible para que el usuario la apruebe o la rechace."""
     peticion = ApprovalRequest(
         estado="pendiente",
         tipo_accion=str(decision.accion.get("tipo") or ""),
@@ -487,7 +487,7 @@ def decidir_aprobacion(
     nota: str | None = None,
     actor: str = "usuario",
 ) -> tuple[ApprovalRequest | None, dict[str, Any] | None]:
-    """Aprueba o rechaza una peticion. Devuelve (peticion, accion_aplicada)."""
+    """Aprueba o rechaza una petición. Devuelve (petición, accion_aplicada)."""
     peticion = db.get(ApprovalRequest, peticion_id)
     if peticion is None:
         return None, None
@@ -526,23 +526,23 @@ def decidir_aprobacion(
 
 
 # --------------------------------------------------------------------------- #
-# Explicabilidad: "por que" de cada decision
+# Explicabilidad: "por que" de cada decisión
 # --------------------------------------------------------------------------- #
 EXPLICACION_TIPOS: dict[str, str] = {
     "crear_evento": "Agrego un bloque a tu calendario porque lo pediste en lenguaje natural.",
     "actualizar_evento": "Modifico un bloque que ya estaba en tu calendario.",
-    "eliminar_evento": "Elimino un bloque: esto borra informacion y no se puede deshacer.",
-    "replanificar_dia": "Reorganizo tu dia moviendo solo los bloques flexibles, nunca los inamovibles.",
+    "eliminar_evento": "Elimino un bloque: esto borra información y no se puede deshacer.",
+    "replanificar_dia": "Reorganizo tu día moviendo solo los bloques flexibles, nunca los inamovibles.",
     "mover_bloque": "Muevo un bloque flexible a un hueco libre.",
-    "crear_tarea": "Creo una tarea academica con su entrega y su bloque de estudio.",
+    "crear_tarea": "Creó una tarea academica con su entrega y su bloque de estudio.",
     "actualizar_tarea": "Actualizo el estado o los datos de una tarea.",
     "completar_tarea": "Marco una tarea como completada.",
-    "resumir_material": "Resumo el material para que estudies mas rapido.",
+    "resumir_material": "Resumo el material para que estudies más rapido.",
     "programar_estudio": "Aparto un bloque de estudio en un hueco libre.",
-    "registrar_gasto": "Registro un gasto en tu bitacora y lo categorizo automaticamente.",
+    "registrar_gasto": "Registro un gasto en tu bitacora y lo categorizo automáticamente.",
     "registrar_mantenimiento": "Actualizo el historial de mantenimiento del activo.",
-    "programar_mantenimiento": "Programo el proximo mantenimiento del activo y lo agrego al calendario.",
-    "marcar_realizado": "Marco un mantenimiento como realizado y recalculo la proxima fecha.",
+    "programar_mantenimiento": "Programo el próximo mantenimiento del activo y lo agrego al calendario.",
+    "marcar_realizado": "Marco un mantenimiento como realizado y recalculo la próxima fecha.",
 }
 
 
@@ -577,16 +577,16 @@ def reporte_cumplimiento(db: Session) -> dict[str, Any]:
             "detalle": (
                 f"{conteo_audit} decisiones registradas con motivo, riesgo y resultado."
                 if politica.registrar_auditoria
-                else "La bitacora de auditoria esta desactivada."
+                else "La bitacora de auditoría esta desactivada."
             ),
         },
         {
             "id": "supervision",
-            "nombre": "Supervision humana",
+            "nombre": "Supervisión humana",
             "marco": "EU AI Act Art. 14 - ISO/IEC 42001 (A.9)",
             "estado": "cumple" if pendientes >= 0 and politica.eliminar_requiere_aprobacion else "parcial",
             "detalle": (
-                f"{pendientes} acciones esperando tu aprobacion; {decididas - pendientes} ya decididas."
+                f"{pendientes} acciones esperando tu aprobación; {decididas - pendientes} ya decididas."
             ),
         },
         {
@@ -595,20 +595,20 @@ def reporte_cumplimiento(db: Session) -> dict[str, Any]:
             "marco": "OECD - Principio 1",
             "estado": "cumple" if politica.exigir_motivo else "parcial",
             "detalle": (
-                "Cada accion exige un motivo; si falta, se te consulta."
+                "Cada acción exige un motivo; si falta, se te consulta."
                 if politica.exigir_motivo
                 else "El motivo es opcional."
             ),
         },
         {
             "id": "privacidad",
-            "nombre": "Proteccion de datos",
+            "nombre": "Protección de datos",
             "marco": "Ley 1581/2012 (Habeas Data) - GDPR Art. 5",
             "estado": "cumple" if politica.redactar_pii else "parcial",
             "detalle": (
                 "Los datos personales identificables se redactan antes de enviarse a un proveedor de IA."
                 if politica.redactar_pii
-                else "La redaccion de datos personales esta desactivada."
+                else "La redacción de datos personales esta desactivada."
             ),
         },
         {
@@ -620,17 +620,17 @@ def reporte_cumplimiento(db: Session) -> dict[str, Any]:
         },
         {
             "id": "minimizacion",
-            "nombre": "Minimizacion de datos",
+            "nombre": "Minimización de datos",
             "marco": "GDPR Art. 5(1)(c) - Ley 1581/2012",
             "estado": "cumple",
             "detalle": "Solo se envia al modelo el contexto necesario para clasificar el mensaje.",
         },
         {
             "id": "retencion",
-            "nombre": "Retencion y expiracion",
+            "nombre": "Retención y expiracion",
             "marco": "Ley 1581/2012 Art. 10",
             "estado": "cumple" if politica.dias_retencion_auditoria > 0 else "parcial",
-            "detalle": f"La auditoria se conserva {politica.dias_retencion_auditoria} dias y luego se purga.",
+            "detalle": f"La auditoría se conserva {politica.dias_retencion_auditoria} días y luego se purga.",
         },
         {
             "id": "transparencia",

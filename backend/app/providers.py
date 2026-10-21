@@ -175,8 +175,8 @@ async def _call_ollama(system: str, user: str, model: str, temperature: float, b
 
     Los modelos locales suelen correr con ventanas de contexto pequeñas (por
     defecto 4096-8192 tokens). El System Prompt completo + el contexto de la
-    agenda no entran, y Ollama corta la conexion. Por eso se pide explicitamente
-    una ventana mayor y, si aun asi falla, se recorta el prompt.
+    agenda no entran, y Ollama corta la conexión. Por eso se pide explicitamente
+    una ventana mayor y, si aun así falla, se recorta el prompt.
     """
     model_id = model or "llama3.1"
 
@@ -204,25 +204,25 @@ async def _call_ollama(system: str, user: str, model: str, temperature: float, b
     try:
         return await _enviar(system, 16384)
     except (httpx.RemoteProtocolError, httpx.ReadError, httpx.ConnectError) as exc:
-        # Conexion cortada: casi siempre es el tamano del prompt. Se reintenta
-        # con una version recortada antes de rendirse.
+        # Conexión cortada: casi siempre es el tamano del prompt. Se reintenta
+        # con una versión recortada antes de rendirse.
         try:
             return await _enviar(_recortar_prompt(system), 8192)
         except Exception:
             raise ProviderError(
                 "No se pudo hablar con el modelo local. Es probable que el prompt "
-                "sea muy grande para este modelo: prueba uno mas potente o revisa "
+                "sea muy grande para este modelo: prueba uno más potente o revisa "
                 "que Ollama tenga memoria suficiente."
             ) from exc
     except httpx.ReadTimeout as exc:
         raise ProviderError(
-            "El modelo local tardo demasiado en responder. Prueba un modelo mas "
-            "pequeno o con mas velocidad en tu computador."
+            "El modelo local tardo demasiado en responder. Prueba un modelo más "
+            "pequeno o con más velocidad en tu computador."
         ) from exc
 
 
 def _recortar_prompt(system: str, max_chars: int = 6000) -> str:
-    """Version corta del System Prompt para motores con poca memoria.
+    """Versión corta del System Prompt para motores con poca memoria.
 
     Conserva el contrato JSON (lo indispensable para parsear la respuesta) y
     descarta los ejemplos y las explicaciones largas.
@@ -343,7 +343,7 @@ def _detectar_monto(texto: str) -> float | None:
 
 def _clasificar(texto: str) -> str:
     t = _strip_acentos(texto.lower())
-    if any(k in t for k in ("aceite", "mantenimiento", "service", "taller", "cambio de aceite",
+    if any(k in t for k in ("aceite", "mantenimiento", "service", "taller", "cambió de aceite",
                             "me toca", "vencid", "revision", "filtro", "freno", "neumático", "neumatico")):
         if any(k in t for k in ("pagu", "pague", "gast", "costo", "precio", "vale", "por $")):
             return "BITACORA_GASTO"
@@ -402,11 +402,11 @@ def _detectar_activo(texto: str) -> str:
 def _titulo_mantenimiento(texto: str) -> str:
     t = _strip_acentos(texto.lower())
     for clave, etiqueta in (
-        ("cambio de aceite", "Cambio de aceite"),
-        ("aceite", "Cambio de aceite"),
-        ("filtro", "Cambio de filtro"),
+        ("cambió de aceite", "Cambió de aceite"),
+        ("aceite", "Cambió de aceite"),
+        ("filtro", "Cambió de filtro"),
         ("freno", "Revisión de frenos"),
-        ("neumatico", "Cambio de neumáticos"),
+        ("neumatico", "Cambió de neumáticos"),
         ("revision", "Revisión general"),
         ("service", "Service general"),
         ("taller", "Mantenimiento general"),

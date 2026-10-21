@@ -74,8 +74,8 @@ utilidad de Tailwind v4 y con los temas por variables.
 <Modal
   abierto={abierto}
   onCerrar={cerrar}
-  titulo="Conectar tu IA"
-  descripcion="Elige como conectarte. No necesitas saber que es una API key."
+  título="Conectar tu IA"
+  descripción="Elige como conectarte. No necesitas saber que es una API key."
   pie={
     <>
       <Boton variante="secundario" onClick={volver}>Volver</Boton>

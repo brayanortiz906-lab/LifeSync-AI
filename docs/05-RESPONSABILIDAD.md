@@ -32,16 +32,16 @@ lo que la política autorizó.
 
 ## 2. Las 7 reglas de decisión
 
-`backend/app/policy.py` → `evaluar_accion(accion, politica, confianza)` evalúa en orden y
+`backend/app/policy.py` → `evaluar_accion(acción, política, confianza)` evalúa en orden y
 devuelve una `Decision` con `nivel`, `regla`, `motivo`, `riesgo` y `confianza`:
 
 | # | Regla | Condición | Resultado |
 |---|---|---|---|
 | 1 | `modo_prudente` | Política global activada | **Todo** requiere aprobación |
 | 2 | `accion_no_reconocida` | El tipo de acción no está en el catálogo | **BLOQUEADO** |
-| 3 | `confianza_baja` | `confianza < politica.umbral_confianza` (0.65) | Requiere aprobación |
+| 3 | `confianza_baja` | `confianza < política.umbral_confianza` (0.65) | Requiere aprobación |
 | 4 | `borrado_irreversible` | `eliminar_evento` | Requiere aprobación |
-| 5 | `gasto_sobre_umbral` | `registrar_gasto` con `monto > politica.gasto_max_autonomo` (100.000) | Requiere aprobación |
+| 5 | `gasto_sobre_umbral` | `registrar_gasto` con `monto > política.gasto_max_autonomo` (100.000) | Requiere aprobación |
 | 6 | `compromiso_inamovible` | `actualizar_evento` que toca un evento `inamovible` | Requiere aprobación |
 | 7 | `motivo_ausente` | La acción no trae `motivo` (y `exigir_motivo` está activo) | Requiere aprobación |
 | — | `dentro_de_politica` | Ninguna de las anteriores | **AUTONOMO** |
@@ -62,7 +62,7 @@ sea explicable y no una caja negra.
 
 ## 3. Parámetros de gobierno
 
-Configurables en caliente desde **Responsabilidad → Política** (`PUT /api/responsabilidad/politica`):
+Configurables en caliente desde **Responsabilidad → Política** (`PUT /api/responsabilidad/política`):
 
 | Parámetro | Por defecto | Efecto |
 |---|---|---|
@@ -102,7 +102,7 @@ redacta. Esto evita el error inverso —tratar «800000» como cédula y «12345
 monto—.
 
 > El mensaje **original** se guarda en el historial del chat; el **redactado** es el único
-> que sale del servidor. La operación se audita (`tipo = redaccion`) con las categorías
+> que sale del servidor. La operación se audita (`tipo = redacción`) con las categorías
 > detectadas, nunca con los valores.
 
 El chat confirma al usuario: *«(Protegí tus datos personales: redacté teléfono antes de
@@ -128,13 +128,13 @@ Cada decisión deja una fila en `audit_log`:
 La interfaz muestra la **cadena completa** de una decisión:
 
 ```
-solicitud_aprobacion (agente) → aprobacion (usuario, "aprobada")
-                              → accion (agente, "Gasto registrado #42")
+solicitud_aprobacion (agente) → aprobación (usuario, "aprobada")
+                              → acción (agente, "Gasto registrado #42")
                               → ejecucion_aprobada (usuario, "ok")
 ```
 
-Consultas: `GET /api/responsabilidad/auditoria`, `/auditoria/resumen`,
-`DELETE /auditoria?dias=N` (purga por retención).
+Consultas: `GET /api/responsabilidad/auditoría`, `/auditoria/resumen`,
+`DELETE /auditoría?días=N` (purga por retención).
 
 ---
 

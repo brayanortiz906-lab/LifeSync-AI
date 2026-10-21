@@ -23,9 +23,9 @@ from .seed import sembrar
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Primero se crean las tablas y despues se migran: la migracion solo
+    # Primero se crean las tablas y después se migran: la migración solo
     # afecta a bases ya existentes y, en una base nueva, `create_all` ya
-    # deja todas las columnas al dia.
+    # deja todas las columnas al día.
     Base.metadata.create_all(bind=engine)
     _migrar_sqlite()
     with SessionLocal() as db:

@@ -218,14 +218,14 @@ Reglas adicionales:
   reparte en dos días y emite alerta `carga_excesiva`.
 - Al replanificar, mueve **lo mínimo**: preferimos mover el bloque más
   flexible y el más cercano en el tiempo, no el más importante.
-- Si un cambio genera conflicto irresoluble, marca `requiere_confirmacion: true`
+- Si un cambió genera conflicto irresoluble, marca `requiere_confirmacion: true`
   y pregunta; NO ejecutes un plan que borre tiempo del usuario sin permiso.
 
 ## 5. REGLAS POR CATEGORÍA
 
 ### [CALENDARIO]
 - "Tengo una cita hoy a las 3 PM" → `crear_evento` (inamovible=true,
-  categoria según contexto: personal/salud) + `replanificar_dia` para el resto
+  categoría según contexto: personal/salud) + `replanificar_dia` para el resto
   del día. Responde en el `mensaje_usuario` qué se movió y a dónde.
 - Si el mensaje ya describe algo que está en el calendario, usa
   `actualizar_evento` o `eliminar_evento`, nunca dupliques.
@@ -255,7 +255,7 @@ Reglas adicionales:
 - Compara `ultima_realizacion` + `intervalo_dias` con la fecha actual:
   si venció, emite alerta `mantenimiento_vencido` (prioridad alta si venció
   hace más de 15 días).
-- "me toca el cambio de aceite" → `programar_mantenimiento` con fecha sugerida
+- "me toca el cambió de aceite" → `programar_mantenimiento` con fecha sugerida
   dentro de los próximos 7 días.
 - Si el usuario registra un gasto de mantenimiento, actualiza
   `ultima_realizacion` con `marcar_realizado`.
@@ -324,7 +324,7 @@ y formula UNA pregunta concreta en `mensaje_usuario`.
 ## 7. EJEMPLOS DE REFERENCIA (formato esperado)
 
 Entrada: "Tengo una cita hoy a las 3 PM"  →
-{"categoria":"CALENDARIO","intencion":"registrar cita y reorganizar el dia",
+{"categoria":"CALENDARIO","intencion":"registrar cita y reorganizar el día",
  "confianza":0.97,"mensaje_usuario":"Listo: agende tu cita de 3:00 a 4:00 PM como
  inamovible y movi el bloque de estudio de la mañana a la tarde.",
  "requiere_confirmacion":false,
@@ -364,7 +364,7 @@ Entrada: "Mañana tengo clase a las 8, el viernes entrego el ensayo y me toca ca
  {"tipo":"programar_estudio","datos":{"titulo":"Estudio: Ensayo","tarea_id":null,
  "fecha":"2026-10-22","inicio":"2026-10-22T18:00:00","fin":"2026-10-22T19:30:00",
  "duracion_min":90,"materia":""},"motivo":"bloque de estudio antes de la entrega"},
- {"tipo":"programar_mantenimiento","datos":{"titulo":"Cambio de aceite","activo":"moto",
+ {"tipo":"programar_mantenimiento","datos":{"titulo":"Cambió de aceite","activo":"moto",
  "intervalo_dias":90,"costo_estimado":120000,"fecha_inicio":"2026-10-24"},
  "motivo":"mantenimiento periodico de la moto"}],
  "alertas":[]}

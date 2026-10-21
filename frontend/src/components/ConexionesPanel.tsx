@@ -215,7 +215,7 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
       setGoogleInfo({
         configurado: true,
         origen: 'app',
-        pista: 'ID de cliente de Google guardado. La proxima vez entras con un clic.',
+        pista: 'ID de cliente de Google guardado. La próxima vez entras con un clic.',
       })
       const google = catalogo.find((c) => c.id === 'google_cuenta')
       if (google) {
@@ -243,7 +243,7 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
       const verificada = await api.verificarConexion(guardada.id)
       setEstado({
         ok: verificada.estado === 'activa',
-        texto: verificada.detalle_estado ?? 'Conexion verificada.',
+        texto: verificada.detalle_estado ?? 'Conexión verificada.',
       })
       await cargar()
       if (verificada.estado === 'activa') {
@@ -365,7 +365,7 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
               variante="secundario"
               onClick={() => {
                 guardarUrlApi(apiUrl)
-                setEstado({ ok: true, texto: 'Direccion de la API guardada. Recargando…' })
+                setEstado({ ok: true, texto: 'Dirección de la API guardada. Recargando…' })
                 setTimeout(() => window.location.reload(), 600)
               }}
             >
@@ -547,7 +547,7 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
                       <button
                         onClick={() => void eliminarConexion(c.id)}
                         className="text-slate-500 hover:text-rose-400"
-                        title="Eliminar conexion"
+                        title="Eliminar conexión"
                       >
                         <Trash2 size={12} />
                       </button>
@@ -586,7 +586,7 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
                   'Abre la consola de Google Cloud y crea un proyecto (o usa el que ya tienes).',
                   'Ve a "APIs y servicios" > "Credenciales" y pulsa "Crear credenciales".',
                   'Elige "ID de cliente OAuth" y el tipo "App de escritorio".',
-                  'Copia el "ID de cliente": son unos caracteres y un punto, no tu contrasena.',
+                  'Copia el "ID de cliente": son unos caracteres y un punto, no tu contraseña.',
                 ].map((t, i) => (
                   <li key={i} className="ls-paso">
                     <span className="ls-paso-num">{i + 1}</span>
@@ -605,7 +605,7 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
               <div className="mt-4">
                 <Campo
                   etiqueta="ID de cliente"
-                  ayuda="Es publico: se puede guardar y borrar cuando quieras. No da acceso a tu cuenta sin que autorices."
+                  ayuda="Es público: se puede guardar y borrar cuando quieras. No da acceso a tu cuenta sin que autorices."
                 >
                   <input
                     value={clientId}
@@ -808,9 +808,9 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
                   <>
                     <ol className="mt-4 space-y-2.5">
                       {(seleccion.instrucciones.length ? seleccion.instrucciones : [
-                        'Crea una aplicacion en la consola del proveedor.',
-                        'Copia el "ID de cliente" (no es un token ni una contrasena).',
-                        'Pega el ID aqui y pulsa "Autorizar en el navegador".',
+                        'Crea una aplicación en la consola del proveedor.',
+                        'Copia el "ID de cliente" (no es un token ni una contraseña).',
+                        'Pega el ID aquí y pulsa "Autorizar en el navegador".',
                       ]).map((pasoTexto, i) => (
                         <li key={i} className="ls-paso">
                           <span className="ls-paso-num">{i + 1}</span>
@@ -832,7 +832,7 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
                     <div className="mt-5">
                       <Campo
                         etiqueta="ID de cliente (opcional)"
-                        ayuda="Caracteres publicos de una aplicacion: no es un token ni tu contrasena. Dejalo vacio si esta copia de LifeSync ya trae uno."
+                        ayuda="Caracteres publicos de una aplicación: no es un token ni tu contraseña. Dejalo vacio si esta copia de LifeSync ya trae uno."
                       >
                         <input
                           value={clientId}
@@ -945,7 +945,7 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
                 )}
 
                 <div className="mt-5">
-                  <Campo etiqueta="Pega aqui tu clave">
+                  <Campo etiqueta="Pega aquí tu clave">
                     <div className="relative">
                       <input
                         type={visible ? 'text' : 'password'}

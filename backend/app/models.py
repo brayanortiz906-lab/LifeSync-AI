@@ -135,13 +135,13 @@ class AppSettings(Base):
 # CONEXIONES DE IA (cuentas y proveedores)
 # --------------------------------------------------------------------------- #
 class ConexionIA(Base):
-    """Conexion a un proveedor de IA.
+    """Conexión a un proveedor de IA.
 
     `modo` define como se autentica el usuario:
       - "api_key"  -> pega una clave (OpenAI, Anthropic, Gemini, OpenRouter...)
-      - "cuenta"   -> OAuth / sesion de cuenta (ChatGPT, Claude.ai, Google...)
+      - "cuenta"   -> OAuth / sesión de cuenta (ChatGPT, Claude.ai, Google...)
       - "local"    -> motor local (Ollama, LM Studio) sin clave
-      - "mock"     -> asistente integrado sin conexion
+      - "mock"     -> asistente integrado sin conexión
     """
 
     __tablename__ = "ai_connections"
@@ -163,12 +163,12 @@ class ConexionIA(Base):
 # SISTEMA RESPONSABLE (IA responsable)
 # --------------------------------------------------------------------------- #
 class PolicySettings(Base):
-    """Parametros de gobierno del agente: umbrales, autonomia y trazabilidad."""
+    """Parámetros de gobierno del agente: umbrales, autonomia y trazabilidad."""
 
     __tablename__ = "policy_settings"
 
     id: Mapped[int] = mapped_column(primary_key=True, default=1)
-    # --- Umbrales de decision -------------------------------------------------
+    # --- Umbrales de decisión -------------------------------------------------
     umbral_confianza: Mapped[float] = mapped_column(Float, default=0.65)
     gasto_max_autonomo: Mapped[float] = mapped_column(Float, default=100000.0)
     max_acciones_por_mensaje: Mapped[int] = mapped_column(Integer, default=12)
@@ -188,7 +188,7 @@ class PolicySettings(Base):
 
 
 class AuditLog(Base):
-    """Bitacora de auditoria: que hizo el sistema, con que motivo y con que impacto."""
+    """Bitacora de auditoría: que hizo el sistema, con que motivo y con que impacto."""
 
     __tablename__ = "audit_log"
 
@@ -209,7 +209,7 @@ class AuditLog(Base):
 
 
 class ApprovalRequest(Base):
-    """Accion que el agente propone pero NO ejecuta: espera decision humana."""
+    """Acción que el agente propone pero NO ejecuta: espera decisión humana."""
 
     __tablename__ = "approval_requests"
 
@@ -222,7 +222,7 @@ class ApprovalRequest(Base):
     regla: Mapped[str] = mapped_column(String(64), default="")
     riesgo: Mapped[str] = mapped_column(String(16), default="medio")
     confianza: Mapped[float | None] = mapped_column(Float, default=None)
-    datos: Mapped[str | None] = mapped_column(Text, default=None)  # JSON de la accion
+    datos: Mapped[str | None] = mapped_column(Text, default=None)  # JSON de la acción
     chat_message_id: Mapped[int | None] = mapped_column(Integer, default=None)
     decidido_en: Mapped[datetime | None] = mapped_column(DateTime, default=None)
     decidido_por: Mapped[str | None] = mapped_column(String(48), default=None)

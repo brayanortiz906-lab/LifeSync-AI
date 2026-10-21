@@ -111,7 +111,7 @@ El prompt pide la acción **explícita**; las **cascadas** las ejecuta el códig
 | Acción emitida | Cascada automática en código |
 |---|---|
 | `crear_tarea` con `fecha_entrega` | `programar_estudio` en un hueco libre antes de la entrega |
-| `registrar_gasto` con `categoria: "mantenimiento"` | `registrar_mantenimiento` (recalcula `proxima_fecha`) |
+| `registrar_gasto` con `categoría: "mantenimiento"` | `registrar_mantenimiento` (recalcula `proxima_fecha`) |
 | `crear_evento` nuevo | `replanificar_dia` (una vez por fecha) |
 | `resumir_material` | `crear_tarea` + `programar_estudio` |
 
@@ -209,7 +209,7 @@ y las ejecuta. Por eso un modelo mediocre degrada la calidad del plan, pero **no
 
 ## 9. Referencia rápida
 
-| Quiero… | Cambio en el prompt |
+| Quiero… | Cambió en el prompt |
 |---|---|
 | Que no invente montos | Sección 5 `[BITACORA_GASTO]`: exigir confirmación si la moneda no está clara |
 | Que priorice el descanso | Sección 4: bajar el umbral de "carga > 4 h seguidas" |

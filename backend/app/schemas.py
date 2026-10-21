@@ -296,9 +296,9 @@ class ConexionTest(BaseModel):
 
 
 class GoogleClienteIn(BaseModel):
-    """ID de cliente publico de Google para conectar cuentas sin jerga.
+    """ID de cliente público de Google para conectar cuentas sin jerga.
 
-    Es un identificador (no es un token ni una contrasena). Enviarlo en
+    Es un identificador (no es un token ni una contraseña). Enviarlo en
     blanco olvida el que habia guardado.
     """
 

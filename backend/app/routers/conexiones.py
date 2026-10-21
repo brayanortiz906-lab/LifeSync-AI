@@ -1,8 +1,8 @@
 """Endpoints del centro de conexiones de IA.
 
 Permite conectar LifeSync con "la cuenta de IA que ya tienes" sin exigir
-conocimientos tecnicos: el usuario elige un proveedor, el sistema le explica
-en español que hacer, verifica la conexion y la deja activa.
+conocimientos técnicos: el usuario elige un proveedor, el sistema le explica
+en español que hacer, verifica la conexión y la deja activa.
 """
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ router = APIRouter(prefix="/api/conexiones", tags=["conexiones"])
 
 
 # --------------------------------------------------------------------------- #
-# Catalogo
+# Catálogo
 # --------------------------------------------------------------------------- #
 @router.get("/catalogo")
 def catalogo():
@@ -48,7 +48,7 @@ async def detectar_locales():
 
 @router.get("/modelos")
 def modelos(proveedor: str = "openrouter"):
-    """Catalogo de modelos que la persona puede elegir ("cualquier IA")."""
+    """Catálogo de modelos que la persona puede elegir ("cualquier IA")."""
     lista = con.listar_modelos_publicos(proveedor)
     familias: dict[str, int] = {}
     for m in lista:
@@ -73,7 +73,7 @@ def listar(db: Session = Depends(get_db, scope="function")):
 
 @router.post("", response_model=ConexionOut)
 def guardar(payload: ConexionCreate, db: Session = Depends(get_db, scope="function")):
-    """Crea o actualiza la conexion de un proveedor y la deja activa."""
+    """Crea o actualiza la conexión de un proveedor y la deja activa."""
     pid = con.normalizar_proveedor(payload.proveedor)
     prov = con.obtener_proveedor(pid)
     if prov is None:
@@ -89,7 +89,7 @@ def guardar(payload: ConexionCreate, db: Session = Depends(get_db, scope="functi
     if payload.email:
         credenciales["email"] = payload.email.strip()
     if not credenciales.get("base_url") and prov.base_url:
-        # Los motores locales (Ollama, LM Studio) ya traen su direccion: si el
+        # Los motores locales (Ollama, LM Studio) ya traen su dirección: si el
         # usuario no escribe nada, se usa la de por defecto.
         credenciales["base_url"] = prov.base_url
 
@@ -117,7 +117,7 @@ def guardar(payload: ConexionCreate, db: Session = Depends(get_db, scope="functi
     existente.detalle_estado = "Conectado. Falta verificar que responda."
     db.flush()
 
-    # La conexion activa pasa a ser la de este proveedor.
+    # La conexión activa pasa a ser la de este proveedor.
     _activar(db, existente, prov.modelo_defecto)
     db.flush()
     return _a_out(existente, db)
@@ -125,10 +125,10 @@ def guardar(payload: ConexionCreate, db: Session = Depends(get_db, scope="functi
 
 @router.post("/{conexion_id}/verificar", response_model=ConexionOut)
 async def verificar(conexion_id: int, db: Session = Depends(get_db, scope="function")):
-    """Prueba la conexion: llama al proveedor y reporta el resultado."""
+    """Prueba la conexión: llama al proveedor y reporta el resultado."""
     conexion = db.get(ConexionIA, conexion_id)
     if conexion is None:
-        raise HTTPException(status_code=404, detail="Conexion no encontrada.")
+        raise HTTPException(status_code=404, detail="Conexión no encontrada.")
 
     cred = con.credenciales_desde_json(conexion.credenciales_cifradas)
     ok, mensaje, extra = await con.verificar_credenciales(
@@ -164,7 +164,7 @@ async def verificar_sin_guardar(payload: ConexionTest):
 def activar(conexion_id: int, db: Session = Depends(get_db, scope="function")):
     conexion = db.get(ConexionIA, conexion_id)
     if conexion is None:
-        raise HTTPException(status_code=404, detail="Conexion no encontrada.")
+        raise HTTPException(status_code=404, detail="Conexión no encontrada.")
     prov = con.obtener_proveedor(conexion.proveedor)
     _activar(db, conexion, conexion.modelo or (prov.modelo_defecto if prov else ""))
     db.flush()
@@ -172,14 +172,14 @@ def activar(conexion_id: int, db: Session = Depends(get_db, scope="function")):
 
 
 # --------------------------------------------------------------------------- #
-# Google: identificador publico de la app para conectar cuentas sin jerga
+# Google: identificador público de la app para conectar cuentas sin jerga
 # --------------------------------------------------------------------------- #
 @router.get("/google/estado")
 def google_estado(db: Session = Depends(get_db, scope="function")):
     """Dice si esta copia de LifeSync ya puede conectar cuentas de Google.
 
     El "ID de cliente" de OAuth es un identificador PUBLICO (no es una
-    contrasena ni un token). Basta con crearlo una vez en la consola de Google
+    contraseña ni un token). Basta con crearlo una vez en la consola de Google
     Cloud para que TODAS las personas que usen esta copia conecten su cuenta
     de Google con un clic y sin copiar nada.
     """
@@ -201,17 +201,17 @@ def google_estado(db: Session = Depends(get_db, scope="function")):
         "origen": "nada",
         "pista": (
             "Falta el ID de cliente de Google. Son unos caracteres publicos "
-            "(no es tu contrasena) y se crea en 1 minuto en la consola de Google Cloud."
+            "(no es tu contraseña) y se crea en 1 minuto en la consola de Google Cloud."
         ),
     }
 
 
 @router.put("/google/estado")
 def guardar_google_cliente(payload: GoogleClienteIn, db: Session = Depends(get_db, scope="function")):
-    """Guarda (u olvida) el ID de cliente publico de Google de esta instalacion.
+    """Guarda (u olvida) el ID de cliente público de Google de esta instalacion.
 
-    Enviar el ID en blanco borra el que habia: asi la persona puede empezar
-    de cero si el ID era de otra aplicacion.
+    Enviar el ID en blanco borra el que habia: así la persona puede empezar
+    de cero si el ID era de otra aplicación.
     """
     client_id = (payload.client_id or "").strip()
     app = _get_app_settings(db)
@@ -230,7 +230,7 @@ def guardar_google_cliente(payload: GoogleClienteIn, db: Session = Depends(get_d
             status_code=400,
             detail=(
                 "Ese ID de cliente no parece completo. Copialo de nuevo desde la consola de "
-                "Google (debe terminar en .apps.googleusercontent.com) y pegalo entero."
+                "Google (debe terminar en .apps.googleusercontent.com) y pégalo entero."
             ),
         )
     app.google_client_id = client_id
@@ -243,7 +243,7 @@ def guardar_google_cliente(payload: GoogleClienteIn, db: Session = Depends(get_d
 # --------------------------------------------------------------------------- #
 @router.post("/cuenta/iniciar")
 def cuenta_iniciar(payload: ConexionTest, db: Session = Depends(get_db, scope="function")):
-    """Arranca la autorizacion con cuenta: devuelve el codigo y el link."""
+    """Arranca la autorización con cuenta: devuelve el código y el link."""
     client_id = (payload.client_id or "").strip()
     if not client_id:
         # Si la instalacion ya tiene su ID de cliente, no se le pide nada a la
@@ -258,7 +258,7 @@ def cuenta_iniciar(payload: ConexionTest, db: Session = Depends(get_db, scope="f
 
 @router.post("/cuenta/terminar")
 def cuenta_terminar(payload: ConexionTest, db: Session = Depends(get_db, scope="function")):
-    """Consulta si el usuario ya autorizo y, si es asi, guarda la conexion."""
+    """Consulta si el usuario ya autorizo y, si es así, guarda la conexión."""
     try:
         cred, mensaje = con.completar_autorizacion_cuenta(
             payload.proveedor, payload.client_id or "", payload.device_code or ""
@@ -296,7 +296,7 @@ def cuenta_terminar(payload: ConexionTest, db: Session = Depends(get_db, scope="
 def eliminar(conexion_id: int, db: Session = Depends(get_db, scope="function")):
     conexion = db.get(ConexionIA, conexion_id)
     if conexion is None:
-        raise HTTPException(status_code=404, detail="Conexion no encontrada.")
+        raise HTTPException(status_code=404, detail="Conexión no encontrada.")
     era_activa = conexion.activa
     db.delete(conexion)
     db.flush()
@@ -319,7 +319,7 @@ def settings_default_model() -> str:
 
 
 def _activar(db: Session, conexion: ConexionIA, modelo: str) -> None:
-    """Marca una conexion como activa y sincroniza AppSettings."""
+    """Marca una conexión como activa y sincroniza AppSettings."""
     for otra in db.scalars(select(ConexionIA)).all():
         otra.activa = False
     conexion.activa = True

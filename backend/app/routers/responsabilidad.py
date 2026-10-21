@@ -1,4 +1,4 @@
-"""Router del sistema responsable: politica, auditoria, aprobaciones y cumplimiento."""
+"""Router del sistema responsable: política, auditoría, aprobaciones y cumplimiento."""
 from __future__ import annotations
 
 import json
@@ -25,7 +25,7 @@ router = APIRouter(prefix="/api/responsabilidad", tags=["responsabilidad"])
 
 
 # --------------------------------------------------------------------------- #
-# Politica
+# Política
 # --------------------------------------------------------------------------- #
 @router.get("/politica", response_model=PolicyOut)
 def leer_politica(db: Session = Depends(get_db, scope="function")) -> PolicyOut:
@@ -43,7 +43,7 @@ def actualizar_politica(cambios: PolicyUpdate, db: Session = Depends(get_db, sco
     db.flush()
     gober.registrar_auditoria(
         db, actor="usuario", tipo="cambio_politica", modulo="gobierno",
-        descripcion="Se actualizaron los parametros de gobierno",
+        descripcion="Se actualizaron los parámetros de gobierno",
         motivo="ajuste manual del usuario", riesgo="bajo", reversible=True,
         resultado="ok", datos=datos,
     )
@@ -51,7 +51,7 @@ def actualizar_politica(cambios: PolicyUpdate, db: Session = Depends(get_db, sco
 
 
 # --------------------------------------------------------------------------- #
-# Auditoria
+# Auditoría
 # --------------------------------------------------------------------------- #
 @router.get("/auditoria", response_model=list[AuditOut])
 def listar_auditoria(
@@ -98,12 +98,12 @@ def resumen_auditoria(db: Session = Depends(get_db, scope="function")) -> dict:
 
 @router.delete("/auditoria")
 def purgar_auditoria(dias: int | None = Query(default=None, ge=0), db: Session = Depends(get_db, scope="function")):
-    """Purga la auditoria mas antigua que la retencion configurada (derecho de supresion)."""
+    """Purga la auditoría más antigua que la retención configurada (derecho de supresion)."""
     borrados = gober.purgar_auditoria(db, dias)
     gober.registrar_auditoria(
         db, actor="usuario", tipo="purga", modulo="privacidad",
-        descripcion=f"Se purgaron {borrados} entradas de auditoria",
-        motivo="retencion o solicitud del usuario", riesgo="bajo", reversible=False,
+        descripcion=f"Se purgaron {borrados} entradas de auditoría",
+        motivo="retención o solicitud del usuario", riesgo="bajo", reversible=False,
         resultado="ok", datos={"borrados": borrados},
     )
     return {"borrados": borrados}
@@ -130,7 +130,7 @@ def decidir_aprobacion(
     decision: ApprovalDecision,
     db: Session = Depends(get_db, scope="function"),
 ) -> ApprovalOut:
-    """El usuario aprueba o rechaza una accion que el agente NO ejecuto."""
+    """El usuario aprueba o rechaza una acción que el agente NO ejecuto."""
     peticion, accion = gober.decidir_aprobacion(
         db, peticion_id, decision.aprobar, decision.nota, decision.actor
     )
@@ -148,8 +148,8 @@ def decidir_aprobacion(
             datos=accion.get("datos") or {},
             motivo=str(accion.get("motivo") or "Aprobada por el usuario"),
         )
-        # `aprobada_por_usuario=True`: el visto bueno humano es la maxima
-        # autoridad, asi que la accion se ejecuta sin volver a pasar por los
+        # `aprobada_por_usuario=True`: el visto bueno humano es la máxima
+        # autoridad, así que la acción se ejecuta sin volver a pasar por los
         # umbrales automaticos (si no, volveria a quedar en cola).
         resumen = aplicar_acciones(
             db, [acc], confianza=1.0,
@@ -192,17 +192,17 @@ def cumplimiento(db: Session = Depends(get_db, scope="function")) -> ComplianceO
 
 @router.get("/inventario")
 def inventario_datos(db: Session = Depends(get_db, scope="function")) -> dict:
-    """Inventario de datos personales tratados (deber de informacion)."""
+    """Inventario de datos personales tratados (deber de información)."""
     politica = gober.obtener_politica(db)
     return {
         "categorias_datos": [
-            {"categoria": "Agenda y horarios", "dato": "Titulos, fechas, horas de compromisos", "base": "Event", "finalidad": "Planificacion y reorganizacion", "base_legal": "Ejecucion del contrato (servicio solicitado)"},
-            {"categoria": "Academico", "dato": "Tareas, materias, entregas, material", "base": "Task", "finalidad": "Seguimiento de entregas y bloques de estudio", "base_legal": "Ejecucion del contrato"},
-            {"categoria": "Finanzas", "dato": "Descripcion y monto de gastos", "base": "LogEntry", "finalidad": "Control de gasto y clasificacion automatica", "base_legal": "Ejecucion del contrato"},
-            {"categoria": "Mantenimiento", "dato": "Activos y calendario de servicios", "base": "Maintenance", "finalidad": "Recordatorios de mantenimiento periodico", "base_legal": "Ejecucion del contrato"},
-            {"categoria": "Conversacion", "dato": "Mensajes con el agente y sus respuestas", "base": "ChatMessage", "finalidad": "Historial y explicabilidad", "base_legal": "Interes legitimo"},
-            {"categoria": "Trazabilidad", "dato": "Decisiones, motivos, riesgos, confianza", "base": "AuditLog", "finalidad": "Auditoria, explicabilidad y cumplimiento", "base_legal": "Cumplimiento legal"},
-            {"categoria": "Credenciales", "dato": "API Key del proveedor de IA", "base": "AppSettings (cifrada)", "finalidad": "Autenticacion con el proveedor", "base_legal": "Ejecucion del contrato"},
+            {"categoria": "Agenda y horarios", "dato": "Títulos, fechas, horas de compromisos", "base": "Event", "finalidad": "Planificación y reorganizacion", "base_legal": "Ejecución del contrato (servicio solicitado)"},
+            {"categoria": "Academico", "dato": "Tareas, materias, entregas, material", "base": "Task", "finalidad": "Seguimiento de entregas y bloques de estudio", "base_legal": "Ejecución del contrato"},
+            {"categoria": "Finanzas", "dato": "Descripción y monto de gastos", "base": "LogEntry", "finalidad": "Control de gasto y clasificacion automática", "base_legal": "Ejecución del contrato"},
+            {"categoria": "Mantenimiento", "dato": "Activos y calendario de servicios", "base": "Maintenance", "finalidad": "Recordatorios de mantenimiento periodico", "base_legal": "Ejecución del contrato"},
+            {"categoria": "Conversacion", "dato": "Mensajes con el agente y sus respuestas", "base": "ChatMessage", "finalidad": "Historial y explicabilidad", "base_legal": "Interés legitimo"},
+            {"categoria": "Trazabilidad", "dato": "Decisiones, motivos, riesgos, confianza", "base": "AuditLog", "finalidad": "Auditoría, explicabilidad y cumplimiento", "base_legal": "Cumplimiento legal"},
+            {"categoria": "Credenciales", "dato": "API Key del proveedor de IA", "base": "AppSettings (cifrada)", "finalidad": "Autenticación con el proveedor", "base_legal": "Ejecución del contrato"},
         ],
         "terceros": [
             {"nombre": "OpenAI / Google Gemini", "dato": "Mensaje y contexto minimo", "proposito": "Clasificar intencion y generar acciones", "control": "API Key propia (BYOK), contexto minimo, PII redactada, auditable"},
@@ -211,13 +211,13 @@ def inventario_datos(db: Session = Depends(get_db, scope="function")) -> dict:
             "redaccion_pii": politica.redactar_pii,
             "cifrado_api_key": True,
             "retencion_auditoria_dias": politica.dias_retencion_auditoria,
-            "control_usuario": "Edicion, borrado manual y aprobacion de cada accion sensible",
+            "control_usuario": "Edición, borrado manual y aprobación de cada acción sensible",
         },
         "derechos": {
-            "acceso": "GET /api/events, /api/tasks, /api/logbook, /api/responsabilidad/auditoria",
+            "acceso": "GET /api/events, /api/tasks, /api/logbook, /api/responsabilidad/auditoría",
             "rectificacion": "PATCH /api/events/{id}, /api/tasks/{id}",
-            "supresion": "DELETE /api/events/{id}, /api/logbook/{id}, purga de auditoria",
+            "supresion": "DELETE /api/events/{id}, /api/logbook/{id}, purga de auditoría",
             "portabilidad": "GET /api/context devuelve el estado completo en JSON",
-            "oposicion": "Desactivar IA externa o activar modo prudente en /api/responsabilidad/politica",
+            "oposicion": "Desactivar IA externa o activar modo prudente en /api/responsabilidad/política",
         },
     }

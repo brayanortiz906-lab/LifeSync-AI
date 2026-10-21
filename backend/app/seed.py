@@ -63,7 +63,7 @@ def sembrar(db: Session) -> bool:
                  categoria="alimentacion", fecha=hoy),
         LogEntry(descripcion="Pago de internet y celular", monto=95000.0, moneda="COP",
                  categoria="servicios", fecha=hoy - timedelta(days=5)),
-        LogEntry(descripcion="Cambio de aceite de la moto", monto=85000.0, moneda="COP",
+        LogEntry(descripcion="Cambió de aceite de la moto", monto=85000.0, moneda="COP",
                  categoria="mantenimiento", fecha=hoy - timedelta(days=40)),
         LogEntry(descripcion="Transporte universidad", monto=6000.0, moneda="COP",
                  categoria="transporte", fecha=hoy - timedelta(days=2)),
@@ -71,13 +71,13 @@ def sembrar(db: Session) -> bool:
     db.add_all(gastos)
 
     mantenimiento = [
-        Maintenance(activo="moto", tarea="Cambio de aceite", intervalo_dias=90,
+        Maintenance(activo="moto", tarea="Cambió de aceite", intervalo_dias=90,
                     ultima_realizacion=hoy - timedelta(days=95), proxima_fecha=hoy - timedelta(days=5),
                     costo_estimado=85000.0, notas="Revisar también la cadena."),
         Maintenance(activo="moto", tarea="Revisión de frenos", intervalo_dias=60,
                     ultima_realizacion=hoy - timedelta(days=20), proxima_fecha=hoy + timedelta(days=40),
                     costo_estimado=60000.0),
-        Maintenance(activo="computador", tarea="Limpieza y cambio de pasta térmica", intervalo_dias=180,
+        Maintenance(activo="computador", tarea="Limpieza y cambió de pasta térmica", intervalo_dias=180,
                     ultima_realizacion=hoy - timedelta(days=60), proxima_fecha=hoy + timedelta(days=120),
                     costo_estimado=50000.0),
         Maintenance(activo="hogar", tarea="Pago del servicio de agua", intervalo_dias=30,

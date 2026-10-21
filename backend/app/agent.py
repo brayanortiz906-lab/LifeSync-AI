@@ -155,15 +155,15 @@ def aplicar_acciones(
     chat_message_id: int | None = None,
     aprobada_por_usuario: bool = False,
 ) -> dict[str, Any]:
-    """Ejecuta las acciones PERMITIDAS por la politica de gobierno.
+    """Ejecuta las acciones PERMITIDAS por la política de gobierno.
 
-    Acciones que requieren aprobacion humana NO se ejecutan: se encolan en
+    Acciones que requieren aprobación humana NO se ejecutan: se encolan en
     `ApprovalRequest` y el usuario las resuelve desde la interfaz. Cada
-    decision queda registrada en la bitacora de auditoria.
+    decisión queda registrada en la bitacora de auditoría.
 
-    `aprobada_por_usuario=True` salta la evaluacion automatica: se usa cuando
-    el humano ya aprobo explicitamente la accion (el visto bueno humano es
-    la maxima autoridad del sistema).
+    `aprobada_por_usuario=True` salta la evaluacion automática: se usa cuando
+    el humano ya aprobo explicitamente la acción (el visto bueno humano es
+    la máxima autoridad del sistema).
     """
     resumen: dict[str, Any] = {
         "eventos_creados": [], "eventos_actualizados": [], "eventos_eliminados": 0,
@@ -182,19 +182,19 @@ def aplicar_acciones(
         {"tipo": a.tipo, "datos": a.datos or {}, "motivo": a.motivo}
         for a in acciones
     ]
-    # Limite duro de acciones por mensaje (proteccion contra la IA runaway).
+    # Límite duro de acciones por mensaje (protección contra la IA runaway).
     if len(lote) > politica.max_acciones_por_mensaje:
         gober.registrar_auditoria(
             db, actor="sistema", tipo="truncado", modulo="gobierno",
-            descripcion=f"Mensaje con {len(lote)} acciones truncado al maximo permitido",
+            descripcion=f"Mensaje con {len(lote)} acciones truncado al máximo permitido",
             motivo="max_acciones_por_mensaje", riesgo="medio", reversible=True,
             resultado="aplicado",
             datos={"original": len(lote), "permitidas": politica.max_acciones_por_mensaje},
         )
         lote = lote[: politica.max_acciones_por_mensaje]
     if aprobada_por_usuario:
-        # El humano ya aprobo: la accion se ejecuta sin volver a pasar por los
-        # umbrales automaticos (el visto bueno humano es la maxima autoridad).
+        # El humano ya aprobo: la acción se ejecuta sin volver a pasar por los
+        # umbrales automaticos (el visto bueno humano es la máxima autoridad).
         autonomas, a_aprobar, bloqueadas = [
             gober.Decision(
                 nivel=gober.AUTONOMO, regla="aprobada_por_usuario",
@@ -469,7 +469,7 @@ def aplicar_acciones(
             hh, mm = (hora.split(":") + ["0"])[:2]
             inicio = datetime.combine(fecha, datetime.min.time()).replace(hour=int(hh), minute=int(mm))
             titulo_evento = f"{d.get('activo', 'otro')}: {d.get('tarea', 'Mantenimiento')}"[:160]
-            # Anti-duplicado: si ya existe ese mantenimiento agendado ese dia, se actualiza.
+            # Anti-duplicado: si ya existe ese mantenimiento agendado ese día, se actualiza.
             existente = db.scalars(
                 select(Event).where(
                     Event.titulo.ilike(titulo_evento),
@@ -517,7 +517,7 @@ def aplicar_acciones(
         if sin_caber:
             anotar("agenda", f"{len(sin_caber)} bloque(s) sin espacio", "Revisa o divide esas tareas")
 
-    # --- Auditoria: una entrada por accion efectivamente ejecutada -----------
+    # --- Auditoría: una entrada por acción efectivamente ejecutada -----------
     if not politica.registrar_auditoria:
         return resumen
     for decision, registro in zip(autonomas, _acciones_ejecutadas(autonomas, resumen)):
@@ -534,10 +534,10 @@ def aplicar_acciones(
 
 
 def _acciones_ejecutadas(autonomas: list, resumen: dict[str, Any]) -> list[dict[str, Any]]:
-    """Empareja cada decision autonoma con la entidad que produjo.
+    """Empareja cada decisión autónoma con la entidad que produjo.
 
-    Se recorre el resumen en orden de aparicion para reconstruir que se
-    escribio en la base de datos a partir de cada accion.
+    Se recorre el resumen en orden de aparición para reconstruir que se
+    escribió en la base de datos a partir de cada acción.
     """
     cola: list[dict[str, Any]] = []
 
@@ -642,7 +642,7 @@ def ejecutar_replan(db: Session, d: dict[str, Any], resumen: dict[str, Any]) -> 
 
     specs = d.get("bloques_a_organizar") or []
     bloques: list[Bloque] = []
-    nuevos: list[tuple[str, str, int, str]] = []  # (titulo, categoria, duracion, prioridad)
+    nuevos: list[tuple[str, str, int, str]] = []  # (título, categoría, duración, prioridad)
 
     for spec in specs:
         titulo = str(spec.get("titulo") or "Bloque").strip()
@@ -774,12 +774,12 @@ async def procesar_mensaje(db: Session, req: ChatRequest) -> ChatResponse:
     proveedor_solicitado = (req.proveedor or app.proveedor or "mock").lower()
     proveedor = proveedor_solicitado
     modelo = req.modelo or app.modelo or settings.default_openai_model
-    # La API Key puede venir en la peticion (el usuario la pega en el chat) o
+    # La API Key puede venir en la petición (el usuario la pega en el chat) o
     # estar cifrada en el servidor ("recordar en el servidor").
     api_key = req.api_key or descifrar(app.api_key_cifrada)
     base_url: str | None = None
 
-    # Conexion activa del "Centro de conexiones": trae credencial cifrada y la
+    # Conexión activa del "Centro de conexiones": trae credencial cifrada y la
     # URL del motor local cuando aplica (Ollama / LM Studio).
     conexion = None
     if req.proveedor:
@@ -796,12 +796,12 @@ async def procesar_mensaje(db: Session, req: ChatRequest) -> ChatResponse:
         cred = conexiones.credenciales_desde_json(conexion.credenciales_cifradas)
         if not api_key:
             # Las conexiones "con mi cuenta" guardan el permiso como access
-            # token (por ejemplo el que entrega Google al iniciar sesion).
+            # token (por ejemplo el que entrega Google al iniciar sesión).
             api_key = cred.get("api_key") or cred.get("access_token") or ""
         if cred.get("base_url"):
             base_url = cred["base_url"]
         else:
-            # Los motores locales (Ollama, LM Studio) usan su direccion por
+            # Los motores locales (Ollama, LM Studio) usan su dirección por
             # defecto si el usuario no	configuro otra.
             prov = conexiones.obtener_proveedor(conexion.proveedor)
             base_url = prov.base_url if prov else None
@@ -815,11 +815,11 @@ async def procesar_mensaje(db: Session, req: ChatRequest) -> ChatResponse:
         # local en vez de romper el chat, y se avisa en la respuesta.
         proveedor = "mock"
     if proveedor != "mock" and not politica.permitir_ia_externa:
-        # Governance: la politica impide enviar datos a un proveedor externo.
+        # Governance: la política impide enviar datos a un proveedor externo.
         proveedor = "mock"
         gober.registrar_auditoria(
             db, actor="sistema", tipo="redireccion", modulo="gobierno",
-            descripcion="Proveedor externo bloqueado por politica; se uso el motor local",
+            descripcion="Proveedor externo bloqueado por política; se usó el motor local",
             motivo="permitir_ia_externa=False", riesgo="bajo", reversible=True, resultado="ok",
         )
 
@@ -868,7 +868,7 @@ async def procesar_mensaje(db: Session, req: ChatRequest) -> ChatResponse:
             db, agente.acciones, confianza=agente.confianza,
             chat_message_id=None,
         )
-        # Si se uso el motor local por falta de API Key, se avisa al usuario.
+        # Si se usó el motor local por falta de API Key, se avisa al usuario.
         if proveedor == "mock" and proveedor_solicitado != "mock":
             agente.mensaje_usuario = (
                 f"{agente.mensaje_usuario} (Registrado con el motor local: "
@@ -886,7 +886,7 @@ async def procesar_mensaje(db: Session, req: ChatRequest) -> ChatResponse:
                 "Dime si quieres que reacomode esa franja."
             )
         # Si el mensaje no menciona TODO lo que se registro (p.ej. respuesta
-        # generica del modelo), se anade una linea con lo que quedo guardado.
+        # generica del modelo), se anade una linea con lo que quedó guardado.
         # El tipo "agenda" se omite del texto: la reorganizacion ya se
         # comunica con el chip "N bloques reubicados".
         detalle = agente.resumen_estado.get("registros_detallados") or []
@@ -926,7 +926,7 @@ async def procesar_mensaje(db: Session, req: ChatRequest) -> ChatResponse:
             )
     else:
         # El propio modelo pidio confirmacion: se encola igual que una
-        # aprobacion de gobierno, para que exista un registro y un decision.
+        # aprobación de gobierno, para que exista un registro y un decisión.
         decision = gober.Decision(
             gober.REQUIERE_APROBACION,
             "modelo_solicita_confirmacion",
@@ -980,7 +980,7 @@ async def procesar_mensaje(db: Session, req: ChatRequest) -> ChatResponse:
 def _respeta_contrato(crudo: Any) -> bool:
     """Indica si la respuesta del modelo cumple el contrato JSON.
 
-    Se considera valida cuando trae una categoria conocida y al menos un campo
+    Se considera válida cuando trae una categoría conocida y al menos un campo
     con contenido real (mensaje_usuario o acciones). Si el modelo devuelve un
     objeto vacio, texto libre o un JSON con otra forma, se usa el clasificador
     por reglas como red de seguridad.

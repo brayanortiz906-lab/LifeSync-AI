@@ -148,7 +148,7 @@ export default function CalendarPanel({
         <select
           value={modo}
           onChange={(e) => void guardarAjustes({ orden_eventos: e.target.value as OrdenEventos })}
-          title="Como ordenar los bloques del dia"
+          title="Como ordenar los bloques del día"
           className="ml-auto rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[10px] font-semibold text-slate-300 outline-none hover:bg-white/10"
         >
           <option value="hora">Orden: hora</option>
@@ -250,8 +250,8 @@ function VistaDia({
       <div className="flex h-full min-h-[300px] items-center justify-center p-6">
         <Vacio
           icono={<CalendarRange size={26} />}
-          texto="No hay nada agendado para este dia"
-          sub='Dile al agente "tengo una cita hoy a las 3 PM" y el bloque aparecera aqui, ya acomodado.'
+          texto="No hay nada agendado para este día"
+          sub='Dile al agente "tengo una cita hoy a las 3 PM" y el bloque aparecera aquí, ya acomodado.'
         />
       </div>
     )

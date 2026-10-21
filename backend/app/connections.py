@@ -1,22 +1,22 @@
-"""Catalogo de proveedores de IA y flujo de conexion guiado.
+"""Catálogo de proveedores de IA y flujo de conexión guiado.
 
-Objetivo de diseno: que una persona sin conocimientos tecnicos pueda
+Objetivo de diseño: que una persona sin conocimientos técnicos pueda
 conectar LifeSync con "la cuenta de IA que ya tiene" (ChatGPT, Claude,
 Gemini, Copilot...) sin saber que es un token ni una API key.
 
-Tres caminosofferidos por el producto:
+Tres caminos ofrecidos por el producto:
 
-  1. "Cuenta"   -> sesion/OAuth de la cuenta del usuario (ChatGPT, Claude.ai,
+  1. "Cuenta"   -> sesión/OAuth de la cuenta del usuario (ChatGPT, Claude.ai,
                     Google). El usuario hace login en su navegador y la app
                     queda conectada. Sin claves que copiar a mano.
-  2. "Clave"    -> BYOK clasico: pega la clave de la consola del proveedor.
+  2. "Clave"    -> BYOK clásico: pega la clave de la consola del proveedor.
   3. "Local"    -> motor local (Ollama / LM Studio) en su propio equipo:
                     gratis, offline y sin ninguna credencial.
-  4. "Demo"     -> asistente integrado (motor de reglas), cero configuracion.
+  4. "Demo"     -> asistente integrado (motor de reglas), cero configuración.
 
-Este modulo es la CAPA DE CATALOGO: describe cada proveedor (que necesita,
-como se conecta, modelos sugeridos, enlaces oficiales) y valida conexiones.
-La ejecucion real de los modelos vive en `providers.py`.
+Este módulo es la CAPA DE CATALOGO: describe cada proveedor (que necesita,
+cómo se conecta, modelos sugeridos, enlaces oficiales) y valida conexiones.
+La ejecución real de los modelos vive en `providers.py`.
 """
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ from .security import cifrar, descifrar
 
 
 # --------------------------------------------------------------------------- #
-# Catalogo
+# Catálogo
 # --------------------------------------------------------------------------- #
 @dataclass(frozen=True)
 class Proveedor:
@@ -57,12 +57,12 @@ class Proveedor:
     token_url: str = ""
     scope: str = ""
     url_client_id: str = ""
-    # El usuario puede crear/iniciar sesion en el sitio del proveedor con su
+    # El usuario puede crear/iniciar sesión en el sitio del proveedor con su
     # cuenta de Google ("Continuar con Google"). Es la via que la gente no
-    # tecnica conoce: la misma cuenta de Google que ya usa para el correo.
+    # técnica conoce: la misma cuenta de Google que ya usa para el correo.
     permite_google: bool = False
-    # El proveedor ofrece un catalogo amplio de modelos que la persona elige
-    # (por ejemplo OpenRouter con mas de 300 modelos de distintas IAs).
+    # El proveedor ofrece un catálogo amplio de modelos que la persona elige
+    # (por ejemplo OpenRouter con más de 300 modelos de distintas IAs).
     permite_seleccion_modelo: bool = False
 
     def a_dict(self) -> dict[str, Any]:
@@ -99,7 +99,7 @@ CATALOGO: dict[str, Proveedor] = {
             "Entra a openai.com y pulsa 'Continuar con Google' (la cuenta que ya usas).",
             "Entra a la consola de OpenAI con tu cuenta.",
             "Abre el menu 'API keys' y crea una clave nueva.",
-            "Copia la clave (empieza por 'sk-') y pegala aqui.",
+            "Copia la clave (empieza por 'sk-') y pégala aquí.",
         ],
         pasos_ayuda=[
             "La clave se pega una sola vez y queda cifrada en tu servidor.",
@@ -115,14 +115,14 @@ CATALOGO: dict[str, Proveedor] = {
         id="anthropic",
         nombre="Anthropic (Claude)",
         modo="api_key",
-        resumen="Usa los modelos Claude para textos largos y analisis cuidadosos.",
+        resumen="Usa los modelos Claude para textos largos y análisis cuidadosos.",
         icono="🟠",
         requiere_pago=True,
         instrucciones=[
             "Entra a claude.ai y pulsa 'Continuar con Google' para crear tu cuenta.",
             "Entra a console.anthropic.com con tu cuenta.",
             "Ve a 'API Keys' y pulsa 'Create Key'.",
-            "Copia la clave (empieza por 'sk-ant-') y pegala aqui.",
+            "Copia la clave (empieza por 'sk-ant-') y pégala aquí.",
         ],
         pasos_ayuda=[
             "Necesitas saldo en la consola de Anthropic (la API es aparte del Claude.ai).",
@@ -143,7 +143,7 @@ CATALOGO: dict[str, Proveedor] = {
         instrucciones=[
             "Entra a aistudio.google.com con tu cuenta de Google.",
             "Pulsa 'Get API key' y elige o crea un proyecto.",
-            "Copia la clave y pegala aqui.",
+            "Copia la clave y pégala aquí.",
         ],
         pasos_ayuda=[
             "Google AI Studio tiene cuota gratuita generosa para pruebas.",
@@ -158,14 +158,14 @@ CATALOGO: dict[str, Proveedor] = {
         id="openrouter",
         nombre="OpenRouter (cualquier IA)",
         modo="api_key",
-        resumen="Entra con Google y elige entre mas de 300 IAs: GPT, Claude, Gemini, Llama y mas.",
+        resumen="Entra con Google y elige entre más de 300 IAs: GPT, Claude, Gemini, Llama y más.",
         icono="🌐",
         requiere_pago=True,
         instrucciones=[
             "Entra a openrouter.ai y pulsa 'Sign in with Google' (o 'Continue with Google').",
             "Abre 'Keys' y genera una clave.",
-            "Pegala aqui: es la unica clave que necesitaras para todos los modelos.",
-            "Despues elige el modelo que quieras usar en la lista de IAs.",
+            "Pégala aquí: es la unica clave que necesitaras para todos los modelos.",
+            "Después elige el modelo que quieras usar en la lista de IAs.",
         ],
         pasos_ayuda=[
             "Ideal si quieres comparar modelos sin abrir mil cuentas.",
@@ -188,7 +188,7 @@ CATALOGO: dict[str, Proveedor] = {
         instrucciones=[
             "Instala Ollama desde ollama.com (Windows, Mac o Linux).",
             "En una terminal ejecuta: ollama pull llama3.1",
-            "LifeSync detecta el servidor local automaticamente.",
+            "LifeSync detecta el servidor local automáticamente.",
         ],
         pasos_ayuda=[
             "Todo se queda en tu equipo: nada sale a internet.",
@@ -227,7 +227,7 @@ CATALOGO: dict[str, Proveedor] = {
         icono="✨",
         gratis=True,
         instrucciones=[
-            "No hay nada que configurar: elige esta opcion y listo.",
+            "No hay nada que configurar: elige esta opción y listo.",
             "Entiende citas, tareas, gastos y mantenimiento en español.",
         ],
         pasos_ayuda=[
@@ -252,11 +252,11 @@ CATALOGO: dict[str, Proveedor] = {
             "Crea un proyecto y ve a 'APIs y servicios' > 'Credenciales'.",
             "Crea un 'ID de cliente OAuth' de tipo 'App de escritorio'.",
             "Copia el 'ID de cliente' (son unos caracteres, no es un token).",
-            "Pegalo aqui y autorizare en el navegador con tu cuenta.",
+            "Pégalo aquí y autorizaré en el navegador con tu cuenta.",
         ],
         pasos_ayuda=[
-            "LifeSync pide autorizacion en el navegador y guarda el permiso internamente.",
-            "Tu contrasena nunca pasa por LifeSync: la escribes solo en Google.",
+            "LifeSync pide autorización en el navegador y guarda el permiso internamente.",
+            "Tu contraseña nunca pasa por LifeSync: la escribes solo en Google.",
             "Puedes desconectar cuando quieras y el permiso se borra.",
         ],
         modelos=["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-pro"],
@@ -278,8 +278,8 @@ CATALOGO: dict[str, Proveedor] = {
         requiere_pago=True,
         instrucciones=[
             "Abre la pagina de aplicaciones de OpenAI.",
-            "Registra una aplicacion de escritorio y copia el Client ID.",
-            "Pegalo aqui y autorizare en el navegador con tu cuenta.",
+            "Registra una aplicación de escritorio y copia el Client ID.",
+            "Pégalo aquí y autorizaré en el navegador con tu cuenta.",
         ],
         pasos_ayuda=[
             "Requiere plan de pago de ChatGPT para el acceso por cuenta.",
@@ -304,8 +304,8 @@ CATALOGO: dict[str, Proveedor] = {
         requiere_pago=True,
         instrucciones=[
             "Abre el panel de aplicaciones de Anthropic.",
-            "Crea una aplicacion de escritorio y copia el Client ID.",
-            "Pegalo aqui y autorizare en el navegador con tu cuenta.",
+            "Crea una aplicación de escritorio y copia el Client ID.",
+            "Pégalo aquí y autorizaré en el navegador con tu cuenta.",
         ],
         pasos_ayuda=[
             "Requiere suscripcion Claude Pro o Max para el acceso por cuenta.",
@@ -328,7 +328,7 @@ PROVEEDORES_SOPORTADOS = {
     "google_cuenta", "chatgpt_cuenta", "claude_cuenta",
 }
 
-#: Equivalencias de nombre -> id de catalogo.
+#: Equivalencias de nombre -> id de catálogo.
 ALIAS = {
     "google": "gemini",
     "googlegemini": "gemini",
@@ -348,7 +348,7 @@ ALIAS = {
 
 
 def normalizar_proveedor(nombre: str | None) -> str:
-    """Normaliza el nombre del proveedor a su id de catalogo."""
+    """Normaliza el nombre del proveedor a su id de catálogo."""
     if not nombre:
         return "demo"
     clave = nombre.strip().lower().replace(" ", "").replace("_", "").replace("-", "")
@@ -370,10 +370,10 @@ def obtener_proveedor(nombre: str | None) -> Proveedor | None:
 
 
 # --------------------------------------------------------------------------- #
-# Catalogo de modelos que la persona puede elegir
+# Catálogo de modelos que la persona puede elegir
 #
-# Aqui esta el "cualquier IA que seleccione la persona": OpenRouter publica
-# (sin clave) el catalogo completo de modelos que enruta, de OpenAI, Anthropic,
+# Aquí esta el "cualquier IA que seleccione la persona": OpenRouter publica
+# (sin clave) el catálogo completo de modelos que enruta, de OpenAI, Anthropic,
 # Google, Meta, DeepSeek, Mistral, Qwen... La persona elige el que quiera.
 # --------------------------------------------------------------------------- #
 _CACHE_MODELOS: dict[str, Any] = {"ts": 0.0, "valor": []}
@@ -431,7 +431,7 @@ def listar_modelos_publicos(proveedor: str) -> list[dict[str, Any]]:
 
 
 # --------------------------------------------------------------------------- #
-# Deteccion automatica de motores locales
+# Deteccion automática de motores locales
 # --------------------------------------------------------------------------- #
 _CACHE_MOTORES: dict[str, Any] = {"ts": 0.0, "valor": []}
 _CACHE_TTL = 8.0
@@ -441,7 +441,7 @@ def detectar_motores_locales_sync(forzar: bool = False) -> list[dict[str, Any]]:
     """Variante sincrona (para endpoints que ya trabajan en hilo sync).
 
     Cachea el resultado unos segundos: el listado de conexiones lo invoca por
-    cada conexion local y no tiene sentido interrogar los motores tan a menudo.
+    cada conexión local y no tiene sentido interrogar los motores tan a menudo.
     """
     ahora = time.time()
     if not forzar and ahora - float(_CACHE_MOTORES["ts"]) < _CACHE_TTL:
@@ -488,7 +488,7 @@ async def detectar_motores_locales() -> list[dict[str, Any]]:
 
 
 # --------------------------------------------------------------------------- #
-# Verificacion de credenciales
+# Verificación de credenciales
 # --------------------------------------------------------------------------- #
 async def verificar_credenciales(
     proveedor: str,
@@ -501,7 +501,7 @@ async def verificar_credenciales(
     extra: dict[str, Any] = {}
 
     if pid == "demo":
-        return True, "Asistente demo listo. No requiere configuracion.", extra
+        return True, "Asistente demo listo. No requiere configuración.", extra
 
     if pid == "ollama":
         base = (cred.get("base_url") or "http://127.0.0.1:11434").rstrip("/")
@@ -509,7 +509,7 @@ async def verificar_credenciales(
             async with httpx.AsyncClient(timeout=4) as client:
                 resp = await client.get(f"{base}/api/tags")
             if resp.status_code >= 400:
-                return False, f"Ollama respondio con error {resp.status_code}.", extra
+                return False, f"Ollama respondió con error {resp.status_code}.", extra
             data = resp.json()
             nombres = [m.get("name", "") for m in data.get("models", []) if m.get("name")]
             extra["modelos"] = nombres[:20]
@@ -525,7 +525,7 @@ async def verificar_credenciales(
             async with httpx.AsyncClient(timeout=4) as client:
                 resp = await client.get(f"{base}/models")
             if resp.status_code >= 400:
-                return False, f"LM Studio respondio con error {resp.status_code}.", extra
+                return False, f"LM Studio respondió con error {resp.status_code}.", extra
             data = resp.json()
             nombres = [m.get("id", "") for m in data.get("data", []) if m.get("id")]
             extra["modelos"] = nombres[:20]
@@ -558,9 +558,9 @@ async def verificar_credenciales(
                     },
                 )
             if resp.status_code == 401:
-                return False, "La clave fue rechazada. Revisala en la consola del proveedor.", extra
+                return False, "La clave fue rechazada. Revísala en la consola del proveedor.", extra
             if resp.status_code >= 400:
-                return False, f"El proveedor respondio {resp.status_code}: {resp.text[:200]}", extra
+                return False, f"El proveedor respondió {resp.status_code}: {resp.text[:200]}", extra
             return True, "Credenciales validas. Claude responde correctamente.", extra
 
         # OpenAI y compatibles (openai, openrouter, gemini via OpenAI-compat no aplica)
@@ -578,7 +578,7 @@ async def verificar_credenciales(
             if resp.status_code in (400, 403):
                 return False, "La clave fue rechazada o el modelo no esta disponible.", extra
             if resp.status_code >= 400:
-                return False, f"Gemini respondio {resp.status_code}: {resp.text[:200]}", extra
+                return False, f"Gemini respondió {resp.status_code}: {resp.text[:200]}", extra
             return True, "Credenciales validas. Gemini responde correctamente.", extra
 
         base = CATALOGO[pid].base_url if pid in CATALOGO else "https://api.openai.com/v1"
@@ -588,12 +588,12 @@ async def verificar_credenciales(
                 headers={"Authorization": f"Bearer {clave}"},
             )
         if resp.status_code == 401:
-            return False, "La clave fue rechazada. Revisala en la consola del proveedor.", extra
+            return False, "La clave fue rechazada. Revísala en la consola del proveedor.", extra
         if resp.status_code >= 400:
-            return False, f"El proveedor respondio {resp.status_code}: {resp.text[:200]}", extra
-        return True, "Credenciales validas. El proveedor respondio correctamente.", extra
+            return False, f"El proveedor respondió {resp.status_code}: {resp.text[:200]}", extra
+        return True, "Credenciales validas. El proveedor respondió correctamente.", extra
     except httpx.TimeoutException:
-        return False, "El proveedor no respondio a tiempo. Revisa tu conexion a internet.", extra
+        return False, "El proveedor no respondió a tiempo. Revisa tu conexión a internet.", extra
     except Exception as exc:  # pragma: no cover - red
         return False, f"No se pudo verificar: {exc}", extra
 
@@ -632,32 +632,32 @@ def modelo_por_defecto(proveedor: str) -> str:
 # --------------------------------------------------------------------------- #
 # Camino "con mi cuenta": OAuth 2.0 Device Authorization
 #
-# El usuario solo pega un "Client ID" (identificador publico de una app) y
+# El usuario solo pega un "Client ID" (identificador público de una app) y
 # autoriza en su navegador. El access token se queda cifrado en el servidor:
 # el usuario nunca ve, pega ni copia un token.
 # --------------------------------------------------------------------------- #
 class ErrorConexion(Exception):
-    """Error de negocio del flujo de conexion (mensaje en español, para la UI)."""
+    """Error de negocio del flujo de conexión (mensaje en español, para la UI)."""
 
 
-# Traduccion de los codigos OAuth a lenguaje llano: el usuario no es tecnico.
+# Traducción de los códigos OAuth a lenguaje llano: el usuario no es técnico.
 _ERRORES_OAUTH = {
     "invalid_client": (
         "Ese ID de cliente no existe. Copialo de nuevo desde el panel del proveedor "
         "y asegurate de guardarlo completo."
     ),
     "invalid_request": "El proveedor no acepto la solicitud. Revisa el ID de cliente.",
-    "invalid_scope": "El proveedor no reconoce los permisos pedidos. Usa una aplicacion nueva.",
+    "invalid_scope": "El proveedor no reconoce los permisos pedidos. Usa una aplicación nueva.",
     "unauthorized_client": (
-        "El proveedor no permite este tipo de autorizacion. Activa el flujo de dispositivo "
-        "en la configuracion de tu aplicacion."
+        "El proveedor no permite este tipo de autorización. Activa el flujo de dispositivo "
+        "en la configuración de tu aplicación."
     ),
     "access_denied": "No autorizaste el acceso. Si fue un error, vuelve a intentarlo.",
-    "expired_token": "El codigo expiro. Inicia la autorizacion de nuevo.",
+    "expired_token": "El código expiro. Inicia la autorización de nuevo.",
     "authorization_pending": "Todavia no has terminado en el navegador.",
     "slow_down": "Vas demasiado rapido. Espera unos segundos.",
-    "not_found": "El proveedor no encontro esa aplicacion.",
-    "unsupported_grant_type": "Este proveedor no admite el metodo de autorizacion usado.",
+    "not_found": "El proveedor no encontro esa aplicación.",
+    "unsupported_grant_type": "Este proveedor no admite el método de autorización usado.",
 }
 
 
@@ -679,10 +679,10 @@ def _post_form(url: str, datos: dict[str, Any], timeout: float = 20.0) -> dict[s
 
 
 def iniciar_autorizacion_cuenta(proveedor: str, client_id: str) -> dict[str, Any]:
-    """Arranca el flujo de cuenta y devuelve el codigo que debe escribir el usuario."""
+    """Arranca el flujo de cuenta y devuelve el código que debe escribir el usuario."""
     prov = obtener_proveedor(proveedor)
     if not prov or not prov.device_auth_url:
-        raise ErrorConexion("Este proveedor todavia no admite conexion con cuenta.")
+        raise ErrorConexion("Este proveedor todavia no admite conexión con cuenta.")
     client_id = (client_id or "").strip()
     if len(client_id) < 10:
         # Si el despliegue ya tiene configurado un ID de cliente de Google, la
@@ -693,7 +693,7 @@ def iniciar_autorizacion_cuenta(proveedor: str, client_id: str) -> dict[str, Any
             if prov.id == "google_cuenta":
                 raise ErrorConexion(
                     "Esta copia de LifeSync todavia no trae un ID de cliente de Google. "
-                    "Pega el tuyo (son unos caracteres, no es tu contrasena) o usa otra via."
+                    "Pega el tuyo (son unos caracteres, no es tu contraseña) o usa otra via."
                 )
             raise ErrorConexion(
                 "El ID de cliente parece incompleto. Copialo completo desde el panel del proveedor."
@@ -719,7 +719,7 @@ def completar_autorizacion_cuenta(
     """Consulta si el usuario ya autorizo. Devuelve (credenciales, mensaje)."""
     prov = obtener_proveedor(proveedor)
     if not prov or not prov.token_url:
-        raise ErrorConexion("Este proveedor todavia no admite conexion con cuenta.")
+        raise ErrorConexion("Este proveedor todavia no admite conexión con cuenta.")
     try:
         datos = _post_form(
             prov.token_url,
@@ -736,9 +736,9 @@ def completar_autorizacion_cuenta(
         if "slow_down" in texto:
             return {}, " Espera un momento y vuelve a intentarlo."
         if "expired_token" in texto or "expired" in texto:
-            raise ErrorConexion("El codigo expiro. Inicia la autorizacion de nuevo.") from exc
+            raise ErrorConexion("El código expiro. Inicia la autorización de nuevo.") from exc
         if "access_denied" in texto or "denied" in texto:
-            raise ErrorConexion("Cancelaste la autorizacion en el navegador.") from exc
+            raise ErrorConexion("Cancelaste la autorización en el navegador.") from exc
         raise
     token = str(datos.get("access_token") or "")
     if not token:
@@ -761,4 +761,4 @@ def completar_autorizacion_cuenta(
         "email": correo,
         "tipo": "cuenta",
     }
-    return credenciales, " Autorizacion completada."
+    return credenciales, " Autorización completada."

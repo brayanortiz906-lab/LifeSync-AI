@@ -24,7 +24,7 @@ import { Boton, Chip, Panel } from './ui'
 // Opciones
 // --------------------------------------------------------------------------- //
 const TEMAS: Array<{ id: TemaId; nombre: string; desc: string; muestra: string[] }> = [
-  { id: 'medianoche', nombre: 'Medianoche', desc: 'Violeta y verde. El clasico.', muestra: ['bg-indigo-500', 'bg-violet-500', 'bg-emerald-500'] },
+  { id: 'medianoche', nombre: 'Medianoche', desc: 'Violeta y verde. El clásico.', muestra: ['bg-indigo-500', 'bg-violet-500', 'bg-emerald-500'] },
   { id: 'oceano', nombre: 'Oceanía', desc: 'Cian y azul profundo.', muestra: ['bg-cyan-500', 'bg-indigo-500', 'bg-sky-500'] },
   { id: 'bosque', nombre: 'Bosque', desc: 'Verdes y turquesa.', muestra: ['bg-lime-500', 'bg-teal-500', 'bg-emerald-500'] },
   { id: 'atardecer', nombre: 'Atardecer', desc: 'Naranja y fucsia.', muestra: ['bg-orange-500', 'bg-fuchsia-500', 'bg-rose-500'] },
@@ -40,15 +40,15 @@ const ORDENES_TAREAS: Array<{ id: OrdenTareas; texto: string }> = [
 ]
 
 const ORDENES_GASTOS: Array<{ id: OrdenGastos; texto: string }> = [
-  { id: 'fecha', texto: 'Por fecha (mas reciente primero)' },
-  { id: 'monto', texto: 'Por monto (mas caro primero)' },
-  { id: 'categoria', texto: 'Por categoria' },
+  { id: 'fecha', texto: 'Por fecha (más reciente primero)' },
+  { id: 'monto', texto: 'Por monto (más caro primero)' },
+  { id: 'categoria', texto: 'Por categoría' },
 ]
 
 const ORDENES_EVENTOS: Array<{ id: OrdenEventos; texto: string }> = [
-  { id: 'hora', texto: 'Por hora del dia' },
-  { id: 'categoria', texto: 'Por categoria' },
-  { id: 'duracion', texto: 'Por duracion' },
+  { id: 'hora', texto: 'Por hora del día' },
+  { id: 'categoria', texto: 'Por categoría' },
+  { id: 'duracion', texto: 'Por duración' },
 ]
 
 const ETIQUETAS_SUGERIDAS = ['Universidad', 'Trabajo', 'Salud', 'Casa', 'Familia', 'Dinero', 'Personal']
@@ -207,7 +207,7 @@ export default function AjustesPanel({ onAbrirConexiones }: { onAbrirConexiones?
             onChange={(v) => void aplicar({ orden_gastos: v })}
           />
           <SelectorOrden
-            titulo="Bloques del dia"
+            titulo="Bloques del día"
             valor={ajustes.orden_eventos}
             opciones={ORDENES_EVENTOS}
             onChange={(v) => void aplicar({ orden_eventos: v })}
@@ -398,7 +398,7 @@ export function AsistenteBienvenida({
   const pasos = [
     { titulo: 'Sobre ti', sub: 'Para que el asistente hable contigo' },
     { titulo: 'Tu ritmo', sub: 'Tu jornada y tus temas' },
-    { titulo: 'Tu estilo', sub: 'Como quieres ver la informacion' },
+    { titulo: 'Tu estilo', sub: 'Como quieres ver la información' },
   ]
 
   return (

@@ -17,7 +17,7 @@ LifeSync abre con un **Centro de Conexiones** que ofrece cuatro caminos, en leng
 | 3 | **Tengo una clave de API** | Una clave (te explicamos cómo obtenerla, con el link a la consola) | Depende del uso | Quien ya usa IA programando |
 | 4 | **Solo quiero ver cómo funciona** | Nada | Gratis | Quien está explorando por primera vez |
 
-El catálogo completo vive en `backend/app/connections.py` (`CATALOGO`) y se expone en `GET /api/conexiones/catalogo`.
+El catálogo completo vive en `backend/app/connections.py` (`CATALOGO`) y se expone en `GET /api/conexiones/catálogo`.
 
 ---
 
@@ -231,7 +231,7 @@ Verificación de credenciales por proveedor (`connections.verificar_credenciales
 |---|---|
 | `openai`, `openrouter` | `GET {base}/models` con `Authorization: Bearer` |
 | `gemini` | `POST {base}/v1beta/models/{model}:generateContent?key=…` |
-| `anthropic` | `POST https://api.anthropic.com/v1/messages` (`x-api-key` + `anthropic-version: 2023-06-01`) |
+| `anthropic` | `POST https://api.anthropic.com/v1/messages` (`x-api-key` + `anthropic-versión: 2023-06-01`) |
 | `ollama`, `lmstudio` | Detección del servidor + listado de modelos |
 | `google_cuenta`, `chatgpt_cuenta`, `claude_cuenta` | Token de cuenta (OAuth Device Flow) → misma llamada que su proveedor |
 | `demo` | Siempre correcto |

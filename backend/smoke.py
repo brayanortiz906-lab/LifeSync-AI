@@ -39,7 +39,7 @@ def pedir(metodo: str, ruta: str, cuerpo: dict | None = None) -> object:
 
 def chat(mensaje: str) -> dict:
     # Se fuerza el proveedor "mock" para que el test sea independiente de la
-    # configuracion guardada en la base de datos.
+    # configuración guardada en la base de datos.
     return pedir("POST", "/api/agent/chat", {"mensaje": mensaje, "proveedor": "mock"})  # type: ignore[return-value]
 
 
@@ -53,7 +53,7 @@ def check(nombre: str, condicion: bool, detalle: str = "") -> None:
 def limpiar() -> None:
     """Deja la base en un estado conocido para que el test sea repetible.
 
-    Borra las "citas" creadas por corridas anteriores (mismo titulo que genera
+    Borra las "citas" creadas por corridas anteriores (mismo título que genera
     el agente), de modo que el caso CALENDARIO comprueba si realmente crea.
     """
     eventos = pedir("GET", "/api/events")
@@ -80,13 +80,13 @@ def main() -> int:
     check("[CALENDARIO] crea evento", len(r["agente"]["resumen_estado"]["eventos_creados"]) >= 1)
     check("[CALENDARIO] devuelve plan de reorganizacion", bool(r.get("plan")), f"movidos={r.get('plan', {}).get('movidos')}")
 
-    # Replica la misma peticion: no debe duplicar el evento.
+    # Replica la misma petición: no debe duplicar el evento.
     r2 = chat("Tengo una cita hoy a las 3 PM")
     eventos = pedir("GET", "/api/events")
     citas = [e for e in eventos if e["titulo"].lower().startswith("cita")]  # type: ignore[index]
     check("anti-duplicado: 1 sola cita tras 2 pedidos identicos", len(citas) == 1, f"encontradas={len(citas)}")
     check(
-        "anti-duplicado: la 2a peticion actualiza en vez de crear",
+        "anti-duplicado: la 2a petición actualiza en vez de crear",
         len(r2["agente"]["resumen_estado"]["eventos_creados"]) == 0,
         f"creados={r2['agente']['resumen_estado']['eventos_creados']}",
     )
@@ -100,7 +100,7 @@ def main() -> int:
     ok_monto = any(abs(x["monto"] - 20000.0) < 0.01 for x in tanqueos)  # type: ignore[index]
     check("[BITACORA_GASTO] monto 20000 correcto", ok_monto, f"valores={[x['monto'] for x in tanqueos]}")  # type: ignore[index]
     ok_cat = any(x["categoria"] == "combustible" for x in tanqueos)  # type: ignore[index]
-    check("[BITACORA_GASTO] categoria = combustible", ok_cat)
+    check("[BITACORA_GASTO] categoría = combustible", ok_cat)
 
     # ---------------------------------------------------------- TAREA ACADEMICA
     r = chat("Tengo que entregar el ensayo el viernes")
@@ -128,7 +128,7 @@ def main() -> int:
     ag = r["agente"]
     tipos = {a["tipo"] for a in ag["acciones"]}
     cats = ag.get("categorias") or [ag["categoria"]]
-    check("[MULTI] detecta 2 categorias", len(cats) >= 2, f"categorias={cats}")
+    check("[MULTI] detecta 2 categorías", len(cats) >= 2, f"categorias={cats}")
     check("[MULTI] genera acciones de ambas", {"crear_evento", "registrar_gasto"} <= tipos, f"tipos={sorted(tipos)}")
     check(
         "[MULTI] el gasto queda en la bitacora",
@@ -152,7 +152,7 @@ def main() -> int:
     check("[CASCADA] el bloque de estudio existe en el calendario", hay_estudio)
 
     # ------------------------------------------- CASCADA GASTO->MANTENIMIENTO
-    r = chat("Pagué el cambio de aceite de la moto por 120 mil")
+    r = chat("Pagué el cambió de aceite de la moto por 120 mil")
     ag = r["agente"]
     tipos = {a["tipo"] for a in ag["acciones"]}
     check("[CASCADA] gasto de mantenimiento actualiza el mantenimiento", "registrar_mantenimiento" in tipos, f"tipos={sorted(tipos)}")
@@ -170,21 +170,21 @@ def main() -> int:
 
     # --------------------------------------------------------- POLITICA Y UMBRALES
     pol = pedir("GET", "/api/responsabilidad/politica")
-    check("[RESP] la politica es accesible", bool(pol) and "umbral_confianza" in pol, f"umbral={pol.get('umbral_confianza') if pol else '-'}")  # type: ignore[union-attr]
+    check("[RESP] la política es accesible", bool(pol) and "umbral_confianza" in pol, f"umbral={pol.get('umbral_confianza') if pol else '-'}")  # type: ignore[union-attr]
 
-    # Se baja el umbral de gasto para forzar el flujo de aprobacion.
+    # Se baja el umbral de gasto para forzar el flujo de aprobación.
     pol_bajo = dict(pol)  # type: ignore[arg-type]
     pol_bajo["gasto_max_autonomo"] = 1000.0
     pedir("PUT", "/api/responsabilidad/politica", pol_bajo)
 
     # ----------------------------------------------------- GASTO SOBRE UMBRAL
-    # Conteo previo: el test es repetible, asi que puede haber gastos iguales
+    # Conteo previo: el test es repetible, así que puede haber gastos iguales
     # de corridas anteriores (ya aprobados). Se compara el delta, no el total.
     previos = sum(1 for x in pedir("GET", "/api/logbook") if abs(x["monto"] - 800000.0) < 0.01)  # type: ignore[index]
     r = chat("Pagué la matricula de la universidad por 800 mil")
     ag = r["agente"]
     pendientes = ag["resumen_estado"].get("aprobaciones_pendientes") or []
-    check("[RESP] gasto alto queda pendiente de aprobacion", len(pendientes) >= 1, f"pendientes={len(pendientes)}")
+    check("[RESP] gasto alto queda pendiente de aprobación", len(pendientes) >= 1, f"pendientes={len(pendientes)}")
     check(
         "[RESP] el motivo de la regla se explica",
         bool(pendientes) and bool(pendientes[0].get("regla")) and bool(pendientes[0].get("motivo")),
@@ -204,8 +204,8 @@ def main() -> int:
 
     # ---------------------------------------------------------- APROBAR Y EJECUTAR
     aprobaciones = pedir("GET", "/api/responsabilidad/aprobaciones?estado=pendiente")
-    check("[RESP] la aprobacion llega a la bandeja", len(aprobaciones or []) >= 1, f"n={len(aprobaciones or [])}")  # type: ignore[arg-type]
-    # Se toma la peticion que corresponde a ESTE gasto (no una de corridas previas).
+    check("[RESP] la aprobación llega a la bandeja", len(aprobaciones or []) >= 1, f"n={len(aprobaciones or [])}")  # type: ignore[arg-type]
+    # Se toma la petición que corresponde a ESTE gasto (no una de corridas previas).
     objetivo = next(
         (a for a in (aprobaciones or []) if "matricula" in (a.get("resumen") or "").lower()),  # type: ignore[union-attr]
         (aprobaciones or [None])[0],  # type: ignore[index]
@@ -227,7 +227,7 @@ def main() -> int:
     antes_rechazar = sum(1 for x in pedir("GET", "/api/logbook") if abs(x["monto"] - 3000000.0) < 0.01)  # type: ignore[index]
     r = chat("Compré un computador de 3 millones")
     aprobaciones = pedir("GET", "/api/responsabilidad/aprobaciones?estado=pendiente")
-    # Se busca la peticion del computador (no una de corridas previas).
+    # Se busca la petición del computador (no una de corridas previas).
     objetivo = next(
         (a for a in (aprobaciones or []) if "computador" in (a.get("resumen") or "").lower()),  # type: ignore[union-attr]
         None,
@@ -245,7 +245,7 @@ def main() -> int:
         )
 
     # ---------------------------------------------------------------- REDACCION PII
-    # Se restaura la politica para que este gasto normal pase de forma autonoma.
+    # Se restaura la política para que este gasto normal pase de forma autónoma.
     pedir("PUT", "/api/responsabilidad/politica", pol)
 
     red = pedir("POST", "/api/responsabilidad/redactar", {"texto": "Mi correo es ana@correo.com, mi cedula 1234567890 y la tarjeta 4111111111111111"})
@@ -276,15 +276,15 @@ def main() -> int:
 
     # -------------------------------------------------------------------- AUDITORIA
     aud = pedir("GET", "/api/responsabilidad/auditoria?limite=200")
-    check("[RESP] la auditoria registra decisiones", len(aud or []) >= 1, f"entradas={len(aud or [])}")  # type: ignore[arg-type]
+    check("[RESP] la auditoría registra decisiones", len(aud or []) >= 1, f"entradas={len(aud or [])}")  # type: ignore[arg-type]
     tipos_aud = {a["tipo"] for a in (aud or [])}  # type: ignore[union-attr]
-    check("[RESP] la auditoria tipa los eventos", "accion" in tipos_aud, f"tipos={sorted(tipos_aud)}")
+    check("[RESP] la auditoría tipa los eventos", "accion" in tipos_aud, f"tipos={sorted(tipos_aud)}")
     check(
-        "[RESP] la auditoria conserva el motivo",
+        "[RESP] la auditoría conserva el motivo",
         all("motivo" in a for a in (aud or [])),  # type: ignore[union-attr]
     )
     res_aud = pedir("GET", "/api/responsabilidad/auditoria/resumen")
-    check("[RESP] el resumen de auditoria responde", bool(res_aud) and "total" in res_aud, f"total={res_aud.get('total') if res_aud else '-'}")  # type: ignore[union-attr]
+    check("[RESP] el resumen de auditoría responde", bool(res_aud) and "total" in res_aud, f"total={res_aud.get('total') if res_aud else '-'}")  # type: ignore[union-attr]
 
     # ----------------------------------------------------------------- CUMPLIMIENTO
     comp = pedir("GET", "/api/responsabilidad/cumplimiento")
@@ -296,7 +296,7 @@ def main() -> int:
     # ---------------------------------------------------------- CONEXIONES DE IA
     cat = pedir("GET", "/api/conexiones/catalogo")
     proveedores = (cat or {}).get("proveedores", []) if isinstance(cat, dict) else []
-    check("[CONEX] el catalogo tiene proveedores", len(proveedores) >= 5, f"n={len(proveedores)}")
+    check("[CONEX] el catálogo tiene proveedores", len(proveedores) >= 5, f"n={len(proveedores)}")
     modos = {p.get("modo") for p in proveedores}
     check("[CONEX] hay caminos sin clave (cuenta/local/demo)", {"cuenta", "local", "demo"} & modos == {"cuenta", "local", "demo"}, f"modos={sorted(modos)}")  # type: ignore[union-attr]
     locales = pedir("GET", "/api/conexiones/locales")
@@ -305,15 +305,15 @@ def main() -> int:
 
     # Conectar el proveedor "demo" (nunca falla) y verificar que queda activo.
     demo = pedir("POST", "/api/conexiones", {"proveedor": "demo", "nombre": "Asistente demo", "modelo": "motor-local"})
-    check("[CONEX] se puede guardar una conexion", bool(demo) and demo.get("id") is not None, f"id={demo.get('id') if isinstance(demo, dict) else '-'}")  # type: ignore[union-attr]
+    check("[CONEX] se puede guardar una conexión", bool(demo) and demo.get("id") is not None, f"id={demo.get('id') if isinstance(demo, dict) else '-'}")  # type: ignore[union-attr]
     cid = demo.get("id") if isinstance(demo, dict) else None
     if cid is not None:
         ver = pedir("POST", f"/api/conexiones/{cid}/verificar")
-        check("[CONEX] la verificacion responde", bool(ver) and ver.get("estado") in {"activa", "error"}, f"estado={ver.get('estado') if isinstance(ver, dict) else '-'}")  # type: ignore[union-attr]
+        check("[CONEX] la verificación responde", bool(ver) and ver.get("estado") in {"activa", "error"}, f"estado={ver.get('estado') if isinstance(ver, dict) else '-'}")  # type: ignore[union-attr]
         act = pedir("POST", f"/api/conexiones/{cid}/activar")
-        check("[CONEX] se puede activar la conexion", bool(act) and act.get("activa") is True, f"activa={act.get('activa') if isinstance(act, dict) else '-'}")  # type: ignore[union-attr]
+        check("[CONEX] se puede activar la conexión", bool(act) and act.get("activa") is True, f"activa={act.get('activa') if isinstance(act, dict) else '-'}")  # type: ignore[union-attr]
         lista = pedir("GET", "/api/conexiones")
-        check("[CONEX] la conexion aparece en la lista", any(c.get("id") == cid for c in (lista or [])), f"n={len(lista) if isinstance(lista, list) else 0}")  # type: ignore[union-attr]
+        check("[CONEX] la conexión aparece en la lista", any(c.get("id") == cid for c in (lista or [])), f"n={len(lista) if isinstance(lista, list) else 0}")  # type: ignore[union-attr]
         # La credencial nunca debe salir por la API.
         check("[CONEX] la API no expone la credencial", all("api_key" not in (c or {}) and not (c or {}).get("credenciales_cifradas") for c in (lista or [])), "sin secretos en la respuesta")  # type: ignore[union-attr]
         # Se devuelve al motor demo para no alterar el resto del test.
@@ -321,12 +321,12 @@ def main() -> int:
 
     # ------------------------------------------- CONEXIONES: CAMINO CON GOOGLE
     con_google = [p for p in proveedores if p.get("permite_google")]
-    check("[CONEX] el catalogo marca el camino con Google", len(con_google) >= 5, f"n={len(con_google)}")
+    check("[CONEX] el catálogo marca el camino con Google", len(con_google) >= 5, f"n={len(con_google)}")
     catalogo_ias = pedir("GET", "/api/conexiones/modelos?proveedor=openrouter")
     total_ias = (catalogo_ias or {}).get("total", 0) if isinstance(catalogo_ias, dict) else 0
-    check("[CONEX] el catalogo de IAs devuelve cientos de modelos", total_ias >= 100, f"total={total_ias}")
+    check("[CONEX] el catálogo de IAs devuelve cientos de modelos", total_ias >= 100, f"total={total_ias}")
     familias_ias = (catalogo_ias or {}).get("familias", []) if isinstance(catalogo_ias, dict) else []
-    check("[CONEX] el catalogo de IAs agrupa por familia", len(familias_ias) >= 5, f"familias={len(familias_ias)}")
+    check("[CONEX] el catálogo de IAs agrupa por familia", len(familias_ias) >= 5, f"familias={len(familias_ias)}")
     con_seleccion = [p for p in proveedores if p.get("permite_seleccion_modelo")]
     check("[CONEX] hay un proveedor donde elegir cualquier IA", len(con_seleccion) >= 1, f"n={len(con_seleccion)}")
 
@@ -337,7 +337,7 @@ def main() -> int:
         isinstance(est_google, dict) and "configurado" in est_google,
         f"origen={(est_google or {}).get('origen') if isinstance(est_google, dict) else '-'}",
     )
-    # Se guarda un ID de cliente publico de prueba y se comprueba que queda activo.
+    # Se guarda un ID de cliente público de prueba y se comprueba que queda activo.
     id_prueba = "1234567890-prueba-smoke.apps.googleusercontent.com"
     guardado = pedir("PUT", "/api/conexiones/google/estado", {"client_id": id_prueba})
     check(
