@@ -47,6 +47,9 @@ hay un instalador de Windows de un solo archivo:
 **No necesita instalar Python, Node ni Docker**: el `.exe` lleva dentro el
 motor, la API, el System Prompt y la interfaz ya compilada.
 
+⬇️ **Descarga directa**: **[LifeAgente.exe (v1.0.0)](https://github.com/brayanortiz906-lab/LifeSync-AI/releases/download/v1.0.0/LifeAgente.exe)**
+(página del release: https://github.com/brayanortiz906-lab/LifeSync-AI/releases/tag/v1.0.0)
+
 ```powershell
 # compilar el instalador (tarda unos minutos)
 powershell -ExecutionPolicy Bypass -File desktop\build.ps1
