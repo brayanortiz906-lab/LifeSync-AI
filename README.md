@@ -8,6 +8,15 @@ reorganiza tu agenda ante imprevistos y registra lo que te pasa en lenguaje natu
 [![Pages](https://github.com/brayanortiz906-lab/LifeSync-AI/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/brayanortiz906-lab/LifeSync-AI/actions/workflows/deploy-pages.yml)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-blue.svg)](LICENSE)
 
+### 🌍 Está en vivo
+
+| Qué | Dónde |
+|---|---|
+| **App completa (interfaz + API)** | **https://lifesync-ai-qs5t.onrender.com** |
+| **Interfaz en GitHub Pages** | **https://brayanortiz906-lab.github.io/LifeSync-AI/** |
+| API | `https://lifesync-ai-qs5t.onrender.com/api` · salud: `/api/health` |
+| Código | https://github.com/brayanortiz906-lab/LifeSync-AI |
+
 ```
 ┌───────────────────────────────────────────┬──────────────────────┐
 │  MI AGENDA (vista inicial)                │  ACADÉMICO + BITÁCORA│

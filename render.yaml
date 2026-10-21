@@ -1,9 +1,13 @@
-# LifeSync AI - desplegable con un clic en Render (blueprint)
+# LifeAgente AI - desplegable con un clic en Render (blueprint)
 # Docs: https://render.com/docs/blueprint-spec
 #
 # QUE OBTIENES: un solo servicio con la API y la interfaz juntas.
-#   https://lifesync-ai.onrender.com/  -> la app completa (funciona sola)
-#   https://lifesync-ai.onrender.com/api -> la API
+#   https://<nombre>.onrender.com/  -> la app completa (funciona sola)
+#   https://<nombre>.onrender.com/api -> la API
+#
+# NOTA SOBRE EL NOMBRE: "lifesync-ai" ya esta ocupado en Render por otro
+# proyecto, asi que Render le anade un sufijo. El servicio que esta vivo ahora
+# es https://lifesync-ai-qs5t.onrender.com
 #
 # NOTA SOBRE LOS DATOS: el plan gratuito de Render no permite disco
 # persistente (solo en planes de pago), asi que la base SQLite vive dentro
@@ -12,7 +16,7 @@
 # descomenta el bloque `disk` de mas abajo.
 services:
   - type: web
-    name: lifesync-ai
+    name: lifeagente-ai
     runtime: docker
     dockerfilePath: ./Dockerfile
     plan: free
