@@ -1,4 +1,10 @@
-name: Deploy Pages
+name: Publicar la interfaz
+
+# Publica la interfaz en la rama `gh-pages`, de la que GitHub Pages sirve la web.
+# Se eligio este metodo (en vez de `actions/deploy-pages`) porque la API de
+# despliegues de Pages se queda bloqueada si dos push se cruzan: devuelve
+# "due to in progress deployment" y deja la web sin actualizar. Con la rama,
+# cada push a main vuelve a publicar la web sin depender de esa API.
 
 on:
   push:
@@ -6,56 +12,49 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
-  group: pages
+  group: paginas
   cancel-in-progress: true
 
 jobs:
-  build:
-    name: Compilar la interfaz
+  publicar:
+    name: Compilar y publicar
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
     steps:
-      - name: Clonar el repositorio
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Instalar Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: 20
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
       - name: Instalar dependencias
+        working-directory: frontend
         run: npm ci
 
-      - name: Compilar
-        run: npm run build
+      - name: Compilar la interfaz
+        working-directory: frontend
         env:
-          # Rutas relativas: la app se sirve en https://<usuario>.github.io/LifeSync-AI/
+          # Rutas relativas: la web funciona tanto en /LifeSync-AI/ como en la raiz.
           VITE_BASE: ${{ vars.VITE_BASE || './' }}
-          # URL publica de la API (variable de repositorio). Vacio = misma origen.
+          # URL de la API (si se deja vacia, se usa la ruta relativa ./api).
           VITE_API_URL: ${{ vars.VITE_API_URL }}
+        run: npm run build
 
-      - name: Publicar el artefacto
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: frontend/dist
-
-  deploy:
-    name: Publicar en GitHub Pages
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Desplegar
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Publicar en la rama gh-pages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          cd frontend/dist
+          touch .nojekyll
+          git init -b gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "build: publica la interfaz"
+          git push --force "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" gh-pages
+          echo "Publicada en la rama gh-pages."
