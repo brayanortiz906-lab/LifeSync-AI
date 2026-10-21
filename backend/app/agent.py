@@ -25,6 +25,7 @@ from .config import settings
 from .models import ChatMessage, Event, LogEntry, Maintenance, Task
 from .planner import Bloque, Interval, calcular_carga, replanificar
 from .schemas import AgentAction, AgentAlert, AgentResponse, ChatRequest, ChatResponse
+from .security import descifrar
 
 
 # --------------------------------------------------------------------------- #
@@ -150,8 +151,16 @@ def aplicar_acciones(db: Session, acciones: list[AgentAction]) -> dict[str, Any]
         "eventos_creados": [], "eventos_actualizados": [], "eventos_eliminados": 0,
         "tareas_creadas": [], "tareas_actualizadas": [], "registros": [],
         "mantenimientos": [], "estudio_programado": [], "plan": {},
+        "registros_detallados": [],
     }
     plan_resultado: dict[str, Any] = {}
+    ultima_tarea: int | None = None
+
+    def anotar(tipo: str, titulo: str, detalle: str) -> None:
+        """Guarda una línea legible de lo que quedó registrado (para la UI)."""
+        resumen["registros_detallados"].append(
+            {"tipo": tipo, "titulo": titulo, "detalle": detalle}
+        )
 
     for accion in acciones:
         tipo = accion.tipo
@@ -185,6 +194,7 @@ def aplicar_acciones(db: Session, acciones: list[AgentAction]) -> dict[str, Any]
                         existente.notas = d["notas"]
                     db.flush()
                     resumen["eventos_actualizados"].append(existente.id)
+                    anotar("evento", existente.titulo, f"Actualizado · {inicio.strftime('%d/%m %H:%M')}")
                     continue
 
                 conflictos = _detectar_conflictos(db, inicio, fin)
@@ -203,6 +213,7 @@ def aplicar_acciones(db: Session, acciones: list[AgentAction]) -> dict[str, Any]
                 db.add(ev)
                 db.flush()
                 resumen["eventos_creados"].append(ev.id)
+                anotar("evento", ev.titulo, f"{inicio.strftime('%a %d/%m')} · {inicio.strftime('%H:%M')}-{fin.strftime('%H:%M')}")
             else:
                 ev = db.get(Event, d.get("id"))
                 if ev is None:
@@ -252,6 +263,9 @@ def aplicar_acciones(db: Session, acciones: list[AgentAction]) -> dict[str, Any]
             db.add(tarea)
             db.flush()
             resumen["tareas_creadas"].append(tarea.id)
+            ultima_tarea = tarea.id
+            entrega = tarea.fecha_entrega.isoformat() if tarea.fecha_entrega else "sin fecha"
+            anotar("tarea", tarea.titulo, f"Entrega {entrega} · {tarea.minutos_estimados} min")
 
         elif tipo == "actualizar_tarea":
             tarea = db.get(Task, d.get("id"))
@@ -282,6 +296,9 @@ def aplicar_acciones(db: Session, acciones: list[AgentAction]) -> dict[str, Any]
             if inicio is None:
                 continue
             fin = _parse_dt(d.get("fin")) or (inicio + timedelta(minutes=60))
+            duracion = int((fin - inicio).total_seconds() // 60) or 60
+            # Si el hueco propuesto está ocupado, se busca otro libre el mismo día.
+            inicio, fin = _hueco_libre(db, inicio, duracion, fin)
             ev = Event(
                 titulo=str(d.get("titulo") or "Estudio")[:160],
                 categoria="estudio", inicio=inicio, fin=fin, inamovible=False,
@@ -290,11 +307,15 @@ def aplicar_acciones(db: Session, acciones: list[AgentAction]) -> dict[str, Any]
             db.add(ev)
             db.flush()
             tarea_id = d.get("tarea_id")
+            if tarea_id is None and ultima_tarea is not None:
+                # Enlaza automáticamente el bloque con la tarea recién creada.
+                tarea_id = ultima_tarea
             if tarea_id:
                 tarea = db.get(Task, tarea_id)
                 if tarea is not None:
                     tarea.tarea_id = ev.id
             resumen["estudio_programado"].append(ev.id)
+            anotar("estudio", ev.titulo, f"{inicio.strftime('%a %d/%m')} · {inicio.strftime('%H:%M')}-{fin.strftime('%H:%M')}")
 
         # ---------------------------------------------------------------- BIT
         elif tipo == "registrar_gasto":
@@ -325,11 +346,16 @@ def aplicar_acciones(db: Session, acciones: list[AgentAction]) -> dict[str, Any]
                 db.flush()
                 registro.evento_id = ev.id
             resumen["registros"].append(registro.id)
+            monto_txt = f"{registro.monto:,.0f} {registro.moneda}" if registro.monto else "sin monto"
+            anotar("gasto", registro.descripcion, f"{monto_txt} · {registro.categoria}")
 
         # ------------------------------------------------------------- MANTEN
         elif tipo == "registrar_mantenimiento":
             mant = _upsert_mantenimiento(db, d)
             resumen["mantenimientos"].append(mant.id if mant else None)
+            if mant is not None:
+                proxima = mant.proxima_fecha.isoformat() if mant.proxima_fecha else "sin fecha"
+                anotar("mantenimiento", f"{mant.activo}: {mant.tarea}", f"Próximo {proxima}")
 
         elif tipo == "programar_mantenimiento":
             fecha = _parse_date(d.get("fecha")) or (date.today() + timedelta(days=1))
@@ -345,15 +371,18 @@ def aplicar_acciones(db: Session, acciones: list[AgentAction]) -> dict[str, Any]
             mant = _upsert_mantenimiento(db, d2)
             if mant:
                 resumen["mantenimientos"].append(mant.id)
+                anotar("mantenimiento", f"{mant.activo}: {mant.tarea}", f"Programado {fecha.isoformat()}")
             hora = str(d.get("hora") or "09:00")
             hh, mm = (hora.split(":") + ["0"])[:2]
             inicio = datetime.combine(fecha, datetime.min.time()).replace(hour=int(hh), minute=int(mm))
             ev = Event(
-                titulo=f"{mant.activo}: {mant.tarea}"[:160], categoria="mantenimiento",
+                titulo=f"{d.get('activo', 'otro')}: {d.get('tarea', 'Mantenimiento')}"[:160],
+                categoria="mantenimiento",
                 inicio=inicio, fin=inicio + timedelta(minutes=60), inamovible=False, fuente="chat",
             )
             db.add(ev)
             db.flush()
+            resumen["eventos_creados"].append(ev.id)
 
         elif tipo == "marcar_realizado":
             mant = db.get(Maintenance, d.get("id"))
@@ -369,10 +398,45 @@ def aplicar_acciones(db: Session, acciones: list[AgentAction]) -> dict[str, Any]
                 ))
             db.flush()
             resumen["mantenimientos"].append(mant.id)
+            anotar("mantenimiento", f"{mant.activo}: {mant.tarea}", f"Realizado {fecha.isoformat()}")
 
     if plan_resultado:
         resumen["plan"] = plan_resultado
+        movidos = int(plan_resultado.get("movidos") or 0)
+        if movidos:
+            anotar("agenda", f"{movidos} bloque(s) reubicado(s)", "Día reorganizado sin solapes")
+        sin_caber = plan_resultado.get("sin_caber") or []
+        if sin_caber:
+            anotar("agenda", f"{len(sin_caber)} bloque(s) sin espacio", "Revisa o divide esas tareas")
     return resumen
+
+
+def _hueco_libre(
+    db: Session, inicio: datetime, duracion_min: int, fin: datetime | None = None
+) -> tuple[datetime, datetime]:
+    """Devuelve (inicio, fin) de un bloque que NO se solape con eventos existentes.
+
+    Si el hueco propuesto está ocupado, avanza en saltos de 30 minutos dentro
+    de la jornada (07:00-22:00). Si no cabe, devuelve el hueco original.
+    """
+    duracion = max(15, int(duracion_min))
+    fin = fin or (inicio + timedelta(minutes=duracion))
+
+    def libre(ini: datetime, fin_: datetime) -> bool:
+        return not db.scalars(
+            select(Event).where(Event.inicio < fin_).where(Event.fin > ini)
+        ).first()
+
+    if libre(inicio, fin):
+        return inicio, fin
+
+    candidato = inicio
+    limite = datetime.combine(inicio.date(), datetime.min.time()).replace(hour=22)
+    while candidato + timedelta(minutes=duracion) <= limite:
+        candidato += timedelta(minutes=30)
+        if libre(candidato, candidato + timedelta(minutes=duracion)):
+            return candidato, candidato + timedelta(minutes=duracion)
+    return inicio, fin
 
 
 def _upsert_mantenimiento(db: Session, d: dict[str, Any]) -> Maintenance | None:
@@ -547,9 +611,16 @@ def _preguntas_locales(material: str, n: int = 4) -> list[str]:
 # --------------------------------------------------------------------------- #
 async def procesar_mensaje(db: Session, req: ChatRequest) -> ChatResponse:
     app = _get_app_settings(db)
-    proveedor = (req.proveedor or app.proveedor or "mock").lower()
+    proveedor_solicitado = (req.proveedor or app.proveedor or "mock").lower()
+    proveedor = proveedor_solicitado
     modelo = req.modelo or app.modelo or settings.default_openai_model
-    api_key = req.api_key
+    # La API Key puede venir en la peticion (el usuario la pega en el chat) o
+    # estar cifrada en el servidor ("recordar en el servidor").
+    api_key = req.api_key or descifrar(app.api_key_cifrada)
+    if proveedor != "mock" and not api_key:
+        # Sin credenciales no se puede llamar al proveedor: se usa el motor
+        # local en vez de romper el chat, y se avisa en la respuesta.
+        proveedor = "mock"
 
     system_prompt = settings.system_prompt
     contexto = construir_contexto(db) if req.usar_contexto else "{}"
@@ -571,6 +642,12 @@ async def procesar_mensaje(db: Session, req: ChatRequest) -> ChatResponse:
 
     if not agente.requiere_confirmacion:
         agente.resumen_estado = aplicar_acciones(db, agente.acciones)
+        # Si se uso el motor local por falta de API Key, se avisa al usuario.
+        if proveedor == "mock" and proveedor_solicitado != "mock":
+            agente.mensaje_usuario = (
+                f"{agente.mensaje_usuario} (Registrado con el motor local: "
+                "no hay API Key configurada para el proveedor elegido.)"
+            )
         # Salvaguarda del backend (independiente del proveedor): si el agente
         # creó un evento que se solapa con otro, se le avisa al usuario.
         conflictos = agente.resumen_estado.get("conflictos") or []
@@ -582,6 +659,21 @@ async def procesar_mensaje(db: Session, req: ChatRequest) -> ChatResponse:
                 f"{agente.mensaje_usuario} Ojo: eso se cruza con {nombres}. "
                 "Dime si quieres que reacomode esa franja."
             )
+        # Si el mensaje no menciona TODO lo que se registro (p.ej. respuesta
+        # generica del modelo), se anade una linea con lo que quedo guardado.
+        # El tipo "agenda" se omite del texto: la reorganizacion ya se
+        # comunica con el chip "N bloques reubicados".
+        detalle = agente.resumen_estado.get("registros_detallados") or []
+        faltan = [
+            d for d in _registros_no_mencionados(agente.mensaje_usuario, detalle)
+            if d.get("tipo") != "agenda"
+        ]
+        if faltan:
+            chips = "; ".join(f"{d['titulo']} ({d['detalle']})" for d in faltan[:6])
+            extra = f" Quedó registrado: {chips}."
+            if len(faltan) > 6:
+                extra += f" Y {len(faltan) - 6} registro(s) más."
+            agente.mensaje_usuario = f"{agente.mensaje_usuario}{extra}"
     else:
         agente.resumen_estado = {"pendiente_confirmacion": True}
 
@@ -633,8 +725,25 @@ def _normalizar(crudo: dict[str, Any]) -> dict[str, Any]:
                 "texto": str(al.get("texto") or al.get("text") or ""),
                 "prioridad": al.get("prioridad") if al.get("prioridad") in {"alta", "media", "baja"} else "media",
             })
+    # Categorías detectadas: el modelo puede devolver una lista; si no, se
+    # deducen de los tipos de acción presentes (soporta mensajes mixtos).
+    cats_raw = crudo.get("categorias") or crudo.get("categorias_detectadas") or []
+    cats: list[str] = []
+    if isinstance(cats_raw, list):
+        for c in cats_raw:
+            cc = str(c).upper()
+            if cc in mapa and mapa[cc] not in cats:
+                cats.append(mapa[cc])
+    if not cats:
+        for acc in norm_acc:
+            c = _categoria_de_accion(acc["tipo"])
+            if c and c not in cats:
+                cats.append(c)
+    if not cats:
+        cats = [mapa.get(cat, "CONVERSACION")]
     return {
-        "categoria": mapa.get(cat, "CONVERSACION"),
+        "categoria": cats[0],
+        "categorias": cats,
         "intencion": str(crudo.get("intencion") or crudo.get("intention") or "")[:120],
         "confianza": float(crudo.get("confianza") or crudo.get("confidence") or 0.0),
         "mensaje_usuario": str(crudo.get("mensaje_usuario") or crudo.get("message") or "")[:2000],
@@ -642,6 +751,43 @@ def _normalizar(crudo: dict[str, Any]) -> dict[str, Any]:
         "acciones": norm_acc,
         "alertas": alertas,
     }
+
+
+def _registros_no_mencionados(mensaje: str, detalle: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Registros que el texto del agente todavia no nombra (para listarlos)."""
+    texto = _normalizar_texto(mensaje)
+    faltan: list[dict[str, Any]] = []
+    for d in detalle:
+        titulo = _normalizar_texto(str(d.get("titulo") or ""))
+        if len(titulo) >= 4 and titulo in texto:
+            continue
+        faltan.append(d)
+    return faltan
+
+
+def _normalizar_texto(valor: str) -> str:
+    import unicodedata
+
+    base = "".join(
+        c for c in unicodedata.normalize("NFKD", valor.lower()) if not unicodedata.combining(c)
+    )
+    return " ".join(base.split())
+
+
+def _categoria_de_accion(tipo: str) -> str | None:
+    """Mapea un tipo de acción a su categoría primaria (para respuestas mixtas)."""
+    mapa = {
+        "crear_evento": "CALENDARIO", "actualizar_evento": "CALENDARIO",
+        "eliminar_evento": "CALENDARIO", "replanificar_dia": "CALENDARIO",
+        "mover_bloque": "CALENDARIO",
+        "crear_tarea": "TAREA_ACADEMICA", "actualizar_tarea": "TAREA_ACADEMICA",
+        "completar_tarea": "TAREA_ACADEMICA", "resumir_material": "TAREA_ACADEMICA",
+        "programar_estudio": "TAREA_ACADEMICA",
+        "registrar_gasto": "BITACORA_GASTO",
+        "registrar_mantenimiento": "MANTENIMIENTO",
+        "programar_mantenimiento": "MANTENIMIENTO", "marcar_realizado": "MANTENIMIENTO",
+    }
+    return mapa.get(tipo)
 
 
 def _get_app_settings(db: Session):

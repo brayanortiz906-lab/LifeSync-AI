@@ -38,7 +38,9 @@ def pedir(metodo: str, ruta: str, cuerpo: dict | None = None) -> object:
 
 
 def chat(mensaje: str) -> dict:
-    return pedir("POST", "/api/agent/chat", {"mensaje": mensaje})  # type: ignore[return-value]
+    # Se fuerza el proveedor "mock" para que el test sea independiente de la
+    # configuracion guardada en la base de datos.
+    return pedir("POST", "/api/agent/chat", {"mensaje": mensaje, "proveedor": "mock"})  # type: ignore[return-value]
 
 
 def check(nombre: str, condicion: bool, detalle: str = "") -> None:
@@ -48,6 +50,19 @@ def check(nombre: str, condicion: bool, detalle: str = "") -> None:
         fallos.append(nombre)
 
 
+def limpiar() -> None:
+    """Deja la base en un estado conocido para que el test sea repetible.
+
+    Borra las "citas" creadas por corridas anteriores (mismo titulo que genera
+    el agente), de modo que el caso CALENDARIO comprueba si realmente crea.
+    """
+    eventos = pedir("GET", "/api/events")
+    for e in eventos or []:  # type: ignore[union-attr]
+        titulo = str(e.get("titulo") or "").lower()  # type: ignore[union-attr]
+        if titulo.startswith("cita"):
+            pedir("DELETE", f"/api/events/{e['id']}")  # type: ignore[index]
+
+
 def main() -> int:
     print("=" * 70)
     print("LIFESYNC AI — VERIFICACION END-TO-END")
@@ -55,6 +70,8 @@ def main() -> int:
 
     salud = pedir("GET", "/api/health")
     check("backend vivo", bool(salud and salud.get("ok")), f"proveedor={salud.get('proveedor_por_defecto')}")
+
+    limpiar()
 
     # ---------------------------------------------------------------- CALENDARIO
     r = chat("Tengo una cita hoy a las 3 PM")
@@ -105,6 +122,40 @@ def main() -> int:
     r = chat("Hola, ¿cómo estás?")
     check("[CONVERSACION] clasifica bien", r["agente"]["categoria"] == "CONVERSACION", r["agente"]["categoria"])
     check("[CONVERSACION] no ejecuta acciones", len(r["agente"]["acciones"]) == 0)
+
+    # ------------------------------------------------------------ MULTI-INTENCION
+    r = chat("Tengo una cita hoy a las 4 PM y además gasté 25 mil en gasolina")
+    ag = r["agente"]
+    tipos = {a["tipo"] for a in ag["acciones"]}
+    cats = ag.get("categorias") or [ag["categoria"]]
+    check("[MULTI] detecta 2 categorias", len(cats) >= 2, f"categorias={cats}")
+    check("[MULTI] genera acciones de ambas", {"crear_evento", "registrar_gasto"} <= tipos, f"tipos={sorted(tipos)}")
+    check(
+        "[MULTI] el gasto queda en la bitacora",
+        any(abs(x["monto"] - 25000.0) < 0.01 for x in pedir("GET", "/api/logbook")),  # type: ignore[index]
+    )
+    detalle = ag["resumen_estado"].get("registros_detallados") or []
+    check("[MULTI] reporta lo registrado (registros_detallados)", len(detalle) >= 2, f"n={len(detalle)}")
+    check(
+        "[MULTI] el mensaje nombra lo registrado",
+        "registrad" in ag["mensaje_usuario"].lower(),
+        ag["mensaje_usuario"][:90],
+    )
+
+    # ------------------------------------------------------- CASCADA T->ESTUDIO
+    r = chat("Tengo que entregar la presentación de álgebra el jueves")
+    ag = r["agente"]
+    tipos = {a["tipo"] for a in ag["acciones"]}
+    check("[CASCADA] tarea genera bloque de estudio", "programar_estudio" in tipos, f"tipos={sorted(tipos)}")
+    eventos = pedir("GET", "/api/events")
+    hay_estudio = any("estudio" in (e["titulo"] or "").lower() for e in eventos)  # type: ignore[index]
+    check("[CASCADA] el bloque de estudio existe en el calendario", hay_estudio)
+
+    # ------------------------------------------- CASCADA GASTO->MANTENIMIENTO
+    r = chat("Pagué el cambio de aceite de la moto por 120 mil")
+    ag = r["agente"]
+    tipos = {a["tipo"] for a in ag["acciones"]}
+    check("[CASCADA] gasto de mantenimiento actualiza el mantenimiento", "registrar_mantenimiento" in tipos, f"tipos={sorted(tipos)}")
 
     # ------------------------------------------------------------------ DASHBOARD
     dash = pedir("GET", "/api/dashboard")

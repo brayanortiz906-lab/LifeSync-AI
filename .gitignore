@@ -13,6 +13,8 @@ dist/
 
 # Datos y secretos
 *.db
+*.db-wal
+*.db-shm
 *.sqlite3
 .env
 .env.local

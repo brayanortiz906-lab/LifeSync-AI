@@ -13,7 +13,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from .config import settings
-from .database import Base, SessionLocal, engine
+from .database import Base, SessionLocal, _migrar_sqlite, engine
 from .routers import agent as agent_router
 from .routers import crud as crud_router
 from .seed import sembrar
@@ -21,6 +21,7 @@ from .seed import sembrar
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    _migrar_sqlite()
     Base.metadata.create_all(bind=engine)
     with SessionLocal() as db:
         if sembrar(db):

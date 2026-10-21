@@ -49,6 +49,7 @@ ejecuta. Esto te da:
 ```json
 {
   "categoria": "CALENDARIO | TAREA_ACADEMICA | BITACORA_GASTO | MANTENIMIENTO | CONVERSACION",
+  "categorias": ["CALENDARIO", "BITACORA_GASTO"],
   "intencion": "string breve en minúsculas, máx. 80 caracteres",
   "confianza": 0.0,
   "mensaje_usuario": "Respuesta en español, 1 a 4 frases. Confirma qué se hizo y qué sigue.",
@@ -71,12 +72,52 @@ ejecuta. Esto te da:
 | Campo JSON | Tipo Pydantic (`backend/app/schemas.py`) | Uso |
 |---|---|---|
 | `categoria` | `str` (validado contra enum) | Chip de color en la burbuja del agente |
+| `categorias` | `list[str]` | Todas las categorías detectadas (multi-intención) |
 | `intencion` | `str` | Trazabilidad / debug |
 | `confianza` | `float` 0.0–1.0 | Se muestra como "%" en la UI |
 | `mensaje_usuario` | `str` | Texto que ve el usuario en el chat |
 | `requiere_confirmacion` | `bool` | Botón "Confirmar" en la UI |
 | `acciones[]` | `list[AgentAction]` | Se ejecutan contra la BD |
 | `alertas[]` | `list[AgentAlert]` | Chips naranjas/rojos en la burbuja |
+
+### 3.1 Multi-intención: `categoria` vs `categorias`
+
+La sección 2.1 del prompt obliga a **una acción por intención**. Cuando el mensaje trae
+varias cosas, el contrato se rellena así:
+
+| Mensaje | `categoria` | `categorias` | `acciones[]` |
+|---|---|---|---|
+| *«Tengo una cita a las 3 PM»* | `CALENDARIO` | `["CALENDARIO"]` | `crear_evento`, `replanificar_dia` |
+| *«Tengo una cita a las 4 PM y además gasté 25 mil en gasolina»* | `CALENDARIO` (primaria) | `["CALENDARIO","BITACORA_GASTO"]` | `crear_evento`, `registrar_gasto`, `replanificar_dia` |
+
+Reglas:
+
+- `categoria` = la intención **dominante** (la primera del mensaje); nunca se omiten
+  acciones de las demás categorías.
+- `categorias` = lista de **todas** las categorías detectadas, sin duplicados.
+- `alertas[]` puede mezclar tipos: cada intención aporta sus propias alertas.
+- Si el mensaje es solo conversación → `categorias: ["CONVERSACION"]` y `acciones: []`.
+- `confianza` baja un poco en respuestas mixtas (≈0.8) porque hay más superficie de error.
+
+El backend no confía en `categorias`: `agent._normalizar()` la deduce de los tipos de
+acción si el modelo no la envía, de modo que la UI siempre refleja lo que realmente
+se ejecutó.
+
+### 3.2 Registro en cascada (sección 5.1 del prompt)
+
+El prompt pide la acción **explícita**; las **cascadas** las ejecuta el código
+(`agent.aplicar_acciones`), para que un modelo no las olvide:
+
+| Acción emitida | Cascada automática en código |
+|---|---|
+| `crear_tarea` con `fecha_entrega` | `programar_estudio` en un hueco libre antes de la entrega |
+| `registrar_gasto` con `categoria: "mantenimiento"` | `registrar_mantenimiento` (recalcula `proxima_fecha`) |
+| `crear_evento` nuevo | `replanificar_dia` (una vez por fecha) |
+| `resumir_material` | `crear_tarea` + `programar_estudio` |
+
+Todo lo que queda guardado se anota en `resumen_estado.registros_detallados`
+(`{tipo, titulo, detalle}`) y la interfaz lo muestra bajo **«Registrado
+automáticamente (N)»**.
 
 ---
 

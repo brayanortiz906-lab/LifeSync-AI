@@ -48,8 +48,9 @@ reorganización de agenda) sin gastar tokens. Para activar OpenAI o Gemini, ve a
 
 ### Verificación automática
 
-Con el backend corriendo, `backend/smoke.py` comprueba los 4 casos de uso contra la
-base de datos real:
+Con el backend corriendo, `backend/smoke.py` comprueba los 26 casos de uso contra la
+base de datos real (calendario, bitácora, tareas, mantenimiento, multi-intención y
+cascadas de registro automático):
 
 ```powershell
 cd backend
@@ -60,9 +61,44 @@ cd backend
 [OK  ] [CALENDARIO] devuelve plan de reorganizacion -> movidos=2
 [OK  ] anti-duplicado: 1 sola cita tras 2 pedidos identicos -> encontradas=1
 [OK  ] [BITACORA_GASTO] monto 20000 correcto
+[OK  ] [MULTI] detecta 2 categorias -> categorias=['CALENDARIO', 'BITACORA_GASTO']
+[OK  ] [CASCADA] tarea genera bloque de estudio
 ...
 RESULTADO: TODOS LOS CASOS PASARON
 ```
+
+El script es **idempotente**: limpia las citas de corridas anteriores antes de
+empezar, así que se puede repetir sin contaminar la base.
+
+### El chat: habla y se registra todo
+
+El chat es la puerta de entrada principal. Escribe en lenguaje natural, con una o
+varias intenciones a la vez, y el agente registra **todo** automáticamente:
+
+| Tu frase | Qué registra el agente |
+|---|---|
+| `Tengo una cita hoy a las 3 PM` | Evento **Cita** 15:00-16:00 (inamovible) + reorganiza el día |
+| `Hoy tanqueé la moto por $20.000` | Gasto 20.000 COP, categoría **combustible** |
+| `Tengo que entregar el ensayo el viernes` | Tarea con entrega + **bloque de estudio** agendado |
+| `me toca cambiar el aceite de la moto` | Mantenimiento **Cambio de aceite** + evento en el calendario |
+| `Pagué el cambio de aceite de la moto por 120 mil` | Gasto + **actualiza el próximo mantenimiento** |
+| `Mañana tengo reunión a las 9 AM, además entrego el informe el jueves y me toca revisar los frenos` | Las **3 cosas** a la vez (3 categorías, 5 registros) |
+
+Claves de la experiencia:
+
+- **Multi-intención**: una sola frase con varias intenciones se segmenta por
+  conectores (`y`, `además`, `también`, `luego`, `después`, `pero`, `entonces`,
+  `,`, `;`) y cada fragmento se registra por separado.
+- **Registro en cascada**: el código encadena las consecuencias (tarea → bloque de
+  estudio; gasto de mantenimiento → próxima fecha; evento nuevo → reorganización).
+- **Visibilidad**: bajo cada respuesta aparece el bloque verde **«Registrado
+  automáticamente (N)»** con cada cosa guardada, y un chip por categoría.
+- **Pantalla completa**: `Ctrl+K` (o `Cmd+K`) abre el chat a pantalla completa;
+  `Escape` lo cierra. En móvil hay un botón flotante «Hablar con el agente».
+- **Anti-duplicados**: repetir la misma cita actualiza el evento en vez de crear
+  otro.
+- **Sin API Key**: si el proveedor elegido no tiene clave, el backend cae al motor
+  local (`mock`) y lo avisa en la respuesta; el chat nunca se rompe.
 
 ### Modo producción (un solo proceso)
 
@@ -109,7 +145,8 @@ O arranca sin recarga: `.\.venv\Scripts\python.exe -m uvicorn app.main:app --por
 │       ├── lib/format.ts        ← Fechas, moneda, duraciones (es-CO)
 │       └── components/
 │           ├── TopBar.tsx       ← Marca, navegación de fecha, KPIs, ajustes
-│           ├── ChatPanel.tsx    ← Chat con el agente (izquierda)
+│           ├── ChatPanel.tsx    ← Contenedor del chat (panel o pantalla completa)
+│           ├── ChatBody.tsx    ← Burbujas, ficha del agente, input, sugerencias
 │           ├── CalendarPanel.tsx← Calendario día/semana/mes (centro)
 │           ├── AcademicPanel.tsx← Tareas y resúmenes (derecha)
 │           ├── LogbookPanel.tsx ← Gastos y mantenimiento (derecha)
@@ -150,6 +187,31 @@ categoriza como `combustible` y se actualiza el acumulado del mes.
 ### 4.3 Material académico
 Panel derecho → **Importar** → se pega el contenido → el agente lo resume, genera
 preguntas de estudio y agenda un bloque de práctica en el calendario.
+
+### 4.4 Registro automático en cascada
+El agente no solo ejecuta lo que pide: el **código** encadena las consecuencias y las
+deja escritas en la base de datos.
+
+| Disparo | Cascada automática |
+|---|---|
+| `crear_tarea` con fecha de entrega | `programar_estudio`: bloque de estudio en un hueco libre antes de la entrega |
+| `registrar_gasto` de categoría `mantenimiento` | `registrar_mantenimiento`: recalcula la próxima fecha (intervalo) y avisa |
+| `crear_evento` nuevo | `replanificar_dia`: reorganiza el resto del día sin solapes (una vez por fecha) |
+| `resumir_material` | `crear_tarea` + `programar_estudio` |
+
+Cada paso queda anotado en `resumen_estado.registros_detallados` y la interfaz lo
+muestra en el bloque **«Registrado automáticamente (N)»**, de modo que el usuario ve
+exactamente qué se guardó, sin tener que leer la base de datos.
+
+### 4.5 Multi-intención (una frase, varios registros)
+1. El usuario escribe: *«Mañana tengo una reunión de proyecto a las 9 AM, además entrego
+   el informe de metodología el jueves y me toca revisar los frenos de la moto»*.
+2. `providers.py` segmenta el mensaje por conectores (`además`, `y`, `,`, `;`…) y
+   clasifica **cada fragmento** por separado.
+3. Se acumulan las acciones de todas las categorías; `categoria` es la primaria y
+   `categorias` las lista todas.
+4. El agente responde con las 3 cosas hechas y la interfaz muestra 3 chips de categoría
+   y 5 registros automáticos.
 
 ---
 

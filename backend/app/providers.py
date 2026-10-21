@@ -113,12 +113,39 @@ _RE_TIEMPO = re.compile(
     r"a\s*las\s*(\d{1,2})(?::(\d{2}))?\s*(a\.?\s*m\.?|am|pm|p\.?\s*m\.?)?", re.IGNORECASE
 )
 _RE_MONTO = re.compile(
-    r"(?:\$\s*|\bpor\s+|\bcosto\s*(?:de)?\s*|\bprecio\s*(?:de)?\s*|\bvalor\s*(?:de)?\s*|\bvale\s+)"
+    r"(?:\$\s*|\bpor\s+|\bcosto\s*(?:de)?\s*|\bprecio\s*(?:de)?\s*|\bvalor\s*(?:de)?\s*|\bvale\s+"
+    r"|\bgast\w*\s+|\bpagu\w*\s+|\bcompr\w*\s+|\bcobr\w*\s+|\bde\s+(?=\d))"
     r"(\d{1,3}(?:[.\s]\d{3})+(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?)"
-    r"(?:\s*(k|miles|millones|pesos|bol[ií]var|d[oó]lares|usd|cop|d\b))?",
+    r"(?:\s*(k|mil|miles|millones|pesos|bol[ií]var|d[oó]lares|usd|cop|d\b))?",
     re.IGNORECASE,
 )
 _RE_DIA = re.compile(r"\b(lunes|mar[tí]es|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)\b", re.IGNORECASE)
+
+# Conectores que separan intenciones distintas dentro de un mismo mensaje.
+# La coma solo cuenta si NO separa digitos (para no romper "20,000").
+_RE_CONECTOR = re.compile(
+    r"\s*(?:;|\.(?=\s+[A-Za-zÁÉÍÓÚÑáéíóúñ])"
+    r"|,\s+(?=[A-Za-zÁÉÍÓÚÑáéíóúñ])"
+    r"|\s+y\s|\s+además\s+|\s+también\s+|\s+luego\s+|\s+después\s+"
+    r"|\s+pero\s+|\s+entonces\s+|\s+aparte\s+)\s*",
+    re.IGNORECASE,
+)
+# Conectores que aparecen al inicio de un fragmento y hay que descartar.
+_RE_CONECTOR_INICIAL = re.compile(
+    r"^\s*(?:y|e|además|ademas|también|tambien|luego|después|despues|pero|entonces|aparte|"
+    r"también|tambien)\s+",
+    re.IGNORECASE,
+)
+_RE_REPLAN = re.compile(
+    r"reorganiz|replanific|reordena|ordena|reacomoda|optimiza|distribuye|"
+    r"arma\s+mi\s+d[ií]a|planifica|ajusta\s+mi\s+d[ií]a|organiza\s+mi\s+d[ií]a",
+    re.IGNORECASE,
+)
+_RE_EVENTO_CON_DURACION = re.compile(
+    r"taller|reparaci|visita|m[eé]dico|dentista|entrevista|examen\s+oral|"
+    r"c[aá]mara|llamada|videollamada",
+    re.IGNORECASE,
+)
 
 DIA_NUM = {"lunes": 0, "martes": 1, "miércoles": 2, "miercoles": 2, "jueves": 3,
            "viernes": 4, "sábado": 5, "sabado": 5, "domingo": 6}
@@ -126,10 +153,10 @@ DIA_NUM = {"lunes": 0, "martes": 1, "miércoles": 2, "miercoles": 2, "jueves": 3
 
 def _detectar_fecha(texto: str, hoy: date) -> date:
     t = _strip_acentos(texto.lower())
-    if "manana" in t or "mañana" in texto.lower():
-        return hoy + timedelta(days=1)
     if "pasado manana" in t:
         return hoy + timedelta(days=2)
+    if "manana" in t:
+        return hoy + timedelta(days=1)
     if "ayer" in t:
         return hoy - timedelta(days=1)
     m = _RE_DIA.search(t)
@@ -169,7 +196,7 @@ def _detectar_monto(texto: str) -> float | None:
         except ValueError:
             continue
         sufijo = (m.group(2) or "").lower()
-        if sufijo in {"k", "miles"}:
+        if sufijo in {"k", "mil", "miles"}:
             valor *= 1000
         if sufijo == "m" or sufijo == "millones":
             valor *= 1_000_000
@@ -186,16 +213,87 @@ def _clasificar(texto: str) -> str:
         if any(k in t for k in ("pagu", "pague", "gast", "costo", "precio", "vale", "por $")):
             return "BITACORA_GASTO"
         return "MANTENIMIENTO"
-    if any(k in t for k in ("entrega", "tarea", "examen", "quiz", "resumen", "apuntes", "material",
-                            "profesor", "materia", "estudiar", "investigar", "deadline", "rendir")):
+    if any(k in t for k in ("entrega", "entreg", "tarea", "tareas", "examen", "quiz", "resumen",
+                            "apuntes", "material", "profesor", "materia", "estudiar", "investigar",
+                            "deadline", "rendir", "parcial", "trabajo de", "seminario")):
         return "TAREA_ACADEMICA"
     if any(k in t for k in ("gast", "tanque", "compre", "pagu", "pagar", "costo", "precio", "vale",
-                            "factura", "servicio", "compra", "gasto")) or "$" in texto:
+                            "factura", "servicio", "compra", "gasto", "taxi", "bus ", "pasaje",
+                            "almorz", "comida", "cena", "cafe", "pan", "tiquete", "uber")) or "$" in texto:
         return "BITACORA_GASTO"
     if any(k in t for k in ("cita", "reunion", "clase", "trabajo", "entren", "hora", "agenda",
                             "reorganiz", "replanific", "disponibilidad", "bloque", "a las")):
         return "CALENDARIO"
     return "CONVERSACION"
+
+
+def _detectar_categoria_gasto(texto: str) -> str:
+    """Deduce la categoría del gasto a partir del contexto del mensaje."""
+    t = _strip_acentos(texto.lower())
+    if "tanque" in t or "gasolina" in t or "combustible" in t:
+        return "combustible"
+    if "aceite" in t or "taller" in t or "reparacion" in t or "llanta" in t or "neuematico" in t:
+        return "mantenimiento"
+    if any(k in t for k in ("comida", "almuerzo", "restaurante", "cena", "desayuno", "café", "cafe", "pan")):
+        return "alimentacion"
+    if any(k in t for k in ("servicio", "internet", "luz", "agua", "celular", "plan", "suscripcion")):
+        return "servicios"
+    if any(k in t for k in ("taxi", "bus", "transporte", "parking", "tiquete", "pasaje", "vuelo", "gasolina")):
+        return "transporte"
+    if any(k in t for k in ("libro", "material", "matricula", "inscripcion", "universidad")):
+        return "educacion"
+    if any(k in t for k in ("medico", "medicina", "farmacia", "droga", "consulta")):
+        return "salud"
+    if any(k in t for k in ("cine", "concierto", "paseo", "fiesta", "bar", "discoteca")):
+        return "ocio"
+    return "otro"
+
+
+def _detectar_activo(texto: str) -> str:
+    """Deduce el activo (moto, carro, computador...) del que habla el mensaje."""
+    t = _strip_acentos(texto.lower())
+    for clave, valor in (
+        ("moto", "moto"), ("motocicleta", "moto"), ("ciclomotor", "moto"),
+        ("carro", "carro"), ("auto", "carro"), ("coche", "carro"),
+        ("computador", "computador"), ("laptop", "computador"), ("pc", "computador"),
+        ("bici", "bicicleta"), ("bicicleta", "bicicleta"),
+        ("celular", "celular"), ("telefono", "celular"),
+    ):
+        if clave in t:
+            return valor
+    return "otro"
+
+
+def _titulo_mantenimiento(texto: str) -> str:
+    t = _strip_acentos(texto.lower())
+    for clave, etiqueta in (
+        ("cambio de aceite", "Cambio de aceite"),
+        ("aceite", "Cambio de aceite"),
+        ("filtro", "Cambio de filtro"),
+        ("freno", "Revisión de frenos"),
+        ("neumatico", "Cambio de neumáticos"),
+        ("revision", "Revisión general"),
+        ("service", "Service general"),
+        ("taller", "Mantenimiento general"),
+    ):
+        if clave in t:
+            return etiqueta
+    return "Mantenimiento"
+
+
+def _fragmentar(mensaje: str) -> list[str]:
+    """Divide el mensaje en fragmentos que pueden ser intenciones distintas.
+
+    Respeta los conectores naturales ("y", "además", "también", ";"...) pero
+    nunca parte un número ("20,000") ni una frase sin conector.
+    """
+    partes = [p.strip() for p in _RE_CONECTOR.split(mensaje) if p and p.strip()]
+    limpio: list[str] = []
+    for p in partes:
+        p = _RE_CONECTOR_INICIAL.sub("", p).strip(" .,;")
+        if p:
+            limpio.append(p)
+    return limpio or [mensaje.strip()]
 
 
 def _titulo_evento(texto: str) -> str:
@@ -207,15 +305,24 @@ def _titulo_evento(texto: str) -> str:
     )
     limpio = re.sub(
         r"^\s*(tengo\s+que|tengo|necesito|necesito\s+hacer|debo|tuve\s+que|me\s+toca|me\s+gaste|"
-        r"me\s+gasté|compre|compré|pague|pagué|pago|hay\s+que|hay)\s+",
+        r"me\s+gasté|compre|compré|pague|pagué|pago|hay\s+que|hay|me\s+toca|me\s+gasté)\s+",
+        "", limpio, flags=re.IGNORECASE,
+    )
+    # Día de la semana al inicio ("el viernes entrego el ensayo")
+    limpio = re.sub(
+        r"^\s*(?:el|los|la|las|este|esta|proximo|próximo|para\s+el)\s+"
+        r"(lunes|martes|miércoles|miercoles|jueves|viernes|sábado|sabado|domingo)\b\s*",
         "", limpio, flags=re.IGNORECASE,
     )
     # Cláusula temporal final
     limpio = re.sub(
         r"\s+(a\s+las\s+.*|hoy|mañana|manana|ayer|el\s+lunes|el\s+martes|el\s+miércoles|"
-        r"el\s+miercoles|el\s+jueves|el\s+viernes|el\s+sábado|el\s+sabado|el\s+domingo)$",
+        r"el\s+miercoles|el\s+jueves|el\s+viernes|el\s+sábado|el\s+sabado|el\s+domingo|"
+        r"lunes|martes|miércoles|miercoles|jueves|viernes|sábado|sabado|domingo)$",
         "", limpio, flags=re.IGNORECASE,
     )
+    # Adverbios temporales en cualquier posición ("cita hoy a las 3")
+    limpio = re.sub(r"\b(hoy|mañana|manana|ayer)\b\s*", " ", limpio, flags=re.IGNORECASE)
     # Cláusula monetaria final
     limpio = re.sub(
         r"\s+(por|value|costo|costo|precio)\s+(\$|\d).*$", "", limpio, flags=re.IGNORECASE
@@ -226,115 +333,231 @@ def _titulo_evento(texto: str) -> str:
     return (limpio[:60] or "Compromiso").capitalize()
 
 
+def _acciones_calendario(fragmento: str, hoy: date) -> tuple[list[dict], list[dict], str]:
+    """Construye las acciones de un fragmento de tipo CALENDARIO."""
+    fecha = _detectar_fecha(fragmento, hoy)
+    hora, minuto = _detectar_hora(fragmento)
+    inicio = datetime.combine(fecha, datetime.min.time()).replace(hour=hora, minute=minuto)
+    duracion = 120 if _RE_EVENTO_CON_DURACION.search(fragmento) else 60
+    fin = inicio + timedelta(minutes=duracion)
+    titulo = _titulo_evento(fragmento)
+    acciones: list[dict] = [{
+        "tipo": "crear_evento",
+        "datos": {
+            "titulo": titulo, "categoria": "personal",
+            "inicio": inicio.isoformat(timespec="minutes"),
+            "fin": fin.isoformat(timespec="minutes"),
+            "inamovible": True, "notas": "", "fuente": "chat",
+        },
+        "motivo": "Compromiso informado por el usuario.",
+    }]
+    alertas: list[dict] = []
+    respuesta = (
+        f"Listo: agendé \"{titulo}\" de {hora:02d}:{minuto:02d} a "
+        f"{fin.strftime('%H:%M')} como compromiso inamovible y reorganice el resto del día."
+    )
+    return acciones, alertas, respuesta
+
+
+def _acciones_replan_para(fecha: date) -> dict:
+    """Acción de reorganización del día (se añade una sola vez por fecha)."""
+    return {
+        "tipo": "replanificar_dia",
+        "datos": {
+            "fecha": fecha.isoformat(),
+            "prioridad_reubicacion": "despues",
+            "duracion_min": 60,
+            "restricciones": {"no_antes_de": "07:00", "no_despues_de": "22:00", "evitar_dia": None},
+            "bloques_a_organizar": [
+                {"titulo": "Estudio", "duracion_min": 60, "prioridad": "media", "categoria": "estudio"}
+            ],
+        },
+        "motivo": "Liberar el hueco del nuevo compromiso.",
+    }
+
+
+def _acciones_replan(fragmento: str, hoy: date) -> tuple[list[dict], list[dict], str]:
+    """Reorganiza el día sin crear eventos nuevos."""
+    fecha = _detectar_fecha(fragmento, hoy)
+    acciones = [{
+        "tipo": "replanificar_dia",
+        "datos": {
+            "fecha": fecha.isoformat(),
+            "prioridad_reubicacion": "despues",
+            "duracion_min": 60,
+            "restricciones": {"no_antes_de": "07:00", "no_despues_de": "22:00", "evitar_dia": None},
+            "bloques_a_organizar": [
+                {"titulo": "Estudio", "duracion_min": 60, "prioridad": "media", "categoria": "estudio"}
+            ],
+        },
+        "motivo": "El usuario pidió reorganizar su día.",
+    }]
+    return acciones, [], f"Reorganicé tu día del {fecha.isoformat()} sin solapar tus compromisos inamovibles."
+
+
+def _acciones_gasto(fragmento: str, hoy: date, contexto: str = "") -> tuple[list[dict], list[dict], str]:
+    """Construye las acciones de un fragmento de tipo BITACORA_GASTO."""
+    monto = _detectar_monto(fragmento)
+    fecha = _detectar_fecha(fragmento, hoy)
+    cat = _detectar_categoria_gasto(fragmento)
+    acciones = [{
+        "tipo": "registrar_gasto",
+        "datos": {
+            "descripcion": _titulo_evento(fragmento),
+            "monto": monto, "moneda": settings.default_currency, "categoria": cat,
+            "fecha": fecha.isoformat(), "registrar_en_calendario": False, "notas": "",
+        },
+        "motivo": "Gasto informado por el usuario.",
+    }]
+    alertas: list[dict] = []
+    monto_txt = f"{monto:,.0f} {settings.default_currency}" if monto else "sin monto"
+    respuesta = f"Registré {monto_txt} en {cat.replace('_', ' ')} con fecha {fecha.isoformat()}."
+
+    # Cascada: si el gasto es de mantenimiento, se actualiza el registro del activo.
+    if cat == "mantenimiento":
+        activo = _detectar_activo(contexto or fragmento)
+        tarea_mant = _titulo_mantenimiento(fragmento)
+        proxima = fecha + timedelta(days=90)
+        acciones.append({
+            "tipo": "registrar_mantenimiento",
+            "datos": {
+                "activo": activo,
+                "tarea": tarea_mant,
+                "intervalo_dias": 90,
+                "ultima_realizacion": fecha.isoformat(),
+                "proxima_fecha": proxima.isoformat(),
+                "costo_estimado": monto,
+                "notas": "Actualizado automáticamente al detectar el gasto.",
+            },
+            "motivo": "El gasto corresponde a un mantenimiento; se reprograma el próximo servicio.",
+        })
+        alertas.append({
+            "tipo": "mantenimiento_actualizado",
+            "texto": f"Próximo {tarea_mant.lower()} ({activo}) el {proxima.isoformat()}.",
+            "prioridad": "media",
+        })
+        respuesta += f" Además actualicé el próximo {tarea_mant.lower()} del {activo}."
+    return acciones, alertas, respuesta
+
+
+def _acciones_tarea(fragmento: str, hoy: date) -> tuple[list[dict], list[dict], str]:
+    """Construye las acciones de un fragmento de tipo TARJA_ACADEMICA."""
+    fecha = _detectar_fecha(fragmento, hoy)
+    titulo = _titulo_evento(fragmento)
+    minutos = 120 if any(k in _strip_acentos(fragmento.lower()) for k in ("ensayo", "trabajo", "examen", "proyecto")) else 60
+    acciones = [{
+        "tipo": "crear_tarea",
+        "datos": {
+            "titulo": titulo, "materia": None, "fecha_entrega": fecha.isoformat(),
+            "prioridad": "media", "minutos_estimados": minutos, "estado": "pendiente",
+            "material": "", "fuente": "chat",
+        },
+        "motivo": "Tarea académica detectada en el mensaje.",
+    }]
+    # Cascada: se agenda un bloque de estudio antes de la entrega.
+    acciones.append({
+        "tipo": "programar_estudio",
+        "datos": {
+            "titulo": f"Estudio: {titulo}",
+            "categoria": "estudio",
+            "inicio": datetime.combine(fecha, datetime.min.time()).replace(hour=18).isoformat(timespec="minutes"),
+            "fin": datetime.combine(fecha, datetime.min.time()).replace(hour=19, minute=30).isoformat(timespec="minutes"),
+            "material": "Bloque reservado automáticamente para completar la tarea.",
+            "fuente": "chat",
+        },
+        "motivo": "Se agenda estudio automáticamente para la entrega.",
+    })
+    respuesta = f"Creé la tarea \"{titulo}\" con entrega el {fecha.isoformat()} y agendé un bloque de estudio."
+    return acciones, [], respuesta
+
+
+def _acciones_mantenimiento(fragmento: str, hoy: date, contexto: str = "") -> tuple[list[dict], list[dict], str]:
+    """Construye las acciones de un fragmento de tipo MANTENIMIENTO."""
+    fecha = _detectar_fecha(fragmento, hoy)
+    tarea = _titulo_mantenimiento(fragmento)
+    activo = _detectar_activo(contexto or fragmento)
+    acciones = [{
+        "tipo": "programar_mantenimiento",
+        "datos": {
+            "activo": activo,
+            "tarea": tarea, "fecha": fecha.isoformat(), "hora": "09:00",
+            "intervalo_dias": 90,
+            "costo_estimado": _detectar_monto(fragmento),
+        },
+        "motivo": "Mantenimiento solicitado por el usuario.",
+    }]
+    alertas = [{
+        "tipo": "mantenimiento_vencido",
+        "texto": f"{tarea} programado para {fecha.isoformat()}.",
+        "prioridad": "media",
+    }]
+    respuesta = f"Programé \"{tarea}\" del {activo} para el {fecha.isoformat()} a las 09:00."
+    return acciones, alertas, respuesta
+
 def _mock_response(mensaje: str, hoy: date) -> dict[str, Any]:
-    categoria = _clasificar(mensaje)
+    """Clasificador local multi-intención.
+
+    Un solo mensaje puede contener varias intenciones ("tengo una cita a las 3
+    y gasté 20 mil en gasolina"): se divide en fragmentos y se ejecuta una
+    acción por cada intención detectada, no solo la primera.
+    """
+    fragmentos = _fragmentar(mensaje)
     acciones: list[dict[str, Any]] = []
     alertas: list[dict[str, Any]] = []
-    respuesta = ""
+    respuestas: list[str] = []
+    categorias: list[str] = []
+    fechas_replan: set[str] = set()
 
-    if categoria == "CALENDARIO":
-        fecha = _detectar_fecha(mensaje, hoy)
-        hora, minuto = _detectar_hora(mensaje)
-        inicio = datetime.combine(fecha, datetime.min.time()).replace(hour=hora, minute=minuto)
-        fin = inicio + timedelta(minutes=60)
-        titulo = _titulo_evento(mensaje)
-        acciones.append({
-            "tipo": "crear_evento",
-            "datos": {
-                "titulo": titulo, "categoria": "personal",
-                "inicio": inicio.isoformat(timespec="minutes"),
-                "fin": fin.isoformat(timespec="minutes"),
-                "inamovible": True, "notas": "", "fuente": "chat",
-            },
-            "motivo": "Compromiso informado por el usuario.",
-        })
-        acciones.append({
-            "tipo": "replanificar_dia",
-            "datos": {
-                "fecha": fecha.isoformat(),
-                "prioridad_reubicacion": "despues",
-                "duracion_min": 60,
-                "restricciones": {"no_antes_de": "07:00", "no_despues_de": "22:00", "evitar_dia": None},
-                "bloques_a_organizar": [
-                    {"titulo": "Estudio", "duracion_min": 60, "prioridad": "media", "categoria": "estudio"}
-                ],
-            },
-            "motivo": "Liberar el hueco del nuevo compromiso.",
-        })
-        respuesta = (
-            f"Listo: agendé \"{titulo}\" de {hora:02d}:{minuto:02d} a "
-            f"{fin.strftime('%H:%M')} como compromiso inamovible y reorganice el resto del día."
-        )
+    for frag in fragmentos:
+        cat = _clasificar(frag)
+        if cat == "CONVERSACION":
+            continue
 
-    elif categoria == "BITACORA_GASTO":
-        monto = _detectar_monto(mensaje)
-        fecha = _detectar_fecha(mensaje, hoy)
-        t = _strip_acentos(mensaje.lower())
-        if "tanque" in t or "gasolina" in t or "combustible" in t:
-            cat = "combustible"
-        elif "aceite" in t or "taller" in t or "reparacion" in t:
-            cat = "mantenimiento"
-        elif "comida" in t or "almuerzo" in t or "restaurante" in t:
-            cat = "alimentacion"
-        elif "servicio" in t or "internet" in t or "luz" in t or "agua" in t:
-            cat = "servicios"
-        elif "taxi" in t or "bus" in t or "transporte" in t or "parking" in t:
-            cat = "transporte"
+        # Petición explícita de reorganizar el día (no crear evento).
+        if cat == "CALENDARIO" and _RE_REPLAN.search(frag) and not _RE_TIEMPO.search(frag):
+            acc, al, txt = _acciones_replan(frag, hoy)
+        elif cat == "CALENDARIO":
+            acc, al, txt = _acciones_calendario(frag, hoy)
+            # Tras agendar un compromiso inamovible se reorganiza el resto del día.
+            fecha_evento = acc[0]["datos"]["inicio"][:10] if acc else ""
+            if fecha_evento and fecha_evento not in fechas_replan:
+                fechas_replan.add(fecha_evento)
+                acc.append(_acciones_replan_para(date.fromisoformat(fecha_evento)))
+        elif cat == "BITACORA_GASTO":
+            acc, al, txt = _acciones_gasto(frag, hoy, contexto=mensaje)
+        elif cat == "TAREA_ACADEMICA":
+            acc, al, txt = _acciones_tarea(frag, hoy)
         else:
-            cat = "otro"
-        acciones.append({
-            "tipo": "registrar_gasto",
-            "datos": {
-                "descripcion": _titulo_evento(mensaje),
-                "monto": monto, "moneda": settings.default_currency, "categoria": cat,
-                "fecha": fecha.isoformat(), "registrar_en_calendario": False, "notas": "",
-            },
-            "motivo": "Gasto informado por el usuario.",
-        })
-        monto_txt = f"{monto:,.0f} {settings.default_currency}" if monto else "sin monto"
-        respuesta = f"Registré {monto_txt} en {cat.replace('_', ' ')} con fecha {fecha.isoformat()}."
+            acc, al, txt = _acciones_mantenimiento(frag, hoy, contexto=mensaje)
 
-    elif categoria == "TAREA_ACADEMICA":
-        fecha = _detectar_fecha(mensaje, hoy)
-        titulo = _titulo_evento(mensaje)
-        acciones.append({
-            "tipo": "crear_tarea",
-            "datos": {
-                "titulo": titulo, "materia": None, "fecha_entrega": fecha.isoformat(),
-                "prioridad": "media", "minutos_estimados": 60, "estado": "pendiente",
-                "material": "", "fuente": "chat",
-            },
-            "motivo": "Tarea académica detectada en el mensaje.",
-        })
-        respuesta = f"Creé la tarea \"{titulo}\" con entrega el {fecha.isoformat()}."
+        acciones.extend(acc)
+        alertas.extend(al)
+        respuestas.append(txt)
+        if cat not in categorias:
+            categorias.append(cat)
 
-    elif categoria == "MANTENIMIENTO":
-        fecha = _detectar_fecha(mensaje, hoy)
-        t = _strip_acentos(mensaje.lower())
-        tarea = "Cambio de aceite" if "aceite" in t else "Mantenimiento"
-        acciones.append({
-            "tipo": "programar_mantenimiento",
-            "datos": {
-                "activo": "moto" if "moto" in t else "otro",
-                "tarea": tarea, "fecha": fecha.isoformat(), "hora": "09:00",
-                "costo_estimado": None,
-            },
-            "motivo": "Mantenimiento solicitado por el usuario.",
-        })
-        alertas.append({"tipo": "mantenimiento_vencido", "texto": f"{tarea} programado para {fecha.isoformat()}.", "prioridad": "media"})
-        respuesta = f"Programé \"{tarea}\" para el {fecha.isoformat()} a las 09:00."
+    if not acciones:
+        return {
+            "categoria": "CONVERSACION",
+            "intencion": "conversacion",
+            "confianza": 0.95,
+            "mensaje_usuario": (
+                "Entendido. Dime qué quieres que registre: un gasto, un compromiso, "
+                "una tarea académica o el mantenimiento, y lo hago de una."
+            ),
+            "requiere_confirmacion": False,
+            "acciones": [],
+            "alertas": [],
+        }
 
-    else:
-        respuesta = (
-            "Entendido. ¿Quieres que registre un gasto, agende un compromiso, "
-            "cree una tarea académica o revise tu mantenimiento?"
-        )
-
+    categoria = categorias[0]
+    # Si hay varias intenciones, la confianza baja un poco (más ambigüedad).
+    confianza = 0.9 if len(categorias) == 1 else 0.8
     return {
         "categoria": categoria,
-        "intencion": categoria.lower(),
-        "confianza": 0.82 if categoria != "CONVERSACION" else 0.95,
-        "mensaje_usuario": respuesta,
+        "intencion": "+".join(c.lower() for c in categorias),
+        "confianza": confianza,
+        "mensaje_usuario": " ".join(respuestas),
         "requiere_confirmacion": False,
         "acciones": acciones,
         "alertas": alertas,

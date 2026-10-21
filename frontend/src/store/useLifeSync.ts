@@ -67,13 +67,17 @@ export const useLifeSync = create<Estado>((set, get) => ({
         dashboard, tareas, registros, mantenimiento, eventos, cargando: false,
         proveedor: ajustes.proveedor,
         modelo: ajustes.modelo,
-        mensajes: historial.map((h) => ({
-          id: `srv-${h.id}`,
-          rol: h.rol === 'user' ? 'user' : 'assistant',
-          contenido: h.contenido,
-          categoria: h.categoria ?? undefined,
-          agente: h.payload ?? undefined,
-        })),
+        mensajes: historial.map((h) => {
+          const plan = (h.payload?.resumen_estado?.plan as Record<string, unknown>) ?? undefined
+          return {
+            id: `srv-${h.id}`,
+            rol: h.rol === 'user' ? 'user' : 'assistant',
+            contenido: h.contenido,
+            categoria: h.categoria ?? undefined,
+            agente: h.payload ?? undefined,
+            plan,
+          }
+        }),
       })
     } catch (e) {
       set({ cargando: false, error: (e as Error).message })

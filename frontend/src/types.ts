@@ -69,8 +69,21 @@ export interface Accion {
   motivo: string
 }
 
+/** Categoría de una acción ejecutada por el agente (registro en cascada). */
+export type TipoRegistro =
+  | 'evento' | 'tarea' | 'gasto' | 'mantenimiento' | 'estudio' | 'agenda'
+
+/** Detalle de un elemento que quedó registrado automáticamente por el chat. */
+export interface RegistroDetallado {
+  tipo: TipoRegistro | string
+  titulo: string
+  detalle: string
+}
+
 export interface RespuestaAgente {
   categoria: 'CALENDARIO' | 'TAREA_ACADEMICA' | 'BITACORA_GASTO' | 'MANTENIMIENTO' | 'CONVERSACION'
+  /** Todas las categorías detectadas en el mensaje (multi-intención). */
+  categorias?: string[]
   intencion: string
   confianza: number
   mensaje_usuario: string

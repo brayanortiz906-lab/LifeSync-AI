@@ -176,6 +176,7 @@ class AgentResponse(BaseModel):
     categoria: Literal[
         "CALENDARIO", "TAREA_ACADEMICA", "BITACORA_GASTO", "MANTENIMIENTO", "CONVERSACION"
     ] = "CONVERSACION"
+    categorias: list[str] = Field(default_factory=list)   # todas las detectadas (mensajes mixtos)
     intencion: str = ""
     confianza: float = 0.0
     mensaje_usuario: str = ""

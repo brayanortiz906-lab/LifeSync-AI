@@ -61,7 +61,8 @@ class Task(Base):
     material: Mapped[str | None] = mapped_column(Text, default=None)
     preguntas: Mapped[str | None] = mapped_column(Text, default=None)  # JSON: list[str]
     fuente: Mapped[str] = mapped_column(String(32), default="manual")
-    tarea_id: Mapped[int | None] = mapped_column(ForeignKey("tasks.id"), default=None)
+    # Evento de calendario que respalda esta tarea (bloque de estudio).
+    tarea_id: Mapped[int | None] = mapped_column(ForeignKey("events.id"), default=None)
     creado_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 

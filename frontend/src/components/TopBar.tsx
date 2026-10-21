@@ -1,16 +1,17 @@
 /** Barra superior: marca, navegación de fecha, KPIs y ajustes. */
 import { useState } from 'react'
-import { CalendarDays, ChevronLeft, ChevronRight, KeyRound, Sparkles, Trash2 } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, KeyRound, MessageSquare, Sparkles, Trash2 } from 'lucide-react'
 import { useLifeSync } from '../store/useLifeSync'
 import { duracionLegible, etiquetaDia, monto } from '../lib/format'
 import { Boton, Chip } from './ui'
 import SettingsModal from './SettingsModal'
 
 export default function TopBar({
-  fecha, onCambiarFecha,
+  fecha, onCambiarFecha, onAbrirChat,
 }: {
   fecha: Date
   onCambiarFecha: (d: Date) => void
+  onAbrirChat?: () => void
 }) {
   const dashboard = useLifeSync((s) => s.dashboard)
   const proveedor = useLifeSync((s) => s.proveedor)
@@ -81,6 +82,12 @@ export default function TopBar({
         <Boton variante="fantasma" onClick={limpiarChat} titulo="Limpiar el historial del chat">
           <Trash2 size={14} />
         </Boton>
+        {onAbrirChat && (
+          <Boton variante="secundario" onClick={onAbrirChat} titulo="Abrir el chat a pantalla completa (Ctrl+K)">
+            <MessageSquare size={14} />
+            <span className="hidden xl:inline">Chat</span>
+          </Boton>
+        )}
         <Boton variante={apiKey ? 'secundario' : 'primario'} onClick={() => setAjustes(true)}>
           <KeyRound size={14} />
           {apiKey ? 'API Key' : 'Conectar IA'}
