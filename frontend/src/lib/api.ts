@@ -1,6 +1,6 @@
 /** Cliente HTTP de la API de LifeSync AI. */
 import type {
-  Ajustes, Aprobacion, AutorizacionCuenta, Conexion, Dashboard, EntradaAuditoria, Evento,
+  Ajustes, Aprobacion, AutorizacionCuenta, CatalogoModelos, Conexion, Dashboard, EntradaAuditoria, Evento,
   HistorialMsg, Mantenimiento, MotorLocal, Politica, ProveedorCatalogo, Registro,
   ReporteCumplimiento, ResumenAuditoria, RespuestaAgente, ResultadoAutorizacion, Tarea,
 } from '../types'
@@ -201,6 +201,10 @@ export const api = {
 
   detectarLocales: () =>
     request<{ motores: MotorLocal[]; total: number }>('/conexiones/locales'),
+
+  /** Catalogo amplio de modelos para que la persona elija "cualquier IA". */
+  modelosDisponibles: (proveedor = 'openrouter') =>
+    request<CatalogoModelos>(`/conexiones/modelos?proveedor=${proveedor}`),
 
   /** Paso 1 del flujo "conectar mi cuenta": pide un codigo de autorizacion. */
   iniciarCuenta: (datos: { proveedor: string; client_id: string }) =>

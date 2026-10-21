@@ -60,6 +60,7 @@ abre un asistente con cuatro caminos, explicados en lenguaje llano:
 
 | Camino | Qué necesitas | Costo |
 |---|---|---|
+| **Continuar con Google** | Un clic: entras con tu cuenta de Google y **después eliges con qué IA trabajar** | El de tu plan |
 | **Ya tengo mi cuenta de IA** | Iniciar sesión con tu cuenta (Google, ChatGPT, Claude) — sin escribir tokens | El de tu plan |
 | **Usar la IA de mi computador** | Nada: detecta el motor local solo (Ollama o LM Studio) | **Gratis, sin internet** |
 | **Tengo una clave de API** | Una clave, con el link a la consola y los pasos numerados | Según el uso |
@@ -80,6 +81,23 @@ GET /api/conexiones/locales
 {"motores":[{"id":"ollama","nombre":"Ollama","modelos":["qwen2.5:latest","gemma4:26b", ...],
   "modelos_disponibles":5}],"total":1}
 ```
+
+**«Continuar con Google» y elegir cualquier IA.** La tarjeta grande del modal inicia
+el acceso con tu cuenta de Google (OAuth Device Flow) y, al autorizar, LifeSync te
+enseña **todos** los proveedores para que elijas. El token de Google habilita
+**Gemini** al instante; y a través de **OpenRouter** (cuyo acceso tiene *Sign in with
+Google*) desbloqueas **468 modelos de 67 familias** —GPT, Claude, Gemini, Llama,
+DeepSeek, Mistral…— con buscador y filtro por familia:
+
+```
+GET /api/conexiones/modelos?proveedor=openrouter
+{"proveedor":"openrouter","total":468,"familias":[{"familia":"anthropic","modelos":8}, ...],
+ "modelos":[{"id":"anthropic/claude-sonnet-4.5","nombre":"Anthropic: Claude Sonnet 4.5",
+             "familia":"anthropic","gratis":false,"contexto":1000000}, ...]}
+```
+
+Si el despliegue define `GOOGLE_CLIENT_ID` (ver `backend/.env.example`), el botón
+funciona en **un solo clic** sin que nadie escriba identificadores.
 
 Ventajas que ya trae:
 

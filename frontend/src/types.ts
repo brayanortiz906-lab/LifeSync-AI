@@ -275,6 +275,26 @@ export interface ProveedorCatalogo {
   notas: string
   acepta_cuenta: boolean
   url_client_id: string
+  /** Se puede entrar a su sitio con la cuenta de Google ("Continuar con Google"). */
+  permite_google: boolean
+  /** La persona puede elegir entre un catalogo amplio de modelos. */
+  permite_seleccion_modelo: boolean
+}
+
+/** Un modelo del catalogo amplio (por ejemplo los 300+ de OpenRouter). */
+export interface ModeloCatalogo {
+  id: string
+  nombre: string
+  familia: string
+  gratis: boolean
+  contexto: number
+}
+
+export interface CatalogoModelos {
+  proveedor: string
+  modelos: ModeloCatalogo[]
+  total: number
+  familias: { familia: string; modelos: number }[]
 }
 
 /** Datos que devuelve el inicio del flujo OAuth "device authorization". */

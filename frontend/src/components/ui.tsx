@@ -1,5 +1,6 @@
 /** Atomos visuales compartidos. */
 import type { ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 
 export function Panel({
   titulo, icono, acciones, children, className = '', cuerpoClass = '',
@@ -122,23 +123,27 @@ export function Modal({
   ancho?: string
 }) {
   if (!abierto) return null
-  return (
+  // Se monta en document.body (portal): dentro de la barra superior (que tiene
+  // backdrop-blur) un `position: fixed` se anclaria a la barra y el modal
+  // apareceria cortado por arriba.
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm"
       onClick={onCerrar}
     >
       <div
-        className={`ls-fade-up w-full ${ancho} rounded-2xl border border-white/10 bg-slate-900 shadow-2xl`}
+        className={`ls-fade-up flex max-h-[88vh] w-full ${ancho} flex-col overflow-hidden rounded-2xl border border-white/10 bg-slate-900 shadow-2xl`}
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="flex items-center justify-between border-b border-white/8 px-5 py-4">
+        <header className="flex shrink-0 items-center justify-between border-b border-white/8 px-5 py-4">
           <h2 className="text-sm font-semibold text-slate-100">{titulo}</h2>
           <button onClick={onCerrar} className="text-slate-400 hover:text-slate-100" aria-label="Cerrar">
             ✕
           </button>
         </header>
-        <div className="max-h-[70vh] overflow-y-auto p-5">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto p-5">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

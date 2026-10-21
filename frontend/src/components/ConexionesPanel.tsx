@@ -9,13 +9,15 @@
  *    3. "En mi computador"     -> Ollama / LM Studio, sin credenciales
  *    4. "Solo quiero ver"      -> asistente demo integrado
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   ArrowRight, Check, CircleAlert, Cpu, Eye, EyeOff, Loader2, LogIn,
-  Plug, RefreshCw, Server, Sparkles, Trash2, Wifi,
+  Plug, RefreshCw, Search, Server, Sparkles, Trash2, Wifi,
 } from 'lucide-react'
 import { api, guardarUrlApi, leerUrlApi } from '../lib/api'
-import type { AutorizacionCuenta, Conexion, MotorLocal, ProveedorCatalogo } from '../types'
+import type {
+  AutorizacionCuenta, CatalogoModelos, Conexion, ModeloCatalogo, MotorLocal, ProveedorCatalogo,
+} from '../types'
 import { Boton, Chip, Modal } from './ui'
 
 /** Los 4 caminos, ordenados de mas facil a mas avanzado. */
@@ -54,7 +56,7 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
   const [catalogo, setCatalogo] = useState<ProveedorCatalogo[]>([])
   const [conexiones, setConexiones] = useState<Conexion[]>([])
   const [motores, setMotores] = useState<MotorLocal[]>([])
-  const [paso, setPaso] = useState<'inicio' | 'detalle'>('inicio')
+  const [paso, setPaso] = useState<'inicio' | 'detalle' | 'elegir'>('inicio')
   const [caminos, setCaminos] = useState<string[]>([])
   const [seleccion, setSeleccion] = useState<ProveedorCatalogo | null>(null)
   const [clave, setClave] = useState('')
@@ -67,6 +69,10 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
   const [autorizacion, setAutorizacion] = useState<AutorizacionCuenta | null>(null)
   const [esperando, setEsperando] = useState(false)
   const [apiUrl, setApiUrl] = useState(() => leerUrlApi())
+  const [modelos, setModelos] = useState<ModeloCatalogo[]>([])
+  const [familias, setFamilias] = useState<{ familia: string; modelos: number }[]>([])
+  const [filtroModelo, setFiltroModelo] = useState('')
+  const [cargandoModelos, setCargandoModelos] = useState(false)
 
   const cargar = async () => {
     try {
@@ -104,7 +110,24 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
     setClientId('')
     setAutorizacion(null)
     setEsperando(false)
+    setFiltroModelo('')
     setPaso('detalle')
+    if (p.permite_seleccion_modelo) void cargarModelos(p.id)
+  }
+
+  /** Catalogo amplio de modelos (OpenRouter: mas de 300 IAs distintas). */
+  const cargarModelos = async (proveedor: string) => {
+    setCargandoModelos(true)
+    try {
+      const cat: CatalogoModelos = await api.modelosDisponibles(proveedor)
+      setModelos(cat.modelos)
+      setFamilias(cat.familias)
+    } catch {
+      setModelos([])
+      setFamilias([])
+    } finally {
+      setCargandoModelos(false)
+    }
   }
 
   /** Paso 1 del flujo de cuenta: pide el codigo de autorizacion al proveedor. */
@@ -142,7 +165,12 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
         setEsperando(false)
         setAutorizacion(null)
         await cargar()
-        setPaso('inicio')
+        if (seleccion.id === 'google_cuenta') {
+          // Ya entro con Google: ahora elige con que IA quiere trabajar.
+          setPaso('elegir')
+        } else {
+          setPaso('inicio')
+        }
       } else {
         setEstado({ ok: false, texto: res.mensaje })
         setEsperando(false)
@@ -213,6 +241,15 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
   const motoresDisponibles = motores.filter((m) => porModo('local').some((c) => c.id === m.id))
   const activa = conexiones.find((c) => c.activa)
 
+  /** Modelos que coinciden con el filtro de busqueda ("cualquier IA"). */
+  const modelosFiltrados = useMemo(() => {
+    const f = filtroModelo.trim().toLowerCase()
+    if (!f) return modelos.slice(0, 60)
+    return modelos
+      .filter((m) => m.id.toLowerCase().includes(f) || m.nombre.toLowerCase().includes(f))
+      .slice(0, 60)
+  }, [modelos, filtroModelo])
+
   return (
     <Modal abierto={abierto} onCerrar={onCerrar} titulo="Conectar tu IA" ancho="max-w-2xl">
       <div className="space-y-4">
@@ -271,6 +308,39 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
               Elige como quieres conectarte. <strong className="text-slate-300">No necesitas saber
               qué es una API key</strong>: si eliges una cuenta, te guio con cada paso.
             </p>
+
+            {/* Camino destacado: entrar con Google y luego elegir IA */}
+            <div className="rounded-2xl border border-blue-500/30 bg-gradient-to-br from-blue-500/15 via-slate-900/60 to-slate-900/60 p-4">
+              <div className="flex items-start gap-3">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white text-lg font-black text-blue-600 shadow-lg">
+                  G
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-bold text-white">Continuar con Google</div>
+                  <p className="mt-0.5 text-[11px] leading-relaxed text-slate-300">
+                    Entra con la misma cuenta de Google que usas para el correo. Despues eliges
+                    con que IA quieres trabajar: <strong className="text-slate-200">Gemini, GPT,
+                    Claude, Llama, DeepSeek</strong> y mas de 300 modelos.
+                  </p>
+                  <div className="mt-2.5 flex flex-wrap gap-1.5">
+                    <Boton
+                      variante="primario"
+                      onClick={() => {
+                        const google = catalogo.find((c) => c.id === 'google_cuenta')
+                        if (google) abrirDetalle(google)
+                      }}
+                      disabled={!catalogo.some((c) => c.id === 'google_cuenta')}
+                    >
+                      <LogIn size={13} />
+                      Entrar con Google
+                    </Boton>
+                    <span className="self-center text-[10px] text-slate-500">
+                      Tu contrasena nunca pasa por LifeSync
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
 
             {/* Motores locales detectados */}
             {motoresDisponibles.length > 0 && (
@@ -409,6 +479,66 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
               </div>
             )}
           </>
+        ) : paso === 'elegir' ? (
+          /* ---------------------------------------------------------------- */
+          /* Tras entrar con Google: elegir con que IA trabajar               */
+          /* ---------------------------------------------------------------- */
+          <div className="space-y-3">
+            <button
+              onClick={() => setPaso('inicio')}
+              className="text-[11px] font-semibold text-slate-400 hover:text-white"
+            >
+              ← Volver
+            </button>
+
+            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3">
+              <div className="flex items-center gap-2 text-xs font-bold text-emerald-200">
+                <Check size={13} />
+                Ya estas conectado con Google
+              </div>
+              <p className="mt-1 text-[11px] leading-relaxed text-slate-300">
+                Ahora elige con que IA quieres trabajar. Puedes cambiarla cuando quieras.
+              </p>
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-2">
+              {catalogo.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => abrirDetalle(c)}
+                  className="flex items-start gap-2.5 rounded-xl border border-white/10 bg-white/4 p-3 text-left transition hover:bg-white/10"
+                >
+                  <span className="text-lg">{c.icono}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-1.5">
+                      <span className="truncate text-[11px] font-bold text-white">{c.nombre}</span>
+                      {c.permite_google && (
+                        <span className="shrink-0 rounded bg-blue-500/20 px-1 text-[9px] font-bold text-blue-300">
+                          Google
+                        </span>
+                      )}
+                    </span>
+                    <span className="mt-0.5 block text-[10px] leading-relaxed text-slate-400">
+                      {c.resumen}
+                    </span>
+                    <span className="mt-1 flex flex-wrap gap-1">
+                      {c.gratis && (
+                        <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-bold text-emerald-300">
+                          gratis
+                        </span>
+                      )}
+                      {c.permite_seleccion_modelo && (
+                        <span className="rounded bg-indigo-500/15 px-1.5 py-0.5 text-[9px] font-bold text-indigo-300">
+                          300+ IAs
+                        </span>
+                      )}
+                    </span>
+                  </span>
+                  <ArrowRight size={13} className="mt-1 shrink-0 text-slate-500" />
+                </button>
+              ))}
+            </div>
+          </div>
         ) : (
           /* ---------------------------------------------------------------- */
           /* Detalle de un proveedor: onboarding paso a paso                   */
@@ -474,11 +604,18 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
                     <label className="mt-3 block">
                       <span className="mb-1 block text-[11px] font-semibold text-slate-300">
                         ID de cliente
+                        {seleccion.id === 'google_cuenta'
+                          ? ' (opcional: la app ya trae uno)'
+                          : ''}
                       </span>
                       <input
                         value={clientId}
                         onChange={(e) => setClientId(e.target.value)}
-                        placeholder="1234567890.apps.googleusercontent.com"
+                        placeholder={
+                          seleccion.id === 'google_cuenta'
+                            ? 'dejalo vacio si la app ya tiene uno'
+                            : '1234567890.apps.googleusercontent.com'
+                        }
                         autoComplete="off"
                         className="w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 font-mono text-xs text-slate-100 outline-none focus:border-indigo-500/60"
                       />
@@ -488,7 +625,10 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
                       <Boton
                         variante="secundario"
                         onClick={() => void autorizar()}
-                        disabled={ocupado || clientId.trim().length < 10}
+                        disabled={
+                          ocupado ||
+                          (seleccion.id !== 'google_cuenta' && clientId.trim().length < 10)
+                        }
                       >
                         {ocupado ? <Loader2 size={13} className="animate-spin" /> : <LogIn size={13} />}
                         Autorizar en el navegador
@@ -621,6 +761,83 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
                     ))}
                   </datalist>
                 </label>
+
+                {/* Selector amplio: "cualquier IA que seleccione la persona" */}
+                {seleccion.permite_seleccion_modelo && (
+                  <div className="mt-3 rounded-xl border border-indigo-500/25 bg-indigo-500/8 p-3">
+                    <div className="flex items-center gap-2 text-xs font-bold text-indigo-200">
+                      <Sparkles size={13} />
+                      Elige cualquiera de las {modelos.length || '300+'} IAs disponibles
+                    </div>
+                    <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+                      Una sola conexion te da acceso a GPT, Claude, Gemini, Llama, DeepSeek, Qwen
+                      y mas. Escribe para filtrar.
+                    </p>
+                    <div className="relative mt-2">
+                      <Search
+                        size={13}
+                        className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500"
+                      />
+                      <input
+                        value={filtroModelo}
+                        onChange={(e) => setFiltroModelo(e.target.value)}
+                        placeholder="filtrar: claude, gpt, llama, deepseek..."
+                        className="w-full rounded-lg border border-white/10 bg-black/30 py-2 pl-8 pr-3 text-[11px] text-slate-100 outline-none focus:border-indigo-500/60"
+                      />
+                    </div>
+                    {cargandoModelos ? (
+                      <div className="mt-2 flex items-center gap-2 text-[11px] text-slate-400">
+                        <Loader2 size={12} className="animate-spin" />
+                        Cargando el catalogo de IAs...
+                      </div>
+                    ) : (
+                      <>
+                        {familias.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {familias.slice(0, 14).map((f) => (
+                              <span
+                                key={f.familia}
+                                className="rounded bg-black/25 px-1.5 py-0.5 text-[9px] text-slate-400"
+                              >
+                                {f.familia} ({f.modelos})
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        <div className="mt-2 max-h-52 space-y-1 overflow-y-auto">
+                          {modelosFiltrados.length === 0 && (
+                            <div className="text-[11px] text-slate-500">
+                              Ningun modelo coincide con la busqueda.
+                            </div>
+                          )}
+                          {modelosFiltrados.map((m) => (
+                            <button
+                              key={m.id}
+                              onClick={() => setModelo(m.id)}
+                              className={`flex w-full items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left transition ${
+                                modelo === m.id
+                                  ? 'border-indigo-400/60 bg-indigo-500/20'
+                                  : 'border-white/8 bg-white/4 hover:bg-white/10'
+                              }`}
+                            >
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate text-[11px] font-semibold text-slate-200">
+                                  {m.nombre}
+                                </span>
+                                <span className="block truncate text-[9px] text-slate-500">{m.id}</span>
+                              </span>
+                              {m.gratis && (
+                                <span className="shrink-0 rounded bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-bold text-emerald-300">
+                                  gratis
+                                </span>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
 
                 {seleccion.pasos_ayuda.length > 0 && (
                   <ul className="mt-2 space-y-1">

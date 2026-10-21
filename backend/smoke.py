@@ -319,6 +319,17 @@ def main() -> int:
         # Se devuelve al motor demo para no alterar el resto del test.
         pedir("DELETE", f"/api/conexiones/{cid}")
 
+    # ------------------------------------------- CONEXIONES: CAMINO CON GOOGLE
+    con_google = [p for p in proveedores if p.get("permite_google")]
+    check("[CONEX] el catalogo marca el camino con Google", len(con_google) >= 5, f"n={len(con_google)}")
+    catalogo_ias = pedir("GET", "/api/conexiones/modelos?proveedor=openrouter")
+    total_ias = (catalogo_ias or {}).get("total", 0) if isinstance(catalogo_ias, dict) else 0
+    check("[CONEX] el catalogo de IAs devuelve cientos de modelos", total_ias >= 100, f"total={total_ias}")
+    familias_ias = (catalogo_ias or {}).get("familias", []) if isinstance(catalogo_ias, dict) else []
+    check("[CONEX] el catalogo de IAs agrupa por familia", len(familias_ias) >= 5, f"familias={len(familias_ias)}")
+    con_seleccion = [p for p in proveedores if p.get("permite_seleccion_modelo")]
+    check("[CONEX] hay un proveedor donde elegir cualquier IA", len(con_seleccion) >= 1, f"n={len(con_seleccion)}")
+
     print("=" * 70)
     if fallos:
         print(f"RESULTADO: {len(fallos)} CASO(S) FALLIDO(S): {fallos}")

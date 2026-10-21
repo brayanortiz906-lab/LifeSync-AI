@@ -44,6 +44,21 @@ async def detectar_locales():
     return {"motores": motores, "total": len(motores)}
 
 
+@router.get("/modelos")
+def modelos(proveedor: str = "openrouter"):
+    """Catalogo de modelos que la persona puede elegir ("cualquier IA")."""
+    lista = con.listar_modelos_publicos(proveedor)
+    familias: dict[str, int] = {}
+    for m in lista:
+        familias[m["familia"]] = familias.get(m["familia"], 0) + 1
+    return {
+        "proveedor": con.normalizar_proveedor(proveedor),
+        "modelos": lista,
+        "total": len(lista),
+        "familias": [{"familia": k, "modelos": v} for k, v in sorted(familias.items())],
+    }
+
+
 # --------------------------------------------------------------------------- #
 # Conexiones
 # --------------------------------------------------------------------------- #

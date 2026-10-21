@@ -794,8 +794,10 @@ async def procesar_mensaje(db: Session, req: ChatRequest) -> ChatResponse:
         ).first()
     if conexion is not None:
         cred = conexiones.credenciales_desde_json(conexion.credenciales_cifradas)
-        if not api_key and cred.get("api_key"):
-            api_key = cred["api_key"]
+        if not api_key:
+            # Las conexiones "con mi cuenta" guardan el permiso como access
+            # token (por ejemplo el que entrega Google al iniciar sesion).
+            api_key = cred.get("api_key") or cred.get("access_token") or ""
         if cred.get("base_url"):
             base_url = cred["base_url"]
         else:

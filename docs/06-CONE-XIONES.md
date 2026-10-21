@@ -28,7 +28,7 @@ El catálogo completo vive en `backend/app/connections.py` (`CATALOGO`) y se exp
 | `openai` | OpenAI (ChatGPT) | `api_key` | no | sí | GPT-4o, GPT-4o-mini |
 | `anthropic` | Anthropic (Claude) | `api_key` | no | sí | Claude Sonnet 4.5 |
 | `gemini` | Google (Gemini) | `api_key` | **sí** (tier gratuito) | no | Gemini 2.0 Flash |
-| `openrouter` | OpenRouter | `api_key` | no | sí | Una sola clave, 300+ modelos |
+| `openrouter` | OpenRouter (cualquier IA) | `api_key` | no | sí | **Sign in with Google** + 468 modelos de 67 familias |
 | `ollama` | IA en tu computador (Ollama) | `local` | **sí** | no | `127.0.0.1:11434`, detecta los modelos instalados |
 | `lmstudio` | IA en tu computador (LM Studio) | `local` | **sí** | no | `127.0.0.1:1234/v1` (API compatible con OpenAI) |
 | `demo` | Asistente demo (integrado) | `demo` | **sí** | no | Motor por reglas, funciona sin internet |
@@ -38,6 +38,53 @@ El catálogo completo vive en `backend/app/connections.py` (`CATALOGO`) y se exp
 
 Los alias `chatgpt`, `claude`, `google` y `mock` se normalizan automáticamente a estos ids (`connections.normalizar_proveedor`).
 Los alias `cuenta`, `googlecuenta`, `chatgptcuenta` y `claudecuenta` llevan al modo cuenta.
+
+### 2.1 El camino «Continuar con Google» (una sola entrada para cualquier IA)
+
+Es la respuesta a la pregunta «¿con qué IA quiero trabajar?». En lugar de elegir
+proveedor antes de iniciar sesión, la persona **entra una vez con su cuenta de
+Google** y **después elige el modelo** dentro de LifeSync.
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  [ G ]  Continuar con Google                                 │
+│  Entra con la misma cuenta de Google que usas para el correo. │
+│  Después eliges con qué IA quieres trabajar: Gemini, GPT,     │
+│  Claude, Llama, DeepSeek y más de 300 modelos.                │
+│  Tu contraseña nunca pasa por LifeSync.                       │
+└──────────────────────────────────────────────────────────────┘
+```
+
+| Pieza | Dónde | Qué hace |
+|---|---|---|
+| Tarjeta «Continuar con Google» | `ConexionesPanel.tsx` | Botón grande al inicio del modal; lleva al detalle de `google_cuenta` |
+| Elección de IA tras autorizar | `ConexionesPanel.tsx` (paso `elegir`) | Grid con **todos** los proveedores del catálogo; cada uno abre su propio camino |
+| Autorización | `POST /api/conexiones/cuenta/iniciar` | OAuth 2.0 Device Flow: código corto + link a `accounts.google.com/device` |
+| Token de Google → Gemini | `agent.procesar_mensaje` | Las conexiones tipo `cuenta` aportan su `access_token` como credencial (`ya29.…` → cabecera `Authorization: Bearer`) |
+| Catálogo de IAs | `GET /api/conexiones/modelos?proveedor=openrouter` | **468 modelos en 67 familias**, con buscador y filtro por familia |
+
+Dos matices importantes y honestos:
+
+1. **El token de Google da acceso directo a Gemini**, no a GPT ni a Claude. Para
+   esos, la tarjeta de Google lleva a su propio camino de cuenta (`chatgpt_cuenta`,
+   `claude_cuenta`) o al camino de clave.
+2. **OpenRouter es el puente de «cualquier IA»**: su pantalla de acceso tiene
+   *Sign in with Google*, y con esa cuenta se eligen **468 modelos** (GPT, Claude,
+   Gemini, Llama, DeepSeek, Mistral…) desde el buscador de LifeSync. Por eso
+   `openrouter` es el único proveedor con `permite_seleccion_modelo=True`.
+
+Los dos flags nuevos del catálogo (`ProveedorCatalogo`):
+
+| Flag | Significado | Proveedores |
+|---|---|---|
+| `permite_google` | Se puede entrar con Google y usar este proveedor | openai, anthropic, gemini, openrouter, google_cuenta, chatgpt_cuenta, claude_cuenta |
+| `permite_seleccion_modelo` | La persona elige el modelo (cualquier IA) | openrouter |
+
+**Conexión en un clic (opcional para quien despliega).** Si el despliegue define
+`GOOGLE_CLIENT_ID` (ver `backend/.env.example`), el campo «ID de cliente» del
+detalle de Google queda vacío y la persona solo pulsa «Autorizar en el navegador».
+Sin esa variable, LifeSync pide el ID de cliente de Google Cloud y explica en
+lenguaje llano que **es un identificador público, no una contraseña**.
 
 ---
 
@@ -134,6 +181,7 @@ Cada proveedor decide qué integraciones de terceros permite. En la práctica, `
 | `POST` | `/api/conexiones/{id}/activar` | Marca la conexión como activa |
 | `POST` | `/api/conexiones/cuenta/iniciar` | OAuth Device Flow: devuelve `user_code` + `verification_uri` |
 | `POST` | `/api/conexiones/cuenta/terminar` | OAuth Device Flow: hace poll y guarda la conexión de cuenta |
+| `GET` | `/api/conexiones/modelos?proveedor=openrouter` | Catálogo de IAs para el buscador: `{proveedor, modelos:[{id,nombre,familia,gratis,contexto}], total, familias}` |
 | `DELETE` | `/api/conexiones/{id}` | Desconecta y vuelve al asistente demo |
 
 Verificación de credenciales por proveedor (`connections.verificar_credenciales`):

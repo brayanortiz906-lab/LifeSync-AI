@@ -57,6 +57,13 @@ class Proveedor:
     token_url: str = ""
     scope: str = ""
     url_client_id: str = ""
+    # El usuario puede crear/iniciar sesion en el sitio del proveedor con su
+    # cuenta de Google ("Continuar con Google"). Es la via que la gente no
+    # tecnica conoce: la misma cuenta de Google que ya usa para el correo.
+    permite_google: bool = False
+    # El proveedor ofrece un catalogo amplio de modelos que la persona elige
+    # (por ejemplo OpenRouter con mas de 300 modelos de distintas IAs).
+    permite_seleccion_modelo: bool = False
 
     def a_dict(self) -> dict[str, Any]:
         return {
@@ -75,6 +82,8 @@ class Proveedor:
             "notas": self.notas,
             "acepta_cuenta": bool(self.device_auth_url),
             "url_client_id": self.url_client_id,
+            "permite_google": self.permite_google,
+            "permite_seleccion_modelo": self.permite_seleccion_modelo,
         }
 
 
@@ -87,6 +96,7 @@ CATALOGO: dict[str, Proveedor] = {
         icono="🧠",
         requiere_pago=True,
         instrucciones=[
+            "Entra a openai.com y pulsa 'Continuar con Google' (la cuenta que ya usas).",
             "Entra a la consola de OpenAI con tu cuenta.",
             "Abre el menu 'API keys' y crea una clave nueva.",
             "Copia la clave (empieza por 'sk-') y pegala aqui.",
@@ -99,6 +109,7 @@ CATALOGO: dict[str, Proveedor] = {
         modelo_defecto="gpt-4o-mini",
         url_registro="https://platform.openai.com/api-keys",
         base_url="https://api.openai.com/v1",
+        permite_google=True,
     ),
     "anthropic": Proveedor(
         id="anthropic",
@@ -108,6 +119,7 @@ CATALOGO: dict[str, Proveedor] = {
         icono="🟠",
         requiere_pago=True,
         instrucciones=[
+            "Entra a claude.ai y pulsa 'Continuar con Google' para crear tu cuenta.",
             "Entra a console.anthropic.com con tu cuenta.",
             "Ve a 'API Keys' y pulsa 'Create Key'.",
             "Copia la clave (empieza por 'sk-ant-') y pegala aqui.",
@@ -119,6 +131,7 @@ CATALOGO: dict[str, Proveedor] = {
         modelo_defecto="claude-sonnet-4-5",
         url_registro="https://console.anthropic.com/settings/keys",
         base_url="https://api.anthropic.com/v1",
+        permite_google=True,
     ),
     "gemini": Proveedor(
         id="gemini",
@@ -128,7 +141,7 @@ CATALOGO: dict[str, Proveedor] = {
         icono="🔵",
         gratis=True,
         instrucciones=[
-            "Entra a Google AI Studio con tu cuenta de Google.",
+            "Entra a aistudio.google.com con tu cuenta de Google.",
             "Pulsa 'Get API key' y elige o crea un proyecto.",
             "Copia la clave y pegala aqui.",
         ],
@@ -139,26 +152,31 @@ CATALOGO: dict[str, Proveedor] = {
         modelo_defecto="gemini-2.0-flash",
         url_registro="https://aistudio.google.com/apikey",
         base_url="https://generativelanguage.googleapis.com/v1beta",
+        permite_google=True,
     ),
     "openrouter": Proveedor(
         id="openrouter",
-        nombre="OpenRouter",
+        nombre="OpenRouter (cualquier IA)",
         modo="api_key",
-        resumen="Una sola clave te da acceso a Llama, Mistral, DeepSeek y mas de 300 modelos.",
+        resumen="Entra con Google y elige entre mas de 300 IAs: GPT, Claude, Gemini, Llama y mas.",
         icono="🌐",
         requiere_pago=True,
         instrucciones=[
-            "Crea una cuenta en OpenRouter.",
+            "Entra a openrouter.ai y pulsa 'Sign in with Google' (o 'Continue with Google').",
             "Abre 'Keys' y genera una clave.",
             "Pegala aqui: es la unica clave que necesitaras para todos los modelos.",
+            "Despues elige el modelo que quieras usar en la lista de IAs.",
         ],
         pasos_ayuda=[
             "Ideal si quieres comparar modelos sin abrir mil cuentas.",
+            "Hay modelos gratuitos: al conectar puedes elegir uno sin costo.",
         ],
         modelos=["openai/gpt-4o-mini", "anthropic/claude-sonnet-4.5", "meta-llama/llama-3.3-70b-instruct"],
         modelo_defecto="openai/gpt-4o-mini",
         url_registro="https://openrouter.ai/keys",
         base_url="https://openrouter.ai/api/v1",
+        permite_google=True,
+        permite_seleccion_modelo=True,
     ),
     "ollama": Proveedor(
         id="ollama",
@@ -249,6 +267,7 @@ CATALOGO: dict[str, Proveedor] = {
         device_auth_url="https://oauth2.googleapis.com/device/code",
         token_url="https://oauth2.googleapis.com/token",
         scope="https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/userinfo.email",
+        permite_google=True,
     ),
     "chatgpt_cuenta": Proveedor(
         id="chatgpt_cuenta",
@@ -274,6 +293,7 @@ CATALOGO: dict[str, Proveedor] = {
         device_auth_url="https://auth.openai.com/oauth/device/code",
         token_url="https://auth.openai.com/oauth/token",
         scope="openid profile email offline_access",
+        permite_google=True,
     ),
     "claude_cuenta": Proveedor(
         id="claude_cuenta",
@@ -298,6 +318,7 @@ CATALOGO: dict[str, Proveedor] = {
         device_auth_url="https://console.anthropic.com/v1/oauth/device/code",
         token_url="https://console.anthropic.com/v1/oauth/token",
         scope="org:create_api_key user:profile user:inference",
+        permite_google=True,
     ),
 }
 
@@ -346,6 +367,67 @@ def listar_catalogo() -> list[dict[str, Any]]:
 
 def obtener_proveedor(nombre: str | None) -> Proveedor | None:
     return CATALOGO.get(normalizar_proveedor(nombre))
+
+
+# --------------------------------------------------------------------------- #
+# Catalogo de modelos que la persona puede elegir
+#
+# Aqui esta el "cualquier IA que seleccione la persona": OpenRouter publica
+# (sin clave) el catalogo completo de modelos que enruta, de OpenAI, Anthropic,
+# Google, Meta, DeepSeek, Mistral, Qwen... La persona elige el que quiera.
+# --------------------------------------------------------------------------- #
+_CACHE_MODELOS: dict[str, Any] = {"ts": 0.0, "valor": []}
+_CACHE_MODELOS_TTL = 600.0
+
+
+def listar_modelos_publicos(proveedor: str) -> list[dict[str, Any]]:
+    """Modelos disponibles de un proveedor, listos para que elija la persona."""
+    pid = normalizar_proveedor(proveedor)
+    if pid != "openrouter":
+        prov = CATALOGO.get(pid)
+        return [
+            {"id": m, "nombre": m, "familia": pid, "gratis": False, "contexto": 0}
+            for m in (prov.modelos if prov else [])
+        ]
+
+    ahora = time.time()
+    if ahora - float(_CACHE_MODELOS["ts"]) < _CACHE_MODELOS_TTL and _CACHE_MODELOS["valor"]:
+        return list(_CACHE_MODELOS["valor"])
+
+    modelos: list[dict[str, Any]] = []
+    try:
+        with httpx.Client(timeout=12) as client:
+            resp = client.get("https://openrouter.ai/api/v1/models")
+        if resp.status_code < 400:
+            for item in resp.json().get("data", []):
+                mid = str(item.get("id") or "")
+                if not mid:
+                    continue
+                precio = item.get("pricing") or {}
+                prompt = str(precio.get("prompt") or "0")
+                gratis = mid.endswith(":free") or prompt in ("0", "0.0")
+                familia = mid.split("/")[0] if "/" in mid else "varios"
+                modelos.append(
+                    {
+                        "id": mid,
+                        "nombre": str(item.get("name") or mid),
+                        "familia": familia,
+                        "gratis": gratis,
+                        "contexto": int(item.get("context_length") or 0),
+                    }
+                )
+    except Exception:
+        modelos = []
+    if not modelos:
+        prov = CATALOGO["openrouter"]
+        modelos = [
+            {"id": m, "nombre": m, "familia": "varios", "gratis": False, "contexto": 0}
+            for m in prov.modelos
+        ]
+    modelos.sort(key=lambda m: (m["familia"], m["nombre"]))
+    _CACHE_MODELOS["ts"] = ahora
+    _CACHE_MODELOS["valor"] = modelos
+    return list(modelos)
 
 
 # --------------------------------------------------------------------------- #
@@ -603,9 +685,19 @@ def iniciar_autorizacion_cuenta(proveedor: str, client_id: str) -> dict[str, Any
         raise ErrorConexion("Este proveedor todavia no admite conexion con cuenta.")
     client_id = (client_id or "").strip()
     if len(client_id) < 10:
-        raise ErrorConexion(
-            "El ID de cliente parece incompleto. Copialo completo desde el panel del proveedor."
-        )
+        # Si el despliegue ya tiene configurado un ID de cliente de Google, la
+        # persona entra con un clic y sin pegar nada.
+        if prov.id == "google_cuenta" and settings.google_client_id:
+            client_id = settings.google_client_id.strip()
+        else:
+            if prov.id == "google_cuenta":
+                raise ErrorConexion(
+                    "Esta copia de LifeSync todavia no trae un ID de cliente de Google. "
+                    "Pega el tuyo (son unos caracteres, no es tu contrasena) o usa otra via."
+                )
+            raise ErrorConexion(
+                "El ID de cliente parece incompleto. Copialo completo desde el panel del proveedor."
+            )
     datos = _post_form(prov.device_auth_url, {"client_id": client_id, "scope": prov.scope})
     return {
         "proveedor": prov.id,
