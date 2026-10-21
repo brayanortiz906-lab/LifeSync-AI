@@ -222,16 +222,20 @@ El `.devcontainer/devcontainer.json` ya trae Python 3.12, Node 20, y reenvía lo
 
 - **Interfaz (Pages)**: el workflow `.github/workflows/deploy-pages.yml` compila el frontend
   y lo publica en GitHub Pages. Se activa en *Settings → Pages → Source → GitHub Actions*.
+  URL pública de este despliegue: **https://underlanded4.github.io/LifeSync-AI/**
+  (el repositorio canónico es `brayanortiz906-lab/LifeSync-AI`).
 - **API (Render)**: el `render.yaml` del repo es un *Blueprint*: al abrirlo en Render se crea
   un servicio con Dockerfile, disco persistente en `/data` y healthcheck en `/api/health`.
-- **Conectar una y otra**: define la variable de repositorio `VITE_API_URL` con la URL de tu
-  API (por ejemplo `https://lifesync-api.onrender.com/api`) y el workflow de Pages la inyecta
-  al compilar. Sin esa variable, la interfaz usa rutas relativas (`./api`) y sirve todo desde
-  el mismo dominio.
+- **Conectar una y otra**: hay dos formas, sin tocar el código:
+  1. Define la variable de repositorio `VITE_API_URL` con la URL de tu API y el workflow de
+     Pages la inyecta al compilar:
 
-```bash
-gh variable set VITE_API_URL --body "https://<tu-api>/api" --repo brayanortiz906-lab/LifeSync-AI
-```
+     ```bash
+     gh variable set VITE_API_URL --body "https://<tu-api>/api" --repo underlanded4/LifeSync-AI
+     ```
+
+  2. O ábrela en caliente desde la interfaz: *Conectar IA → Dirección de la API*. Se guarda en
+     tu navegador y no requiere recompilar nada.
 
 ### 1-bis.3 Docker
 
