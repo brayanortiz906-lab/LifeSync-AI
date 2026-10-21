@@ -287,3 +287,29 @@ Si aparece un hex raro en vez de la URL, esa es la causa.
 si no es una URL real (http, https o ruta que empiece por `/`) la **ignora**,
 avisa en la consola del navegador y cae a la ruta relativa. Si apunta a un sitio
 estático (`github.io`) también la ignora, porque ahí no hay API.
+
+---
+
+## 9-bis. Cuentas seguras en el despliegue
+
+| Variable | Para que | Valor recomendado |
+|---|---|---|
+| `APP_ENTORNO` | `produccion` **cierra el modo consola**: el codigo de verificacion nunca sale por pantalla ni por el log | `produccion` |
+| `ADMIN_EMAILS` | correos que nacen con rol de administrador (los demas, `usuario`) | tu correo, separado por comas |
+| `MINUTOS_CODIGO` | vida del codigo de verificacion | `15` |
+| `MAX_INTENTOS_CODIGO` | intentos antes de invalidar el codigo | `5` |
+| `SEGUNDOS_ENTRE_CODIGOS` | freno anti-inundacion (429) | `60` |
+| `SMTP_HOST` / `SMTP_PORT` | servidor de correo (Gmail: `smtp.gmail.com` / `587`) | ver abajo |
+| `SMTP_USER` / `SMTP_PASSWORD` | credenciales (en Gmail: **clave de aplicacion**) | — |
+| `SMTP_DESDE` | remitente del correo | tu correo |
+
+Sin SMTP el sistema sigue funcionando (la persona entra con contrasena o con Google), pero **el codigo no se puede enviar**. En el plan gratis de Render el puerto 587 esta bloqueado: ahi se usa la API de Gmail, que el proyecto ya usa para el resumen diario.
+
+Comprobacion rapida de que el despliegue quedo bien:
+
+```powershell
+Invoke-RestMethod https://lifesync-ai-qs5t.onrender.com/api/health
+# debe responder {"ok":true,...}
+```
+
+Y en `Render -> Environment`, anade `APP_ENTORNO=produccion` **antes** de abrir la web al publico: asi el codigo de verificacion deja de mostrarse en pantalla.

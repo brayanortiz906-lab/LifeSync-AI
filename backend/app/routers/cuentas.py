@@ -35,6 +35,7 @@ from ..cuentas import (
     snapshot,
     solicitar_codigo,
     usuario_actual,
+    usuario_admin,
     verificar_codigo,
 )
 from .. import connections as con
@@ -102,6 +103,7 @@ def _perfil(usuario) -> dict:
         "metodo": usuario.metodo,
         "verificado": bool(usuario.verificado),
         "es_local": usuario.id == USUARIO_LOCAL,
+        "rol": getattr(usuario, "rol", "usuario") or "usuario",
     }
 
 
@@ -118,12 +120,19 @@ def pedir_codigo(payload: CodigoIn, db: Session = Depends(get_db, scope="functio
         "mensaje": (
             "Te enviamos un código de 6 dígitos a tu correo. Escribelo aquí abajo."
             if modo == "smtp"
-            else "Tu servidor todavía no tiene configured el envío de correos, así que te mostramos el código aquí (modo desarrollo)."
+            else (
+                "Tu servidor todavía no tiene configurado el envío de correos, así que te "
+                "mostramos el código aquí (modo desarrollo)."
+                if modo == "consola"
+                else "No pudimos enviar el correo. Escribe al administrador de LifeAgente "
+                "o prueba con otra forma de entrar."
+            )
         ),
         "correo": usuario.correo,
     }
-    if modo == "consola":
-        # En desarrollo el código se devuelve para poder probarlo sin SMTP.
+    if modo == "consola" and not settings.es_produccion:
+        # En desarrollo el codigo se devuelve para poder probarlo sin SMTP.
+        # En produccion NUNCA sale por la respuesta (puede ser robado en la red).
         respuesta["codigo"] = codigo
     return respuesta
 
@@ -216,7 +225,9 @@ def reenviar_codigo(payload: CodigoIn, db: Session = Depends(get_db, scope="func
             else "Este servidor todavia no envia correos, asi que te mostramos el codigo aqui."
         ),
     }
-    if modo == "consola":
+    # El codigo solo se devuelve en desarrollo: en produccion NUNCA sale
+    # por la respuesta ni por el log (si no, se podria robar en la red).
+    if modo == "consola" and not settings.es_produccion:
         respuesta["codigo"] = codigo
     return respuesta
 
@@ -251,7 +262,9 @@ def registro(payload: RegistroIn, db: Session = Depends(get_db, scope="function"
             else "Cuenta creada. Este servidor todavia no envia correos: te mostramos el codigo aqui."
         ),
     }
-    if modo == "consola":
+    # El codigo solo se devuelve en desarrollo: en produccion NUNCA sale
+    # por la respuesta ni por el log (si no, se podria robar en la red).
+    if modo == "consola" and not settings.es_produccion:
         respuesta["codigo"] = codigo
     return respuesta
 
@@ -526,3 +539,96 @@ def sincronizar(db: Session = Depends(get_db, scope="function"), usuario=Depends
         else "Tu contenido ya estaba al dia."
     )
     return resultado
+
+
+# --------------------------------------------------------------------------- #
+# Administracion de cuentas (v32)
+# Solo un administrador del despliegue puede entrar aqui.
+# --------------------------------------------------------------------------- #
+class AdminUsuarioIn(BaseModel):
+    """Cambios que puede aplicar un administrador sobre una cuenta."""
+    rol: str | None = None
+    bloqueado: bool | None = None
+
+
+@router.get("/admin/usuarios")
+def listar_usuarios(
+    admin=Depends(usuario_admin),
+    db: Session = Depends(get_db, scope="function"),
+):
+    """Lista las cuentas (sin codigos ni contrasenas: nunca se guardan en claro)."""
+    from ..models import Usuario as ModeloUsuario
+
+    cuentas = db.scalars(select(ModeloUsuario).order_by(ModeloUsuario.id)).all()
+    return {
+        "ok": True,
+        "total": len(cuentas),
+        "usuarios": [
+            {
+                "id": u.id,
+                "correo": u.correo,
+                "nombre": u.nombre,
+                "metodo": u.metodo,
+                "verificado": bool(u.verificado),
+                "rol": getattr(u, "rol", "usuario") or "usuario",
+                "bloqueado": bool(getattr(u, "bloqueado", False)),
+                "creado_en": u.creado_en.isoformat() if u.creado_en else None,
+                "ultimo_acceso": u.ultimo_acceso.isoformat() if u.ultimo_acceso else None,
+            }
+            for u in cuentas
+        ],
+    }
+
+
+@router.patch("/admin/usuarios/{usuario_id}")
+def editar_usuario(
+    usuario_id: int,
+    payload: AdminUsuarioIn,
+    admin=Depends(usuario_admin),
+    db: Session = Depends(get_db, scope="function"),
+):
+    """Cambia el rol o bloquea una cuenta. Queda auditado."""
+    from ..models import AuditLog
+    from ..models import Usuario as ModeloUsuario
+
+    cuenta = db.get(ModeloUsuario, usuario_id)
+    if cuenta is None:
+        raise HTTPException(status_code=404, detail="No encontramos esa cuenta.")
+    rol_anterior = getattr(cuenta, "rol", "usuario") or "usuario"
+    bloqueado_anterior = bool(getattr(cuenta, "bloqueado", False))
+    if payload.rol is not None:
+        nuevo_rol = payload.rol.strip().lower()
+        if nuevo_rol not in ("usuario", "admin"):
+            raise HTTPException(
+                status_code=400,
+                detail="El rol solo puede ser 'usuario' o 'admin'.",
+            )
+        cuenta.rol = nuevo_rol
+    if payload.bloqueado is not None:
+        cuenta.bloqueado = bool(payload.bloqueado)
+    db.add(
+        AuditLog(
+            actor="admin",
+            tipo="cambio_politica",
+            modulo="cuentas",
+            entidad="usuario",
+            entidad_id=str(cuenta.id),
+            descripcion=(
+                f"Admin cambio la cuenta {cuenta.correo}: rol {rol_anterior} -> "
+                f"{getattr(cuenta, 'rol', 'usuario')}, bloqueado "
+                f"{bloqueado_anterior} -> {bool(getattr(cuenta, 'bloqueado', False))}"
+            ),
+            reversible=True,
+            resultado="ok",
+        )
+    )
+    db.flush()
+    return {
+        "ok": True,
+        "usuario": {
+            "id": cuenta.id,
+            "correo": cuenta.correo,
+            "rol": getattr(cuenta, "rol", "usuario") or "usuario",
+            "bloqueado": bool(getattr(cuenta, "bloqueado", False)),
+        },
+    }

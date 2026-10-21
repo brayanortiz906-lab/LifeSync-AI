@@ -81,6 +81,12 @@ class Usuario(Base):
     #: Hash de la contrasena (pbkdf2). Vacio si la persona entro con Google
     #: o con un codigo de un solo uso.
     password_hash = Column(String(200), default="")
+    #: Rol de la cuenta. "usuario" por defecto; "admin" solo si el servidor lo
+    #: decide (ADMIN_EMAILS) o si un admin lo cambia desde el panel.
+    #: NADIE puede elegir su rol al registrarse: el registro nunca lee este campo.
+    rol = Column(String(20), default="usuario", index=True)
+    #: Cuando esta activo, la cuenta no puede entrar (bloqueo por un admin).
+    bloqueado = Column(Boolean, default=False)
     creado_en = Column(DateTime, default=datetime.now)
     ultimo_acceso = Column(DateTime, nullable=True)
 
@@ -263,13 +269,41 @@ def generar_codigo() -> str:
 
 
 def enviar_codigo(correo: str, codigo: str, nombre: str = "") -> str:
-    """Envía el código por correo. Devuelve 'smtp', 'consola' o 'ninguno'."""
-    asunto = "Tu código de acceso a LifeAgente AI"
+    """Envía el código por correo. Devuelve 'smtp', 'consola' o 'ninguno'.
+
+    El código NUNCA se guarda en claro: en la base de datos solo queda su
+    hash (SHA-256). Si alguien lee la base de datos, no puede usarlos para
+    entrar. En produccion, ademas, el código no se devuelve en la respuesta
+    de la API ni se imprime en el log del servidor.
+    """
+    asunto = f"Tu codigo de acceso a {settings.app_name}"
+    saludo = f"{(nombre or '').strip()} hola:" if (nombre or "").strip() else "Hola:"
     cuerpo = (
-        f"{(nombre or '').strip()} hola:\n\n"
-        f"Tu código para entrar a LifeAgente AI es:  {codigo}\n\n"
-        "El código vale por 15 minutos. Si no fuiste tú, ignora este mensaje."
+        f"{saludo}\n\n"
+        f"Tu codigo para entrar a {settings.app_name} es:\n\n"
+        f"    {codigo}\n\n"
+        f"Vale por {settings.minutos_codigo} minutos y sirve una sola vez.\n"
+        "Si no fuiste tu, ignora este mensaje: nadie puede entrar con el solo "
+        "tener este correo.\n\n"
+        "--\n"
+        f"{settings.app_name} · Asistente Integral de Vida y Productividad"
     )
+    html = f"""<!doctype html>
+<html lang="es"><body style="margin:0;padding:24px;background:#0f172a;
+font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#e2e8f0">
+  <div style="max-width:520px;margin:0 auto;background:#1e293b;border:1px solid #334155;
+border-radius:16px;padding:28px">
+    <div style="font-size:18px;font-weight:700;color:#c7d2fe">{settings.app_name}</div>
+    <p style="margin:18px 0 6px;font-size:14px">{saludo}</p>
+    <p style="margin:0 0 16px;font-size:14px">Tu codigo para entrar es:</p>
+    <div style="font-size:30px;font-weight:800;letter-spacing:8px;text-align:center;
+background:#0f172a;border:1px solid #4338ca;border-radius:12px;padding:16px;color:#a5b4fc">{codigo}</div>
+    <p style="margin:16px 0 0;font-size:12px;color:#94a3b8">
+      Vale por {settings.minutos_codigo} minutos y sirve una sola vez.
+      Si no fuiste tu, ignora este mensaje: con este correo no se puede entrar sin el codigo.
+    </p>
+  </div>
+</body></html>"""
     if settings.smtp_host:
         try:
             mensaje = EmailMessage()
@@ -277,6 +311,7 @@ def enviar_codigo(correo: str, codigo: str, nombre: str = "") -> str:
             mensaje["From"] = settings.smtp_desde or settings.smtp_user
             mensaje["To"] = correo
             mensaje.set_content(cuerpo)
+            mensaje.add_alternative(html, subtype="html")
             with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=20) as srv:
                 srv.starttls(context=ssl.create_default_context())
                 if settings.smtp_user:
@@ -286,7 +321,13 @@ def enviar_codigo(correo: str, codigo: str, nombre: str = "") -> str:
         except Exception as exc:  # pragma: no cover - depende del SMTP
             print(f"[correo] no se pudo enviar a {correo}: {exc}")
             return "ninguno"
-    # Sin SMTP configurado: el código se muestra en la respuesta (modo desarrollo).
+    # Sin SMTP configurado.
+    if settings.es_produccion:
+        # En produccion NO se suelta el codigo por pantalla ni al log.
+        print(f"[correo] SMTP no configurado; no se puede enviar el codigo a {correo}")
+        return "ninguno"
+    # Modo desarrollo: el codigo se muestra en la respuesta (quien lo pide es
+    # la propia persona) y se imprime en el log del servidor.
     print(f"[correo] codigo de acceso para {correo}: {codigo}")
     return "consola"
 
@@ -298,7 +339,16 @@ def _buscar_o_crear(db: SASession, correo: str, nombre: str, metodo: str) -> Usu
     correo = correo.strip().lower()
     usuario = db.scalars(select(Usuario).where(Usuario.correo == correo)).first()
     if usuario is None:
-        usuario = Usuario(correo=correo, nombre=nombre.strip()[:80], metodo=metodo)
+        # El rol NUNCA se elige en el registro: solo nace 'admin' si el correo
+        # esta en la lista de administradores del despliegue (ADMIN_EMAILS).
+        # Asi nadie puede auto-asignarse permisos por la API.
+        rol = "admin" if correo in settings.lista_admins else "usuario"
+        usuario = Usuario(
+            correo=correo,
+            nombre=nombre.strip()[:80],
+            metodo=metodo,
+            rol=rol,
+        )
         db.add(usuario)
         db.flush()
     elif metodo == "google":
@@ -316,9 +366,23 @@ def solicitar_codigo(db: SASession, correo: str, nombre: str = "") -> tuple[Usua
     if "@" not in correo or "." not in correo.split("@")[-1]:
         raise HTTPException(status_code=400, detail="Ese correo no parece válido.")
     usuario = _buscar_o_crear(db, correo, nombre, "email")
+    # Freno de abuse: no se puede pedir un codigo tras otro sin esperar.
+    if usuario.codigo_expira and usuario.codigo_expira > datetime.now():
+        enviados_hace = (
+            datetime.now() + timedelta(minutes=settings.minutos_codigo) - usuario.codigo_expira
+        ).total_seconds()
+        if enviados_hace < settings.segundos_entre_codigos:
+            faltan = int(settings.segundos_entre_codigos - enviados_hace)
+            raise HTTPException(
+                status_code=429,
+                detail=(
+                    f"Ya te enviamos un codigo hace poco. Espera {faltan} segundos "
+                    "y pidalo otra vez (asi nadie puede inundarte el correo)."
+                ),
+            )
     codigo = generar_codigo()
     usuario.codigo_hash = _hash(codigo)
-    usuario.codigo_expira = datetime.now() + timedelta(minutes=15)
+    usuario.codigo_expira = datetime.now() + timedelta(minutes=settings.minutos_codigo)
     usuario.intentos = 0
     db.flush()
     modo = enviar_codigo(correo, codigo, usuario.nombre)
@@ -334,10 +398,17 @@ def verificar_codigo(db: SASession, correo: str, codigo: str) -> Usuario:
     if usuario.codigo_expira and usuario.codigo_expira < datetime.now():
         raise HTTPException(status_code=400, detail="El código expiró. Pide uno nuevo.")
     usuario.intentos = (usuario.intentos or 0) + 1
-    if usuario.intentos > 6:
+    if usuario.intentos > settings.max_intentos_codigo:
+        # Se invalida el codigo: asi no se puede insistir con el mismo.
+        usuario.codigo_hash = ""
+        usuario.codigo_expira = None
+        db.flush()
         raise HTTPException(
             status_code=429,
-            detail="Demasiados intentos. Espera unos minutos y pide un código nuevo.",
+            detail=(
+                "Demasiados intentos. El codigo quedo anulado: pide uno nuevo "
+                "y revisa que sea el de tu correo."
+            ),
         )
     if not secrets.compare_digest(usuario.codigo_hash or "", _hash(codigo.strip())):
         db.flush()
@@ -581,6 +652,32 @@ def exigir_cuenta_verificada(usuario) -> None:
 def usuario_verificado(usuario=Depends(usuario_actual)) -> Usuario:
     """Dependencia de FastAPI: solo deja pasar a cuentas confirmadas."""
     exigir_cuenta_verificada(usuario)
+    return usuario
+
+
+def exigir_admin(usuario) -> None:
+    """Impide que alguien sin permisos de administrador entre.
+
+    El rol se decide SOLO en el despliegue (ADMIN_EMAILS): el registro publico
+    nunca puede crear administradores, y una cuenta bloqueada no entra.
+    """
+    if usuario is None:
+        raise HTTPException(status_code=403, detail="Necesitas iniciar sesion.")
+    if getattr(usuario, "bloqueado", False):
+        raise HTTPException(
+            status_code=403,
+            detail="Esta cuenta esta bloqueada. Escribe al administrador de LifeAgente.",
+        )
+    if (getattr(usuario, "rol", "") or "") != "admin":
+        raise HTTPException(
+            status_code=403,
+            detail="Esta seccion es solo para administradores.",
+        )
+
+
+def usuario_admin(usuario=Depends(usuario_actual)) -> Usuario:
+    """Dependencia de FastAPI: solo deja pasar a administradores."""
+    exigir_admin(usuario)
     return usuario
 
 

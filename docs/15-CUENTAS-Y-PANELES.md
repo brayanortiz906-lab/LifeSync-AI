@@ -110,7 +110,7 @@ SQLAlchemy se apoya en esa misma regla.
 
 | Prueba | Resultado |
 |---|---|
-| Smoke test | 119 casos, todos en verde |
+| Smoke test | 123 casos, todos en verde |
 | Script manual de cuentas y paneles | 14/14 |
 | `GET /api/cuentas/google/disponible` | responde sin error |
 | Persona **sin** permiso sobre un panel ajeno | **403** |
@@ -138,3 +138,20 @@ tokens van cifrados y el codigo de verificacion se exige antes de dejar entrar. 
 pendiente **del lado del despliegue** es una sola cosa: el `GOOGLE_CLIENT_ID` (y los de
 Outlook y GitHub) para que los botones de esas cuentas funcionen. Sin eso, la via de correo
 con contrasena cubre el 100% del caso.
+
+---
+
+## Cuentas seguras (v32)
+
+Lo que protege el acceso a LifeAgente:
+
+| Riesgo | Como se evita |
+|---|---|
+| Que alguien lea el codigo en la base de datos | se guarda **hasheado** (SHA-256) y se borra al usarlo |
+| Que alguien repita codigos hasta acertar | maximo 5 intentos y el codigo se invalida; 60 s entre codigos (429) |
+| Que el codigo aparezca por pantalla en produccion | `APP_ENTORNO=produccion` lo cierra por completo |
+| Que alguien cree una cuenta con rol admin | el rol **no se elige** en el registro; solo `ADMIN_EMAILS` del despliegue |
+| Que alguien toque la seccion de administracion | `usuario_admin` (403) + auditoria de cada cambio |
+| Que alguien este bloqueado entre | campo `bloqueado` que impide entrar y administrar |
+
+Detalle completo en [`09-CUENTAS.md`](09-CUENTAS.md).

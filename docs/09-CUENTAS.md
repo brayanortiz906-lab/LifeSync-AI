@@ -100,3 +100,48 @@ incluye el codigo.
 | `frontend/src/components/AccesoPanel.tsx` | el modal de acceso (Google / correo / local) |
 | `frontend/src/lib/api.ts` | token en `localStorage` + cabecera `Authorization` |
 | `backend/smoke.py` | 9 comprobaciones automaticas de cuentas y aislamiento |
+
+---
+
+## Cuentas seguras (v32): el codigo nunca se guarda en claro, nadie se auto-nombra admin
+
+### El codigo de verificacion
+
+| Como se guarda | Detalle |
+|---|---|
+| **Hasheado (SHA-256)** | la base de datos solo guarda `codigo_hash`; si alguien se lleva la base, el codigo es inutil |
+| **Comparacion en tiempo constante** | `secrets.compare_digest` (no filtra informacion por tiempos) |
+| **Se borra al usarlo** | `codigo_hash = ""` y `codigo_expira = None` |
+| **Expira** | a los 15 min (`MINUTOS_CODIGO`) |
+| **Maximo de intentos** | 5 (`MAX_INTENTOS_CODIGO`); al superarlos **el codigo se invalida** y hay que pedir otro |
+| **Freno de inundacion** | pedir dos codigos seguidos da **429** con los segundos que faltan (`SEGUNDOS_ENTRE_CODIGOS`, 60 s) |
+
+### El modo "consola" (ver el codigo en pantalla) esta CERRADO en produccion
+
+- Con `APP_ENTORNO=desarrollo` (por defecto) el codigo se devuelve en la respuesta y se imprime en la consola: comodo para desarrollo.
+- Con `APP_ENTORNO=produccion` el codigo **nunca** sale por pantalla ni por el log. Si no hay SMTP configurado, la API responde "no pudimos enviar el correo" y **no** suelta el codigo por ningun lado.
+
+### Envio real por correo
+
+Con estas variables de entorno el codigo llega al buzon de la persona (texto + HTML con el mismo diseno del sistema):
+
+```
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=tu-correo@gmail.com
+SMTP_PASSWORD=clave-de-aplicacion-de-google
+SMTP_DESDE=tu-correo@gmail.com
+```
+
+El correo dice de que es el codigo, que vale 15 minutos y que **si no fuiste tu, lo ignores**. En Gmail se necesita una *clave de aplicacion* (no la contrasena normal). En Render (plan gratis) el puerto 25/465/587 esta bloqueado: por ahi se usa la API de Gmail (`gmail.send`), que el proyecto ya tiene integrada.
+
+### Roles: nadie se vuelve admin solo
+
+| Pathway | Resultado |
+|---|---|
+| Registro con correo o contrasena | el rol **se ignora**: toda cuenta nace como `usuario` |
+| Enviar `rol: "admin"` en el registro | se descarta (comprobado por el smoke test) |
+| Correo en `ADMIN_EMAILS` | esa cuenta **nace** como `admin` (la unica via) |
+| Cuenta bloqueada | `bloqueado = true` -> no puede entrar ni usar la seccion de administracion |
+
+La seccion de administracion (`GET /api/cuentas/admin/usuarios` y `PATCH /api/cuentas/admin/usuarios/{id}`) exige `usuario_admin` y **todo cambio queda auditado** en `audit_log` (actor, tipo, reversible). La lista **nunca** devuelve codigos ni contrasenas.

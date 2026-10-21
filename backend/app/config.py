@@ -127,6 +127,20 @@ class Settings(BaseSettings):
     # de GitHub Actions lo usa para despertar la API y mandar el resumen.
     cron_token: str = ""
 
+    # --- Seguridad de las cuentas (v32) --------------------------------- #
+    # "desarrollo" | "produccion". En produccion NUNCA se devuelve el codigo
+    # de verificacion en la respuesta de la API (solo llega por correo).
+    entorno: str = "desarrollo"
+    # Correos que nacen con rol de administrador (separados por comas).
+    # Es la UNICA via para crear un admin: nadie puede auto-asignarse el rol.
+    admin_emails: str = ""
+    # Minutos de validez del codigo de verificacion.
+    minutos_codigo: int = 15
+    # Intentos maximos para acertar el codigo antes de invalidarlo.
+    max_intentos_codigo: int = 5
+    # Segundos que hay que esperar para pedir otro codigo al mismo correo.
+    segundos_entre_codigos: int = 60
+
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
     @property
@@ -143,6 +157,16 @@ class Settings(BaseSettings):
             if propio not in lista:
                 lista.append(propio)
         return lista
+
+    @property
+    def es_produccion(self) -> bool:
+        """En produccion no se muestran codigos en pantalla ni se imprimen."""
+        return self.entorno.strip().lower() in ("produccion", "production", "prod")
+
+    @property
+    def lista_admins(self) -> list[str]:
+        """Correos que nacen con rol de administrador (configuracion del servidor)."""
+        return [c.strip().lower() for c in self.admin_emails.split(",") if c.strip()]
 
     def modelo_defecto(self) -> "Settings":
         """Rellena los valores que dependen de la carpeta de datos."""

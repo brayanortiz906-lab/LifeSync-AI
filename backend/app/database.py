@@ -97,6 +97,15 @@ def _migrar_sqlite() -> None:
         _asegurar_columnas(
             conn, "usuarios", {"password_hash": "VARCHAR(200) DEFAULT ''"}
         )
+        # Cuentas (v32): rol (solo el despliegue decide quien es admin) y bloqueo.
+        _asegurar_columnas(
+            conn,
+            "usuarios",
+            {
+                "rol": "VARCHAR(20) DEFAULT 'usuario'",
+                "bloqueado": "BOOLEAN DEFAULT 0",
+            },
+        )
         # Permisos (v21): el sistema guarda solo cuando la persona deja de escribir.
         _asegurar_columnas(
             conn,

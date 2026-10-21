@@ -63,7 +63,7 @@ SI QUIERES QUE ENTRE CON TU CUENTA DE GOOGLE
 
 PRUEBA RAPIDA DE QUE TODO ESTA BIEN
   backend\.venv\Scripts\python.exe backend\smoke.py
-  -> debe imprimir "RESULTADO: TODOS LOS CASOS PASARON" (119 casos)
+  -> debe imprimir "RESULTADO: TODOS LOS CASOS PASARON" (123 casos)
 
   Y si algo falla:
   Invoke-RestMethod http://127.0.0.1:8000/api/diagnostico

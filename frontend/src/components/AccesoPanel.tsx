@@ -586,9 +586,14 @@ export default function AccesoPanel({
                 className="ls-input text-center font-mono text-lg tracking-[0.4em]"
               />
             </Campo>
-            {codigoDePrueba && (
+            {codigoDePrueba ? (
               <Aviso tono="aviso">
                 Este servidor todavia no envia correos: usa el codigo <strong>{codigoDePrueba}</strong> para probar.
+              </Aviso>
+            ) : (
+              <Aviso tono="info">
+                Te enviamos el codigo a <strong>{correo}</strong>. Revisa tambien la carpeta de
+                correo no deseado. El codigo vale {15} minutos.
               </Aviso>
             )}
             <Boton onClick={() => void verificar()} disabled={ocupado || codigo.length < 6}>

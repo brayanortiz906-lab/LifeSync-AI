@@ -44,7 +44,7 @@ jobs:
           done
           curl -sf http://127.0.0.1:8000/api/health
 
-      - name: Smoke test (119 casos)
+      - name: Smoke test (123 casos)
         run: python smoke.py
 
       - name: Comprobar el System Prompt maestro

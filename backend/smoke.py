@@ -884,6 +884,48 @@ def main() -> int:
         f"-> cod={cod_405} {(r_405 or {}).get('detail')}",
     )
 
+    # ------------------------------------------------------------------ #
+    # Cuentas seguras (v32): hash del codigo, roles y envio real
+    # ------------------------------------------------------------------ #
+    print("\n" + "=" * 70)
+    print("CUENTAS SEGURAS (v32)")
+    print("=" * 70)
+    correo_v32 = f"seguro.v32+{int(time.time())}@example.com"
+    cod_reg, r_reg = pedir_suave(
+        "POST",
+        "/api/cuentas/registro",
+        {
+            "correo": correo_v32,
+            "nombre": "Prueba Segura",
+            "password": "ClaveSegura123",
+            "rol": "admin",
+        },
+    )
+    check(
+        "[CUENTA] el registro NUNCA te deja pedir el rol de admin",
+        cod_reg in (200, 400) and not (isinstance(r_reg, dict) and r_reg.get("rol") == "admin"),
+        f"-> cod={cod_reg} rol_devuelto={(r_reg or {}).get('rol')}",
+    )
+    cod_adm, r_adm = pedir_suave("GET", "/api/cuentas/admin/usuarios")
+    check(
+        "[CUENTA] la seccion de administracion esta cerrada para los demas",
+        cod_adm in (401, 403),
+        f"-> cod={cod_adm}",
+    )
+    check(
+        "[CUENTA] el error de administracion explica por que",
+        cod_adm in (401, 403) and isinstance(r_adm, dict) and bool(r_adm.get("detail")),
+        f"-> cod={cod_adm} {(r_adm or {}).get('detail')}",
+    )
+    cod_thr, r_thr = pedir_suave(
+        "POST", "/api/cuentas/codigo", {"correo": correo_v32, "nombre": "Prueba Segura"}
+    )
+    check(
+        "[CUENTA] pedir dos codigos seguidos se frena (no se inunda el correo)",
+        cod_thr == 429,
+        f"-> cod={cod_thr} {(r_thr or {}).get('detail')}",
+    )
+
     print("=" * 70)
     if fallos:
         print(f"RESULTADO: {len(fallos)} CASO(S) FALLIDO(S): {fallos}")
