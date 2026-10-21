@@ -263,47 +263,58 @@ from .config import FRONTEND_DIST  # noqa: E402  (ruta resuelta para .exe y repo
 if FRONTEND_DIST.exists():
     app.mount("/assets", StaticFiles(directory=FRONTEND_DIST / "assets"), name="assets")
 
-    # El chequeo de salud de Render (y algunos balanceadores) pide HEAD "/",
-    # no solo GET. Sin esto responden 405 y el despliegue queda en_warning.
-    #
-    # Se atienden TODOS los metodos para que una llamada a una ruta de la API
-    # que no existe (o con el verbo equivocado) responda 404 con un mensaje
-    # claro, y no el 405 confuso de Starlette ("Method Not Allowed"), que es lo
-    # que veia la persona al crear su cuenta desde una interfaz servida en un
-    # sitio estatico (GitHub Pages) sin API detras.
-    @app.api_route(
-        "/{full_path:path}",
-        methods=["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    )
-    def spa(full_path: str, request: Request):
-        # Rutas de la API que no existen (o a las que se llega con otro metodo):
-        # 404 en JSON con un mensaje claro, no una pagina HTML ni el 405
-        # confuso de Starlette ("Method Not Allowed"), que es lo que veia la
-        # persona al crear su cuenta desde una interfaz servida en un sitio
-        # estatico (GitHub Pages) sin API detras.
-        if full_path.startswith("api/"):
-            return JSONResponse(
-                status_code=404,
-                content={
-                    "detail": (
-                        f"El servicio '{full_path}' no responde a una peticion "
-                        f"{request.method}. Revisa la direccion de la API que tiene "
-                        "configurada la app (Conectar IA > Direccion de la API)."
-                    )
-                },
-            )
-        if request.method not in ("GET", "HEAD"):
-            return JSONResponse(
-                status_code=405,
-                content={
-                    "detail": (
-                        f"El metodo {request.method} no esta permitido en '{full_path}'. "
-                        "Si estas en GitHub Pages, la API no esta ahi: "
-                        "pon su direccion en Conectar IA > Direccion de la API."
-                    )
-                },
-            )
-        archivo = FRONTEND_DIST / full_path
-        if full_path and archivo.is_file():
-            return FileResponse(archivo)
-        return FileResponse(FRONTEND_DIST / "index.html")
+
+# El chequeo de salud de Render (y algunos balanceadores) pide HEAD "/",
+# no solo GET. Sin esto responden 405 y el despliegue queda en_warning.
+#
+# Se atienden TODOS los metodos y el manejador se registra SIEMPRE (no solo
+# cuando hay interfaz compilada) para que una llamada a una ruta de la API
+# que no existe (o con el verbo equivocado) responda 404 con un mensaje
+# claro, y no el 405 confuso de Starlette ("Method Not Allowed"), que es lo
+# que veia la persona al crear su cuenta desde una interfaz servida en un
+# sitio estatico (GitHub Pages) sin API detras.
+@app.api_route(
+    "/{full_path:path}",
+    methods=["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+)
+def spa(full_path: str, request: Request):
+    # Rutas de la API que no existen (o a las que se llega con otro metodo):
+    # 404 en JSON con un mensaje claro, no una pagina HTML ni el 405
+    # confuso de Starlette.
+    if full_path.startswith("api/"):
+        return JSONResponse(
+            status_code=404,
+            content={
+                "detail": (
+                    f"El servicio '{full_path}' no responde a una peticion "
+                    f"{request.method}. Revisa la direccion de la API que tiene "
+                    "configurada la app (Conectar IA > Direccion de la API)."
+                )
+            },
+        )
+    if request.method not in ("GET", "HEAD"):
+        return JSONResponse(
+            status_code=405,
+            content={
+                "detail": (
+                    f"El metodo {request.method} no esta permitido en '{full_path}'. "
+                    "Si estas en GitHub Pages, la API no esta ahi: "
+                    "pon su direccion en Conectar IA > Direccion de la API."
+                )
+            },
+        )
+    if not FRONTEND_DIST.exists():
+        return JSONResponse(
+            status_code=503,
+            content={
+                "detail": (
+                    "La interfaz no esta compilada en este servidor. "
+                    "Compila la interfaz (npm run build en frontend/) o usa la "
+                    "direccion de la API en otro sitio (Conectar IA > Direccion de la API)."
+                )
+            },
+        )
+    archivo = FRONTEND_DIST / full_path
+    if full_path and archivo.is_file():
+        return FileResponse(archivo)
+    return FileResponse(FRONTEND_DIST / "index.html")
