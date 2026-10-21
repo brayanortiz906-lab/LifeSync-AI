@@ -35,7 +35,16 @@ def _asegurar_columnas(conn, tabla: str, columnas: dict[str, str]) -> None:
     SQLite permite agregar columnas con `ALTER TABLE ... ADD COLUMN` y la
     operacion es idempotente si primero se revisa `PRAGMA table_info`. Asi una
     base creada por una version anterior sigue funcionando sin recrearla.
+
+    Si la tabla todavia no existe (base de datos recien creada, todavia sin
+    `create_all`), no se hace nada: las columnas vendran ya definidas en el
+    modelo. Sin esta comprobacion, la app no arrancaba en una base nueva.
     """
+    existe = conn.exec_driver_sql(
+        f"SELECT name FROM sqlite_master WHERE type='table' AND name='{tabla}'"
+    ).fetchone()
+    if not existe:
+        return
     existentes = {
         str(f[1]) for f in conn.exec_driver_sql(f"PRAGMA table_info({tabla})").fetchall()
     }
