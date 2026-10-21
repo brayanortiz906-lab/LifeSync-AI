@@ -14,7 +14,8 @@ export default function ContextoLateral({
   fecha, onVerAgenda,
 }: {
   fecha: Date
-  onVerAgenda: () => void
+  /** Opcional: si no se pasa, no se muestra el boton de ir a la agenda. */
+  onVerAgenda?: () => void
 }) {
   const eventos = useLifeSync((s) => s.eventos)
   const dashboard = useLifeSync((s) => s.dashboard)
@@ -113,10 +114,12 @@ export default function ContextoLateral({
         </Panel>
       )}
 
-      <Boton variante="secundario" onClick={onVerAgenda} className="w-full justify-center">
-        <ArrowRight size={13} />
-        Ver la agenda completa
-      </Boton>
+      {onVerAgenda && (
+        <Boton variante="secundario" onClick={onVerAgenda} className="w-full justify-center">
+          <ArrowRight size={13} />
+          Ver la agenda completa
+        </Boton>
+      )}
     </>
   )
 }

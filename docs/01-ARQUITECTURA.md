@@ -31,9 +31,10 @@
 ┌──────────────────────────────────────────────────────────────────────┐
 │                          NAVEGADOR (React)                          │
 │                                                                      │
-│  TopBar ── ChatPanel ──────────► api.ts (fetch + BYOK)              │
-│            ContextoLateral (resumen del día, al lado del chat)        │
+│  TopBar ── ChatFlotante ───────► api.ts (fetch + BYOK)               │
+│            (burbuja flotante, siempre encima de todo)                 │
 │            CalendarPanel ("Mi agenda", línea de tiempo por franjas)   │
+│            ContextoLateral (resumen: hoy, entregas, mes)              │
 │            AcademicPanel / LogbookPanel                               │
 │            ConexionesPanel (Centro de Conexiones: 4 caminos)          │
 │            ResponsibilityPanel (política, auditoría, aprobaciones)   │
@@ -286,10 +287,27 @@ Detalle completo en [06-CONE-XIONES.md](06-CONE-XIONES.md).
 
 | Decisión | Motivo |
 |---|---|
-| El **chat es la vista inicial** (`Vista = 'chat'`), centrado y con un panel lateral de contexto | Es la forma natural de pedirle algo a un asistente; la agenda es la consecuencia |
+| La **agenda es la vista inicial** (`Vista = 'agenda'`) | El usuario abre la app para ver su día, no para escribir; la conversación es una acción, no el destino |
+| El **chat es un widget flotante** (`ChatFlotante.tsx`): burbuja fija abajo a la derecha → panel → casi pantalla completa | El asistente acompaña sin tapar la información operativa; disponible desde cualquier vista |
+| `Ctrl+K` / `Cmd+K` alterna el chat flotante y `Escape` lo cierra | Acceso sin ratón, como todo asistente moderno |
 | La agenda se llama **"Mi agenda"** y se dibuja por **franjas** (mañana / tarde / noche) en tarjetas | Una rejilla de horas en píxeles obliga a interpretar; una tarjeta con hora grande y duración explícita no |
 | Cada bloque muestra **"se cruza con X"** en rojo y un **resumen del día** (nº bloques, tiempo ocupado, cruces) | Los cruces se ven sin tener que comparar mentalmente dos columnas |
 | Leyenda de colores y marca **"fijo"** (inamovible) siempre visible | El usuario sabe qué puede moverse y qué no |
+| La agenda incluye una tarjeta **"Habla con tu asistente"** con botón "Abrir el chat" | Acceso directo al agente sin salir de la vista operativa |
+
+Árbol de la interfaz:
+
+```
+App.tsx                      Vista inicial = agenda; monta <ChatFlotante/> global
+├── TopBar.tsx               marca, fecha, KPIs, chip de conexión, botón Chat
+├── CalendarPanel.tsx        agenda por franjas (día / semana / mes)
+├── ContextoLateral.tsx      resumen (hoy, entregas, mes) — solo en pantallas anchas
+├── AcademicPanel.tsx        tareas y resúmenes
+├── LogbookPanel.tsx         gastos y mantenimiento
+├── ResponsibilityPanel.tsx  aprobaciones, auditoría, política, cumplimiento
+└── ChatFlotante.tsx         burbuja + panel + modo pantalla casi completa
+    └── ChatBody.tsx         burbujas, ficha del agente, input, sugerencias
+```
 
 ---
 
@@ -299,10 +317,11 @@ Detalle completo en [06-CONE-XIONES.md](06-CONE-XIONES.md).
 |---|---|
 | **v1 (este repo)** | Chat + calendario + tareas + bitácora + planner + BYOK |
 | **v1.05 (este repo)** | IA responsable: gobierno, auditoría, aprobación humana, PII, cumplimiento |
-| **v1.10 (este repo)** | Centro de Conexiones (cualquier IA sin jerga), chat al centro, agenda rediseñada por franjas |
+| **v1.10 (este repo)** | Centro de Conexiones (cualquier IA sin jerga), agenda rediseñada por franjas |
+| **v1.11 (este repo)** | Chat flotante (widget aparte) y agenda como vista inicial |
 | v1.1 | Login multiusuario, Postgres, Alembic, tests unitarios del planner |
 | v1.2 | OAuth Google Classroom (tareas/entregas) y Notion (bases de datos) |
-| v1.3 | Worker asíncrono para PDFs largos + vectorización para el chat de.material |
+| v1.3 | Worker asíncrono para PDFs largos + vectorización para el chat de material |
 | v2 | Recordatorios push, voz (STT/TTS), wearable, predicción de sobrecarga |
 
 ---

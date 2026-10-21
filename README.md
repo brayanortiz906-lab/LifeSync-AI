@@ -133,12 +133,28 @@ Claves de la experiencia:
   estudio; gasto de mantenimiento → próxima fecha; evento nuevo → reorganización).
 - **Visibilidad**: bajo cada respuesta aparece el bloque verde **«Registrado
   automáticamente (N)»** con cada cosa guardada, y un chip por categoría.
-- **Pantalla completa**: `Ctrl+K` (o `Cmd+K`) abre el chat a pantalla completa;
-  `Escape` lo cierra. En móvil hay un botón flotante «Hablar con el agente».
+- **Chat flotante, aparte de la agenda**: el asistente vive en una burbuja fija abajo a
+  la derecha, disponible en cualquier vista. `Ctrl+K` (o `Cmd+K`) la abre y la cierra,
+  `Escape` la cierra, y desde su cabecera puedes ampliarla a pantalla casi completa.
+  La agenda manda: nunca tapa la información operativa.
 - **Anti-duplicados**: repetir la misma cita actualiza el evento en vez de crear
   otro.
 - **Sin API Key**: si el proveedor elegido no tiene clave, el backend cae al motor
   local (`mock`) y lo avisa en la respuesta; el chat nunca se rompe.
+
+### La interfaz: la agenda manda, el chat acompaña
+
+Al abrir LifeSync ves **«Mi agenda»**, no el chat. El chat es un **widget flotante**
+(`frontend/src/components/ChatFlotante.tsx`) superpuesto, para que la conversación
+tape lo que ya tenías en pantalla.
+
+| Zona | Qué contiene |
+|---|---|
+| **Vista inicial «Mi agenda»** | Calendario por franjas (Mañana / Tarde / Noche) + resumen del día + tareas académicas + bitácora de gastos |
+| **Tarjeta «Habla con tu asistente»** | Dentro de la propia agenda: un botón «Abrir el chat» para hablar sin salir de la vista |
+| **Burbuja flotante** (abajo a la derecha) | Acceso al chat desde cualquier vista; muestra puntos animados mientras el agente responde |
+| **Panel del chat** | Burbuja → panel de 420×620 px; botón «Ampliar» → casi pantalla completa |
+| **Teclado** | `Ctrl+K` / `Cmd+K` alterna el chat · `Escape` lo cierra |
 
 ### El sistema de IA responsable
 
@@ -208,15 +224,15 @@ O arranca sin recarga: `.\.venv\Scripts\python.exe -m uvicorn app.main:app --por
 │   └── smoke.py                 ← 59 verificaciones end-to-end contra la BD real
 ├── frontend/
 │   └── src/
-│       ├── App.tsx              ← Layout: chat al centro + agenda + responsabilidad
+│       ├── App.tsx              ← Layout: agenda (vista inicial) + responsabilidad
 │       ├── store/useLifeSync.ts ← Estado global (Zustand)
 │       ├── lib/api.ts           ← Cliente HTTP + manejo de la API Key local
 │       ├── lib/format.ts        ← Fechas, moneda, duraciones (es-CO)
 │       └── components/
 │           ├── TopBar.tsx       ← Marca, navegación de fecha, KPIs, conexiones
-│           ├── ChatPanel.tsx    ← Contenedor del chat (panel o pantalla completa)
+│           ├── ChatFlotante.tsx ← Chat flotante (burbuja → panel → pantalla completa)
 │           ├── ChatBody.tsx    ← Burbujas, ficha del agente, input, sugerencias
-│           ├── ContextoLateral.tsx ← Resumen lateral del chat (hoy, entregas, mes)
+│           ├── ContextoLateral.tsx ← Resumen lateral (hoy, entregas, mes)
 │           ├── CalendarPanel.tsx← Agenda día/semana/mes por franjas (sin ambigüedad)
 │           ├── ConexionesPanel.tsx ← Centro de Conexiones (4 caminos, sin jerga)
 │           ├── AcademicPanel.tsx← Tareas y resúmenes (derecha)

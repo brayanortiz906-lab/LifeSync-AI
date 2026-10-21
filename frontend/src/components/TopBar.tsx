@@ -7,12 +7,13 @@ import { Boton, Chip } from './ui'
 import ConexionesPanel from './ConexionesPanel'
 
 export default function TopBar({
-  fecha, onCambiarFecha, onAbrirChat, onIrAAgenda,
+  fecha, onCambiarFecha, onAbrirChat, chatAbierto,
 }: {
   fecha: Date
   onCambiarFecha: (d: Date) => void
   onAbrirChat?: () => void
-  onIrAAgenda?: () => void
+  /** Estado del chat flotante (para pintar el boton como activo). */
+  chatAbierto?: boolean
 }) {
   const dashboard = useLifeSync((s) => s.dashboard)
   const proveedor = useLifeSync((s) => s.proveedor)
@@ -86,13 +87,13 @@ export default function TopBar({
           <Trash2 size={14} />
         </Boton>
         {onAbrirChat && (
-          <Boton variante="fantasma" onClick={onAbrirChat} titulo="Abrir el chat a pantalla completa (Ctrl+K)">
+          <Boton
+            variante={chatAbierto ? 'secundario' : 'fantasma'}
+            onClick={onAbrirChat}
+            titulo={chatAbierto ? 'Cerrar el chat flotante (Ctrl+K)' : 'Abrir el chat flotante (Ctrl+K)'}
+          >
             <MessageSquare size={14} />
-          </Boton>
-        )}
-        {onIrAAgenda && (
-          <Boton variante="fantasma" onClick={onIrAAgenda} titulo="Ver la agenda completa">
-            <CalendarDays size={14} />
+            {chatAbierto ? 'Cerrar chat' : 'Chat'}
           </Boton>
         )}
         <Boton variante={conectado ? 'secundario' : 'primario'} onClick={() => setConexiones(true)}>
