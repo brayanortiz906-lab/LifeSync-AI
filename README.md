@@ -482,3 +482,20 @@ operación se audita sin guardar los valores.
 - [ ] **Firma criptográfica** de `audit_log` para que sea *tamper-evident*.
 - [ ] **Notificaciones** de aprobaciones fuera de la sesión (correo/push).
 - [ ] **DPIA** (Ley 1581) firmada por el responsable del tratamiento.
+
+### Cuentas de usuario: usa LifeSync en tu equipo o con tu cuenta
+
+| Camino | Como | Donde quedan los datos |
+|---|---|---|
+| **Local** (sin cuenta) | abres la app y listo | en tu computador, en `backend/lifesync.db`. Nada se sube a ningun servidor |
+| **Con correo** | *Acceder > Entrar con mi correo* y escribes el codigo de 6 digitos que te llega | en el servidor, en un espacio solo tuyo |
+| **Con Google** | *Acceder > Entrar con Google* (reutiliza la cuenta que ya conectaste) | en el servidor, en un espacio solo tuyo |
+
+Cada persona ve **solo sus datos**: el aislamiento lo aplica el servidor
+automaticamente (`usuario_id` en todas las tablas + filtro de sesion), asi que
+nadie mas puede ver tus citas, tareas ni gastos.
+
+Con cuenta ademas puedes **descargar un respaldo** en JSON o **guardarlo en tu
+Google Drive** desde *Acceder > Guardar en mi Drive*.
+
+Detalles completos en `docs/09-CUENTAS.md`.
