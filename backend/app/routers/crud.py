@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from ..cuentas import usuario_verificado
 from ..database import get_db
 from ..models import Event, LogEntry, Maintenance, Task
 from ..schemas import (
@@ -43,7 +44,7 @@ def listar_eventos(
 
 
 @router.post("/events", response_model=EventOut, status_code=201)
-def crear_evento(payload: EventCreate, db: Session = Depends(get_db, scope="function")):
+def crear_evento(payload: EventCreate, db: Session = Depends(get_db, scope="function"), usuario=Depends(usuario_verificado)):
     ev = Event(**payload.model_dump())
     db.add(ev)
     db.flush()
@@ -51,7 +52,7 @@ def crear_evento(payload: EventCreate, db: Session = Depends(get_db, scope="func
 
 
 @router.patch("/events/{evento_id}", response_model=EventOut)
-def actualizar_evento(evento_id: int, payload: EventUpdate, db: Session = Depends(get_db, scope="function")):
+def actualizar_evento(evento_id: int, payload: EventUpdate, db: Session = Depends(get_db, scope="function"), usuario=Depends(usuario_verificado)):
     ev = db.get(Event, evento_id)
     if ev is None:
         raise HTTPException(404, "Evento no encontrado")
@@ -62,7 +63,7 @@ def actualizar_evento(evento_id: int, payload: EventUpdate, db: Session = Depend
 
 
 @router.delete("/events/{evento_id}", status_code=204)
-def eliminar_evento(evento_id: int, db: Session = Depends(get_db, scope="function")):
+def eliminar_evento(evento_id: int, db: Session = Depends(get_db, scope="function"), usuario=Depends(usuario_verificado)):
     ev = db.get(Event, evento_id)
     if ev is None:
         raise HTTPException(404, "Evento no encontrado")
@@ -81,7 +82,7 @@ def listar_tareas(estado: str | None = None, db: Session = Depends(get_db, scope
 
 
 @router.post("/tasks", response_model=TaskOut, status_code=201)
-def crear_tarea(payload: TaskCreate, db: Session = Depends(get_db, scope="function")):
+def crear_tarea(payload: TaskCreate, db: Session = Depends(get_db, scope="function"), usuario=Depends(usuario_verificado)):
     tarea = Task(**payload.model_dump())
     db.add(tarea)
     db.flush()
@@ -89,7 +90,7 @@ def crear_tarea(payload: TaskCreate, db: Session = Depends(get_db, scope="functi
 
 
 @router.patch("/tasks/{tarea_id}", response_model=TaskOut)
-def actualizar_tarea(tarea_id: int, payload: TaskUpdate, db: Session = Depends(get_db, scope="function")):
+def actualizar_tarea(tarea_id: int, payload: TaskUpdate, db: Session = Depends(get_db, scope="function"), usuario=Depends(usuario_verificado)):
     tarea = db.get(Task, tarea_id)
     if tarea is None:
         raise HTTPException(404, "Tarea no encontrada")
@@ -100,7 +101,7 @@ def actualizar_tarea(tarea_id: int, payload: TaskUpdate, db: Session = Depends(g
 
 
 @router.post("/tasks/{tarea_id}/completar", response_model=TaskOut)
-def completar_tarea(tarea_id: int, db: Session = Depends(get_db, scope="function")):
+def completar_tarea(tarea_id: int, db: Session = Depends(get_db, scope="function"), usuario=Depends(usuario_verificado)):
     tarea = db.get(Task, tarea_id)
     if tarea is None:
         raise HTTPException(404, "Tarea no encontrada")
@@ -124,7 +125,7 @@ def listar_registros(
 
 
 @router.post("/logbook", response_model=LogOut, status_code=201)
-def registrar(payload: LogCreate, db: Session = Depends(get_db, scope="function")):
+def registrar(payload: LogCreate, db: Session = Depends(get_db, scope="function"), usuario=Depends(usuario_verificado)):
     entrada = LogEntry(
         descripcion=payload.descripcion,
         monto=payload.monto,
@@ -139,7 +140,7 @@ def registrar(payload: LogCreate, db: Session = Depends(get_db, scope="function"
 
 
 @router.delete("/logbook/{registro_id}", status_code=204)
-def eliminar_registro(registro_id: int, db: Session = Depends(get_db, scope="function")):
+def eliminar_registro(registro_id: int, db: Session = Depends(get_db, scope="function"), usuario=Depends(usuario_verificado)):
     reg = db.get(LogEntry, registro_id)
     if reg is None:
         raise HTTPException(404, "Registro no encontrado")
@@ -164,7 +165,7 @@ def listar_mantenimiento(db: Session = Depends(get_db, scope="function")):
 
 
 @router.post("/maintenance", response_model=MaintenanceOut, status_code=201)
-def crear_mantenimiento(payload: MaintenanceCreate, db: Session = Depends(get_db, scope="function")):
+def crear_mantenimiento(payload: MaintenanceCreate, db: Session = Depends(get_db, scope="function"), usuario=Depends(usuario_verificado)):
     datos = payload.model_dump()
     if datos.get("ultima_realizacion") and not datos.get("proxima_fecha"):
         datos["proxima_fecha"] = datos["ultima_realizacion"] + timedelta(days=datos.get("intervalo_dias", 90))
@@ -175,7 +176,7 @@ def crear_mantenimiento(payload: MaintenanceCreate, db: Session = Depends(get_db
 
 
 @router.post("/maintenance/{mant_id}/completar", response_model=MaintenanceOut)
-def completar_mantenimiento(mant_id: int, db: Session = Depends(get_db, scope="function")):
+def completar_mantenimiento(mant_id: int, db: Session = Depends(get_db, scope="function"), usuario=Depends(usuario_verificado)):
     mant = db.get(Maintenance, mant_id)
     if mant is None:
         raise HTTPException(404, "Mantenimiento no encontrado")

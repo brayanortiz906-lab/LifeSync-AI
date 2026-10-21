@@ -63,10 +63,12 @@ def pedir_suave(metodo: str, ruta: str, cuerpo: dict | None = None, token: str =
             return exc.code, {"detail": crudo.decode("utf-8", "ignore")}
 
 
-def chat(mensaje: str) -> dict:
+def chat(mensaje: str, token: str = "") -> dict:
     # Se fuerza el proveedor "mock" para que el test sea independiente de la
     # configuración guardada en la base de datos.
-    return pedir("POST", "/api/agent/chat", {"mensaje": mensaje, "proveedor": "mock"})  # type: ignore[return-value]
+    return pedir(  # type: ignore[return-value]
+        "POST", "/api/agent/chat", {"mensaje": mensaje, "proveedor": "mock"}, token
+    )
 
 
 def check(nombre: str, condicion: bool, detalle: str = "") -> None:
@@ -642,6 +644,68 @@ def main() -> int:
         cod, r = pedir_suave("DELETE", f"/api/paneles/{panel_id}", token=token_v19)
         check("[PANEL] se puede borrar el panel", cod == 200, f"-> cod={cod}")
 
+    # ------------------------------------------------------------------ #
+    print("\nRESPALDO, VERIFICACION Y ALMACENAMIENTO (v20)")
+    # ------------------------------------------------------------------ #
+    correo_v20 = f"smoke.v20.{int(time.time())}@example.com"
+    reg20 = pedir("POST", "/api/cuentas/registro", {"correo": correo_v20, "nombre": "V20", "password": "clave123"})
+    codigo20 = (reg20 or {}).get("codigo") if isinstance(reg20, dict) else None
+    token20 = ""
+    if codigo20:
+        ver20 = pedir("POST", "/api/cuentas/verificar", {"correo": correo_v20, "codigo": codigo20})
+        token20 = (ver20 or {}).get("token", "") if isinstance(ver20, dict) else ""
+    check("[CUENTA] la cuenta se verifica con el codigo y da token", bool(token20))
+    cod, r = pedir_suave("POST", "/api/cuentas/reenviar-codigo", {"correo": correo_v20, "nombre": "V20"})
+    check(
+        "[CUENTA] se puede reenviar el codigo de verificacion",
+        cod == 200 and isinstance(r, dict) and r.get("ok") is True,
+        f"-> cod={cod}",
+    )
+    cod, r = pedir_suave("GET", "/api/diagnostico")
+    check(
+        "[API] el autodiagnostico responde y no ve problemas",
+        cod == 200 and isinstance(r, dict) and not r.get("problemas"),
+        f"-> cod={cod} problemas={r.get('problemas') if isinstance(r, dict) else ''}",
+    )
+    if token20:
+        # Contenido con bloque de estudio (la tarea apunta a un evento).
+        chat("Tengo que entregar el ensayo el viernes", token20)
+        chat("Mañana tengo una cita a las 3 PM y ademas gaste 20 mil en gasolina", token20)
+        snap = pedir("GET", "/api/cuentas/respaldo", token=token20)
+        check(
+            "[RESPALDO] el respaldo incluye agenda, tareas y gastos",
+            isinstance(snap, dict) and len(snap.get("eventos", [])) >= 1 and len(snap.get("tareas", [])) >= 1,
+            f"eventos={len((snap or {}).get('eventos', []))} tareas={len((snap or {}).get('tareas', []))}",
+        )
+        # Otra cuenta recibe ese respaldo: no debe reventar con un 500.
+        correo_v20b = f"smoke.v20b.{int(time.time())}@example.com"
+        reg20b = pedir("POST", "/api/cuentas/registro", {"correo": correo_v20b, "nombre": "V20B", "password": "clave123"})
+        codigo20b = (reg20b or {}).get("codigo") if isinstance(reg20b, dict) else None
+        token20b = ""
+        if codigo20b:
+            ver20b = pedir("POST", "/api/cuentas/verificar", {"correo": correo_v20b, "codigo": codigo20b})
+            token20b = (ver20b or {}).get("token", "") if isinstance(ver20b, dict) else ""
+        if token20b:
+            cod, r = pedir_suave("POST", "/api/cuentas/respaldo/restaurar", snap, token20b)
+            check(
+                "[RESPALDO] restaurar el respaldo NO da error 500",
+                cod == 200,
+                f"-> cod={cod}",
+            )
+            restaurado = (r or {}).get("restaurados", {}) if isinstance(r, dict) else {}
+            check(
+                "[RESPALDO] el contenido vuelve en la cuenta nueva",
+                sum(int(v or 0) for v in restaurado.values()) >= 2,
+                f"restaurados={restaurado}",
+            )
+            cod, r = pedir_suave("GET", "/api/events", token=token20b)
+            check(
+                "[RESPALDO] al entrar de nuevo se ve todo el contenido",
+                cod == 200 and isinstance(r, list) and len(r) >= 1,
+                f"-> cod={cod} eventos={len(r) if isinstance(r, list) else 0}",
+            )
+        else:
+            check("[RESPALDO] el contenido vuelve en la cuenta nueva", False, "no se pudo crear la cuenta")
     print("=" * 70)
     if fallos:
         print(f"RESULTADO: {len(fallos)} CASO(S) FALLIDO(S): {fallos}")

@@ -42,6 +42,8 @@ from .models import (
     Event,
     LogEntry,
     Maintenance,
+    Panel,
+    PermisoPanel,
     PermisosCuenta,
     PolicySettings,
     Task,
@@ -522,17 +524,45 @@ def salir_del_usuario() -> None:
     _actual.set(None)
 
 
+def exigir_cuenta_verificada(usuario) -> None:
+    """Impide guardar contenido si la cuenta no ha confirmado su correo.
+
+    El usuario local (el que usa la app en su equipo sin registrarse) siempre
+    puede guardar: es su propio computador.
+    """
+    if usuario is None:
+        return
+    if int(getattr(usuario, "id", 0) or 0) == USUARIO_LOCAL:
+        return
+    if getattr(usuario, "verificado", False):
+        return
+    raise HTTPException(
+        status_code=403,
+        detail=(
+            "Todavia no confirmaste tu correo, asi que todavia no puedes guardar contenido. "
+            "Pide el codigo de 6 digitos y escribelo en la pantalla de acceso; en cuanto lo "
+            "confirmes, se guarda todo lo que escribas."
+        ),
+    )
+
+
+def usuario_verificado(usuario=Depends(usuario_actual)) -> Usuario:
+    """Dependencia de FastAPI: solo deja pasar a cuentas confirmadas."""
+    exigir_cuenta_verificada(usuario)
+    return usuario
+
+
 # --------------------------------------------------------------------------- #
 # Respaldo: snapshot en JSON (para Google Drive o descarga local)
 # --------------------------------------------------------------------------- #
 def snapshot(db: SASession) -> dict:
     """Exporta todos los datos del usuario actual a un JSON portable."""
-    def filas(modelo) -> list[dict]:
+    def filas(modelo, con_id: bool = False) -> list[dict]:
         out = []
         for obj in db.scalars(select(modelo)).all():
             datos = {}
             for col in modelo.__table__.columns:
-                if col.name in ("id", "usuario_id"):
+                if col.name in ("id", "usuario_id") and not (con_id and col.name == "id"):
                     continue
                 valor = getattr(obj, col.name)
                 datos[col.name] = valor.isoformat() if hasattr(valor, "isoformat") else valor
@@ -540,18 +570,205 @@ def snapshot(db: SASession) -> dict:
         return out
 
     return {
-        "version": 1,
+        "version": 2,
         "exportado_en": datetime.now().isoformat(),
-        "eventos": filas(Event),
-        "tareas": filas(Task),
-        "registros": filas(LogEntry),
-        "mantenimiento": filas(Maintenance),
-        "chat": filas(ChatMessage),
+        "eventos": filas(Event, con_id=True),
+        "tareas": filas(Task, con_id=True),
+        "registros": filas(LogEntry, con_id=True),
+        "mantenimiento": filas(Maintenance, con_id=True),
+        "chat": filas(ChatMessage, con_id=True),
+        "paneles": filas(Panel, con_id=True),
+        "permisos_panel": filas(PermisoPanel, con_id=True),
+        "ajustes": filas(AppSettings),
+        "politica": filas(PolicySettings),
         "conexiones": [
             {k: v for k, v in fila.items() if k != "credenciales_cifradas"}
             for fila in filas(ConexionIA)
         ],
     }
+
+
+def _convertir_fechas(modelo, campos: dict) -> dict:
+    """Convierte los ISO del snapshot en objetos fecha/hora de Python.
+
+    Un snapshot guarda las fechas como texto ("2026-10-21T15:00:00"); SQLite
+    no acepta texto en una columna DateTime y la peticion morria con un 500.
+    """
+    from datetime import date, datetime as _dt
+
+    from sqlalchemy import Date as _Date
+    from sqlalchemy import DateTime as _DateTime
+
+    salida = dict(campos)
+    for col in modelo.__table__.columns:
+        valor = salida.get(col.name)
+        if valor is None or not isinstance(valor, str):
+            continue
+        texto = valor.strip()
+        if not texto:
+            salida[col.name] = None
+            continue
+        try:
+            if isinstance(col.type, _DateTime):
+                salida[col.name] = _dt.fromisoformat(texto.replace("Z", ""))
+            elif isinstance(col.type, _Date):
+                salida[col.name] = date.fromisoformat(texto[:10])
+        except ValueError:
+            salida[col.name] = None
+    return salida
+
+
+def restaurar_snapshot(db: SASession, datos: dict) -> dict:
+    """Restaura un snapshot (agenda, tareas, gastos y mantenimiento) sin romperse.
+
+    Antes esto lanzaba un error 500 cuando el respaldo traia un bloque de
+    estudio (la tarea apuntaba a un evento que no existia todavia) o cuando las
+    fechas venian como texto. Ahora:
+    * las fechas se convierten a fecha/hora reales,
+    * los eventos se recrean primero y las tareas se apuntan a los nuevos,
+    * lo que ya existe no se duplica,
+    * si algo no se puede restaurar, se cuenta y se sigue.
+    """
+    from .models import Event, LogEntry, Maintenance, Panel, Task
+
+    uid = usuario_id_actual() or USUARIO_LOCAL
+    creados = {"eventos": 0, "tareas": 0, "registros": 0, "mantenimiento": 0, "paneles": 0}
+    omitidos = 0
+
+    # 1) Paneles: se recrean con el mismo nombre y se memoriza el id nuevo.
+    mapa_paneles: dict[int, int] = {}
+    for fila in datos.get("paneles", []) or []:
+        nombre = str(fila.get("nombre") or "").strip()
+        if not nombre:
+            continue
+        panel = db.scalars(
+            select(Panel).where(Panel.nombre == nombre, Panel.usuario_id == uid)
+        ).first()
+        if panel is None:
+            panel = Panel(
+                nombre=nombre[:80],
+                tipo=str(fila.get("tipo") or "agenda")[:24],
+                color=str(fila.get("color") or "indigo")[:24],
+                descripcion=str(fila.get("descripcion") or "")[:200],
+                usuario_id=uid,
+            )
+            db.add(panel)
+            db.flush()
+            creados["paneles"] += 1
+        if fila.get("id") is not None:
+            mapa_paneles[int(fila["id"])] = panel.id
+
+    def _panel_destino(valor):
+        if valor is None:
+            return None
+        return mapa_paneles.get(int(valor))
+
+    # 2) Eventos (primero: las tareas de estudio apuntan a un evento).
+    mapa_eventos: dict[int, int] = {}
+    for fila in datos.get("eventos", []) or []:
+        campos = {
+            k: v
+            for k, v in fila.items()
+            if hasattr(Event, k) and k not in ("id", "usuario_id")
+        }
+        if not campos.get("titulo"):
+            omitidos += 1
+            continue
+        campos = _convertir_fechas(Event, campos)
+        campos["panel_id"] = _panel_destino(fila.get("panel_id"))
+        ya_existe = db.scalars(
+            select(Event).where(
+                Event.titulo.ilike(str(campos["titulo"])),
+                Event.inicio == campos.get("inicio"),
+            )
+        ).first()
+        if ya_existe is not None:
+            mapa_eventos[int(fila.get("id", 0))] = ya_existe.id
+            omitidos += 1
+            continue
+        evento = Event(**campos)
+        db.add(evento)
+        db.flush()
+        if fila.get("id") is not None:
+            mapa_eventos[int(fila["id"])] = evento.id
+        creados["eventos"] += 1
+
+    # 3) Tareas (el bloque de estudio se apunta al evento recien creado).
+    for fila in datos.get("tareas", []) or []:
+        campos = {
+            k: v
+            for k, v in fila.items()
+            if hasattr(Task, k) and k not in ("id", "usuario_id")
+        }
+        if not campos.get("titulo"):
+            omitidos += 1
+            continue
+        campos = _convertir_fechas(Task, campos)
+        viejo = fila.get("tarea_id")
+        campos["tarea_id"] = mapa_eventos.get(int(viejo)) if viejo is not None else None
+        campos["panel_id"] = _panel_destino(fila.get("panel_id"))
+        ya_existe = db.scalars(
+            select(Task).where(
+                Task.titulo.ilike(str(campos["titulo"])),
+                Task.fecha_entrega == campos.get("fecha_entrega"),
+            )
+        ).first()
+        if ya_existe is not None:
+            omitidos += 1
+            continue
+        db.add(Task(**campos))
+        creados["tareas"] += 1
+
+    # 4) Gastos.
+    for fila in datos.get("registros", []) or []:
+        campos = {
+            k: v
+            for k, v in fila.items()
+            if hasattr(LogEntry, k) and k not in ("id", "usuario_id")
+        }
+        if not campos.get("descripcion"):
+            omitidos += 1
+            continue
+        campos = _convertir_fechas(LogEntry, campos)
+        campos["panel_id"] = _panel_destino(fila.get("panel_id"))
+        ya_existe = db.scalars(
+            select(LogEntry).where(
+                LogEntry.descripcion.ilike(str(campos["descripcion"])),
+                LogEntry.fecha == campos.get("fecha"),
+            )
+        ).first()
+        if ya_existe is not None:
+            omitidos += 1
+            continue
+        db.add(LogEntry(**campos))
+        creados["registros"] += 1
+
+    # 5) Mantenimiento.
+    for fila in datos.get("mantenimiento", []) or []:
+        campos = {
+            k: v
+            for k, v in fila.items()
+            if hasattr(Maintenance, k) and k not in ("id", "usuario_id")
+        }
+        if not campos.get("tarea"):
+            omitidos += 1
+            continue
+        campos = _convertir_fechas(Maintenance, campos)
+        campos["panel_id"] = _panel_destino(fila.get("panel_id"))
+        ya_existe = db.scalars(
+            select(Maintenance).where(
+                Maintenance.tarea.ilike(str(campos["tarea"])),
+                Maintenance.proxima_fecha == campos.get("proxima_fecha"),
+            )
+        ).first()
+        if ya_existe is not None:
+            omitidos += 1
+            continue
+        db.add(Maintenance(**campos))
+        creados["mantenimiento"] += 1
+
+    db.flush()
+    return {"ok": True, "restaurados": creados, "omitidos": omitidos}
 
 
 def fijar_usuario_de_peticion(db: SASession, authorization: str) -> int:

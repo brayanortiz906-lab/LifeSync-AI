@@ -317,6 +317,23 @@ export const cuentas = {
       method: 'POST',
       body: JSON.stringify({ access_token, nombre }),
     }),
+  /** Manda otra vez el codigo de verificacion (si se perdio o expiro). */
+  reenviarCodigo: (correo: string, nombre = '') =>
+    request<{ ok: boolean; modo: string; codigo?: string; mensaje: string }>(
+      '/cuentas/reenviar-codigo',
+      { method: 'POST', body: JSON.stringify({ correo, nombre }) },
+    ),
+  /** Trae el ultimo respaldo de Google Drive y lo deja en tu cuenta. */
+  restaurarDrive: () =>
+    request<{ ok: boolean; restaurados?: Record<string, number>; omitidos?: number; origen?: string }>(
+      '/cuentas/restaurar/drive',
+      { method: 'POST' },
+    ),
+  /** Al entrar: si el servidor esta vacio, recupera tu contenido de Drive. */
+  sincronizar: () =>
+    request<{ ok: boolean; restaurado: boolean; mensaje: string }>('/cuentas/sincronizar', {
+      method: 'POST',
+    }),
 }
 
 /** Endpoints de permisos y autopiloto (v16). */

@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from .. import providers
 from ..agent import _get_app_settings, aplicar_acciones, construir_contexto, procesar_mensaje
 from ..config import settings
+from ..cuentas import usuario_verificado
 from ..database import get_db
 from ..models import AppSettings, ChatMessage, Event, Task
 from ..schemas import (
@@ -35,7 +36,7 @@ router = APIRouter(prefix="/api", tags=["agente"])
 # Chat con el agente
 # --------------------------------------------------------------------------- #
 @router.post("/agent/chat", response_model=ChatResponse)
-async def chat(payload: ChatRequest, db: Session = Depends(get_db, scope="function")):
+async def chat(payload: ChatRequest, db: Session = Depends(get_db, scope="function"), usuario=Depends(usuario_verificado)):
     try:
         return await procesar_mensaje(db, payload)
     except providers.ProviderError as exc:
@@ -68,7 +69,7 @@ def limpiar_historial(db: Session = Depends(get_db, scope="function")):
 # Ingesta académica (Notion / Classroom / PDF pegado)
 # --------------------------------------------------------------------------- #
 @router.post("/agent/ingest")
-async def ingerir(payload: IngestRequest, db: Session = Depends(get_db, scope="function")):
+async def ingerir(payload: IngestRequest, db: Session = Depends(get_db, scope="function"), usuario=Depends(usuario_verificado)):
     """Resume el material, crea la tarea y agenda bloques de estudio."""
     app = _get_app_settings(db)
     proveedor = (payload.proveedor or app.proveedor or "mock").lower()

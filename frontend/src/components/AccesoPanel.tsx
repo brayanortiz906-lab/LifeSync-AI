@@ -146,6 +146,21 @@ export default function AccesoPanel({
     }
   }
 
+  /** Reenvía el código de verificación (por correo o en pantalla). */
+  const reenviarCodigo = async () => {
+    setOcupado(true)
+    setEstado(null)
+    try {
+      const r = await cuentas.reenviarCodigo(correo)
+      if (r.codigo) setCodigoDePrueba(r.codigo)
+      setEstado({ ok: true, texto: r.mensaje || 'Te mandamos un codigo nuevo.' })
+    } catch (e) {
+      setEstado({ ok: false, texto: (e as Error).message })
+    } finally {
+      setOcupado(false)
+    }
+  }
+
   /** Entra con correo y contrasena (v19). */
   const entrarConPassword = async () => {
     setOcupado(true)
@@ -541,6 +556,13 @@ export default function AccesoPanel({
             <Boton onClick={() => void verificar()} disabled={ocupado || codigo.length < 6}>
               {ocupado ? 'Comprobando…' : 'Entrar'}
             </Boton>
+            <button
+              onClick={() => void reenviarCodigo()}
+              disabled={ocupado}
+              className="text-[11px] font-semibold text-slate-400 hover:text-white disabled:opacity-50"
+            >
+              ¿No te llegó el código? Pide otro
+            </button>
           </div>
         )}
 

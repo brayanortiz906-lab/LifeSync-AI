@@ -44,6 +44,9 @@ type Vista = 'agenda' | 'paneles' | 'responsabilidad' | 'permisos' | 'ajustes'
 export default function App() {
   const cargarTodo = useLifeSync((s) => s.cargarTodo)
   const cargarResponsable = useLifeSync((s) => s.cargarResponsable)
+  const sincronizarCuenta = useLifeSync((s) => s.sincronizarCuenta)
+  const mensajeSesion = useLifeSync((s) => s.mensajeSesion)
+  const setMensajeSesion = useLifeSync((s) => s.setMensajeSesion)
   const cargando = useLifeSync((s) => s.cargando)
   const error = useLifeSync((s) => s.error)
   const aprobaciones = useLifeSync((s) => s.aprobaciones)
@@ -66,6 +69,7 @@ export default function App() {
   const cargarPlantilla = useLifeSync((s) => s.cargarPlantilla)
   const importarTexto = useLifeSync((s) => s.importarTexto)
   const modoLocal = useLifeSync((s) => s.modoLocal)
+  const cargarPaneles = useLifeSync((s) => s.cargarPaneles)
 
   useEffect(() => {
     cargarTodo()
@@ -294,6 +298,17 @@ export default function App() {
         Modo local · LifeAgente funciona con su motor de reglas y guarda todo en este navegador
       </div>
     )}
+    {mensajeSesion && (
+      <div className="fixed left-1/2 top-3 z-30 flex -translate-x-1/2 items-center gap-3 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-4 py-1.5 text-[11px] font-semibold text-emerald-100 backdrop-blur">
+        {mensajeSesion}
+        <button
+          onClick={() => setMensajeSesion('')}
+          className="underline opacity-80 hover:opacity-100"
+        >
+          ok
+        </button>
+      </div>
+    )}
     <Bienvenida
       abierto={portadaAbierta}
       onCerrar={() => setPortadaAbierta(false)}
@@ -301,6 +316,11 @@ export default function App() {
         guardarToken(token)
         setUsuario(usuario ?? null)
         setPortadaAbierta(false)
+        // Al entrar con tu cuenta: recupera de Drive lo que falte y carga todo.
+        void sincronizarCuenta().then(() => {
+          void cargarTodo()
+          void cargarPaneles()
+        })
       }}
       onAbrirAcceso={() => {
         setPortadaAbierta(false)
@@ -330,7 +350,16 @@ export default function App() {
     <AccesoPanel
       abierto={accesoAbierto}
       onCerrar={() => setAccesoAbierto(false)}
-      onSesionCambiada={(u) => setUsuario(u)}
+      onSesionCambiada={(u) => {
+        setUsuario(u)
+        // Con cuenta: recuperamos de Drive lo que falte y recargamos todo.
+        if (u) {
+          void sincronizarCuenta().then(() => {
+            void cargarTodo()
+            void cargarPaneles()
+          })
+        }
+      }}
       onAbrirConexiones={() => setConexionesAbiertas(true)}
     />
 

@@ -91,6 +91,32 @@ Si prefieres no operar SMTP, puedes dejar el despliegue tal cual y usar
 (ya lo genera el blueprint) para poder cifrar credenciales y tokens.
 Detalle: `docs/15-CUENTAS-Y-PANELES.md`.
 
+### El codigo de verificacion por correo (para que llegue de verdad)
+
+Sin SMTP, el codigo se muestra en pantalla. Para que **llegue al buzon** de la
+persona, configura estas variables en el servicio:
+
+```
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=tu-cuenta@gmail.com
+SMTP_PASSWORD=una-clave-de-aplicacion
+SMTP_DESDE=tu-cuenta@gmail.com
+```
+
+En Gmail necesitas una **contrasena de aplicacion**, no la contrasena normal.
+Con esto, una cuenta sin confirmar **no puede guardar contenido** (la API
+responde 403 con un mensaje claro).
+
+### Comprobar el despliegue sin mirar logs
+
+```
+GET https://tu-api/api/diagnostico
+```
+
+Dice que tablas hay, si falta alguna, y si el SMTP y Google estan
+configurados. Detalle: `docs/16-RESPALDO-Y-NUBE.md`.
+
 ## 4. "Entrar con Google" en la nube
 
 1. En https://console.cloud.google.com/apis/credentials crea un **ID de

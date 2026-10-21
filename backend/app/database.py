@@ -126,16 +126,23 @@ def _migrar_sqlite() -> None:
                 )
                 """
             )
+            # La lista de columnas se arma con las que REALMENTE tiene la tabla
+            # vieja: si le faltan columnas nuevas, no se rompe la copia.
+            columnas_nuevas = [
+                "id", "titulo", "materia", "fecha_entrega", "estado", "prioridad",
+                "minutos_estimados", "resumen", "material", "preguntas",
+                "fuente", "tarea_id", "panel_id", "usuario_id", "creado_en",
+            ]
+            info = conn.exec_driver_sql("PRAGMA table_info(tasks_old)").fetchall()
+            existentes = {fila[1] for fila in info}
+            columnas = [c for c in columnas_nuevas if c in existentes]
+            if not columnas:
+                conn.exec_driver_sql("DROP TABLE tasks_old")
+                conn.exec_driver_sql("PRAGMA foreign_keys=ON")
+                return
+            lista = ", ".join(columnas)
             conn.exec_driver_sql(
-                """
-                INSERT INTO tasks (id, titulo, materia, fecha_entrega, estado, prioridad,
-                                   minutos_estimados, resumen, material, preguntas,
-                                   fuente, tarea_id, panel_id, usuario_id, creado_en)
-                SELECT id, titulo, materia, fecha_entrega, estado, prioridad,
-                       minutos_estimados, resumen, material, preguntas,
-                       fuente, tarea_id, panel_id, usuario_id, creado_en
-                FROM tasks_old
-                """
+                f"INSERT INTO tasks ({lista}) SELECT {lista} FROM tasks_old"
             )
             conn.exec_driver_sql("DROP TABLE tasks_old")
             conn.exec_driver_sql("PRAGMA foreign_keys=ON")

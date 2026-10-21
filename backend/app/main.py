@@ -10,7 +10,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from .config import settings
@@ -71,7 +71,12 @@ async def lifespan(app: FastAPI):
 
     registrar_filtro()
     Base.metadata.create_all(bind=engine)
-    _migrar_sqlite()
+    # Si la migracion falla (base muy vieja), la app debe ARRIBAR IGUAL: que un
+    # error de esquema no deje al usuario sin servicio.
+    try:
+        _migrar_sqlite()
+    except Exception as exc:  # pragma: no cover - nunca debe impedir arrancar
+        print(f"[migracion] no se pudo actualizar el esquema: {exc}")
     # v12: si la persona ya tiene una IA local en su equipo, se conecta sola.
     try:
         from .routers.conexiones import autoconectar_al_arrancar
@@ -137,6 +142,68 @@ def health():
         "proveedor_por_defecto": settings.default_llm_provider,
         "modelo": settings.default_openai_model,
     }
+
+
+@app.get("/api/diagnostico")
+def diagnostico():
+    """Autodiagnóstico: qué hay en la base de datos y si todo esta en orden.
+
+    Sirve para detectar despliegues con el esquema viejo (la causa habitual de
+    los errores 500) sin tener que mirar_logs del servidor.
+    """
+    from sqlalchemy import inspect as sa_inspect
+    from sqlalchemy import text as sa_text
+
+    info: dict = {"ok": True, "app": settings.app_name, "tablas": {}, "problemas": []}
+    try:
+        inspector = sa_inspect(engine)
+        tablas = inspector.get_table_names()
+        for tabla in tablas:
+            info["tablas"][tabla] = len(inspector.get_columns(tabla))
+        esperadas = [
+            "usuarios", "events", "tasks", "log_entries", "maintenance_items",
+            "chat_messages", "app_settings", "policy_settings", "audit_log",
+            "approval_requests", "ai_connections", "permisos_cuenta",
+            "paneles", "permisos_panel",
+        ]
+        for tabla in esperadas:
+            if tabla not in info["tablas"]:
+                info["problemas"].append(f"Falta la tabla {tabla}: la base esta incompleta.")
+        with engine.connect() as conexion:
+            try:
+                total = conexion.execute(sa_text("SELECT COUNT(*) FROM usuarios")).scalar()
+                info["usuarios"] = int(total or 0)
+            except Exception as exc:
+                info["problemas"].append(f"No se pudo leer la tabla de usuarios: {exc}")
+        info["conexion"] = str(engine.url)
+    except Exception as exc:  # pragma: no cover - autodiagnóstico
+        info["ok"] = False
+        info["problemas"].append(f"No se pudo inspeccionar la base de datos: {exc}")
+    info["correos"] = bool(settings.smtp_host)
+    info["google_configurado"] = bool(settings.google_client_id)
+    return info
+
+
+@app.exception_handler(Exception)
+async def _error_global(request: Request, exc: Exception):
+    """Ningun error debe verse como un 500 pelado: se explica en palabras."""
+    import traceback
+
+    print(f"[error] {request.method} {request.url.path}: {exc}")
+    traceback.print_exc()
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": (
+                "El servidor tuvo un problema al procesar esa peticion. "
+                "Ya lo registramos: prueba otra vez en un momento. "
+                "Si sigue, revisa en 'Conectar IA > Direccion de la API' que la direccion "
+                "sea la correcta."
+            ),
+            "error": str(exc)[:300],
+            "ruta": request.url.path,
+        },
+    )
 
 
 # --------------------------------------------------------------------------- #

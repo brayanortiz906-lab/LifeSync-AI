@@ -17,7 +17,7 @@ import json
 from datetime import datetime
 
 import httpx
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Body, Depends, Header, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -167,9 +167,9 @@ def _client_id_google(db: Session) -> str:
     raise HTTPException(
         status_code=400,
         detail=(
-            "Esta copia de LifeAgente todavia no tiene el acceso con Google configurado. "
-            "Lo activa una sola vez quien la instala (ayuda en 'Conectar IA > Configuracion avanzada'). "
-            "Mientras tanto puedes entrar con tu correo o seguir en este equipo."
+            "El acceso con esa cuenta todavia no esta activado en este servidor "
+            "(lo activa una sola vez quien lo instala). No te frena: entra con tu correo "
+            "y tu contrasena, o sigue en este equipo."
         ),
     )
 
@@ -200,6 +200,25 @@ def google_terminar(payload: CuentaGoogleIn, db: Session = Depends(get_db, scope
     usuario = entrar_con_cuenta(db, cred.get("access_token", ""), payload.proveedor)
     token = crear_sesion(db, usuario, payload.proveedor)
     return {"ok": True, "token": token, "usuario": _perfil(usuario)}
+
+
+@router.post("/reenviar-codigo")
+def reenviar_codigo(payload: CodigoIn, db: Session = Depends(get_db, scope="function")):
+    """Manda otra vez el codigo de verificacion (por correo o en pantalla)."""
+    usuario, codigo, modo = solicitar_codigo(db, payload.correo, payload.nombre)
+    respuesta = {
+        "ok": True,
+        "modo": modo,
+        "correo": usuario.correo,
+        "mensaje": (
+            "Te enviamos un codigo nuevo a tu correo. Vale por 15 minutos."
+            if modo == "smtp"
+            else "Este servidor todavia no envia correos, asi que te mostramos el codigo aqui."
+        ),
+    }
+    if modo == "consola":
+        respuesta["codigo"] = codigo
+    return respuesta
 
 
 @router.get("/yo")
@@ -361,35 +380,84 @@ def respaldo_drive_desde_conexion(db: Session = Depends(get_db, scope="function"
 
 
 @router.post("/respaldo/restaurar")
-def restaurar(payload: RestaurarIn, db: Session = Depends(get_db, scope="function")):
-    """Restaura un respaldo (eventos, tareas, gastos y mantenimiento)."""
+def restaurar(
+    payload: dict = Body(default={}),
+    db: Session = Depends(get_db, scope="function"),
+):
+    """Restaura un respaldo (eventos, tareas, gastos y mantenimiento).
+
+    Acepta el snapshot tal cual o envuelto en {"datos": ...}. Nunca devuelve
+    un error 500: si algo no se puede restaurar, lo cuenta y sigue.
+    """
+    from ..cuentas import restaurar_snapshot
+
+    datos = payload.get("datos") if isinstance(payload.get("datos"), dict) else payload
+    if not isinstance(datos, dict):
+        datos = {}
+    try:
+        return restaurar_snapshot(db, datos)
+    except HTTPException:
+        raise
+    except Exception as exc:  # pragma: no cover - red de seguridad
+        raise HTTPException(
+            status_code=400,
+            detail=f"No se pudo restaurar el respaldo: {exc}",
+        ) from exc
+
+
+@router.post("/restaurar/drive")
+def restaurar_desde_drive(db: Session = Depends(get_db, scope="function"), usuario=Depends(usuario_actual)):
+    """Trae el ultimo respaldo de tu Google Drive y lo deja en tu cuenta."""
+    from ..permisos import restaurar_drive
+    from ..cuentas import restaurar_snapshot
+
+    try:
+        datos = restaurar_drive(db)
+    except HTTPException:
+        raise
+    except Exception as exc:  # pragma: no cover - depende de la red
+        raise HTTPException(
+            status_code=502,
+            detail=f"No se pudo leer tu Google Drive: {exc}",
+        ) from exc
+    if not datos:
+        raise HTTPException(
+            status_code=404,
+            detail="No encontramos ningun respaldo en tu Drive. Autoriza el acceso a Drive e intenta otra vez.",
+        )
+    resultado = restaurar_snapshot(db, datos)
+    resultado["origen"] = "google_drive"
+    return resultado
+
+
+@router.post("/sincronizar")
+def sincronizar(db: Session = Depends(get_db, scope="function"), usuario=Depends(usuario_actual)):
+    """Al entrar con tu cuenta: si el servidor esta vacio, recupera tu contenido de Drive.
+
+    Asi tu contenido esta siempre disponible, entres desde el computador o
+    desde el celular.
+    """
+    from ..cuentas import restaurar_snapshot
+    from ..permisos import restaurar_drive
     from ..models import Event, LogEntry, Maintenance, Task
 
-    datos = payload.datos or {}
-    creados = {"eventos": 0, "tareas": 0, "registros": 0, "mantenimiento": 0}
-    for fila in datos.get("eventos", []):
-        campos = {k: v for k, v in fila.items() if hasattr(Event, k)}
-        if not campos.get("titulo"):
-            continue
-        db.add(Event(**campos))
-        creados["eventos"] += 1
-    for fila in datos.get("tareas", []):
-        campos = {k: v for k, v in fila.items() if hasattr(Task, k)}
-        if not campos.get("titulo"):
-            continue
-        db.add(Task(**campos))
-        creados["tareas"] += 1
-    for fila in datos.get("registros", []):
-        campos = {k: v for k, v in fila.items() if hasattr(LogEntry, k)}
-        if not campos.get("descripcion"):
-            continue
-        db.add(LogEntry(**campos))
-        creados["registros"] += 1
-    for fila in datos.get("mantenimiento", []):
-        campos = {k: v for k, v in fila.items() if hasattr(Maintenance, k)}
-        if not campos.get("tarea"):
-            continue
-        db.add(Maintenance(**campos))
-        creados["mantenimiento"] += 1
-    db.flush()
-    return {"ok": True, "restaurados": creados}
+    tiene_contenido = any(
+        db.scalars(select(modelo).limit(1)).first() is not None
+        for modelo in (Event, Task, LogEntry, Maintenance)
+    )
+    if tiene_contenido:
+        return {"ok": True, "restaurado": False, "mensaje": "Tu contenido ya estaba aqui."}
+    try:
+        datos = restaurar_drive(db)
+    except Exception:
+        datos = None
+    if not datos:
+        return {
+            "ok": True,
+            "restaurado": False,
+            "mensaje": "Todavia no hay nada guardado en Drive para esta cuenta.",
+        }
+    resultado = restaurar_snapshot(db, datos)
+    resultado["restaurado"] = True
+    resultado["mensaje"] = "Recuperamos tu contenido de Google Drive."
+    return resultado

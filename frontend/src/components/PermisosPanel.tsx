@@ -11,8 +11,8 @@
  *   - el sistema solo pide lo que necesita para funcionar solo.
  */
 import { useEffect, useState } from 'react'
-import { Check, CloudUpload, KeyRound, Loader2, RefreshCw, Sparkles, X } from 'lucide-react'
-import { permisos as apiPermisos } from '../lib/api'
+import { Check, CloudUpload, Download, KeyRound, Loader2, RefreshCw, Sparkles, X } from 'lucide-react'
+import { cuentas, permisos as apiPermisos } from '../lib/api'
 import type { EstadoPermisos } from '../types'
 import { Aviso, Boton, Panel, Stat } from './ui'
 
@@ -136,6 +136,25 @@ export default function PermisosPanel() {
           ? { ok: true, texto: `Respaldo guardado: ${r.archivo ?? 'lifesync-respaldo.json'}` }
           : { ok: false, texto: r.mensaje ?? 'No se pudo guardar el respaldo.' },
       )
+      await cargar()
+    } catch (e) {
+      setAviso({ ok: false, texto: (e as Error).message })
+    } finally {
+      setOcupado(false)
+    }
+  }
+
+  const restaurarDesdeDrive = async () => {
+    setOcupado(true)
+    setAviso(null)
+    try {
+      const r = await cuentas.restaurarDrive()
+      const n = r.restaurados ?? {}
+      const total = Object.values(n).reduce((a, b) => a + Number(b ?? 0), 0)
+      setAviso({
+        ok: true,
+        texto: `Recuperamos tu contenido de Drive: ${total} bloque(s) restaurados.`,
+      })
       await cargar()
     } catch (e) {
       setAviso({ ok: false, texto: (e as Error).message })
@@ -344,6 +363,9 @@ export default function PermisosPanel() {
             <Boton variante="fantasma" onClick={() => void importar()} disabled={ocupado}>
               Importar mi calendario
             </Boton>
+            <Boton variante="fantasma" onClick={() => void restaurarDesdeDrive()} disabled={ocupado}>
+              <Download size={13} /> Recuperar de Drive
+            </Boton>
           </div>
         </Panel>
       )}
@@ -351,7 +373,8 @@ export default function PermisosPanel() {
       <Aviso tono="info" titulo="Para que no tengas que descargar nada">
         Esta pantalla funciona igual en la nube: el servidor guarda tus datos y trabaja solo. En
         tu equipo, sin descargar nada, tambien funciona: la app detecta la IA que ya tengas
-        instalada (Ollama, LM Studio) y se conecta sola.
+        instalada (Ollama, LM Studio) y se conecta sola. Tu Drive es el almacen real: si el
+        servidor se reinicia, al entrar de nuevo recuperamos de ahi todo lo que tenias.
       </Aviso>
     </div>
   )

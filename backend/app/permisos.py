@@ -14,6 +14,7 @@ abierta (nube) y no vuelva a pedir permisos.
 from __future__ import annotations
 
 import json
+import urllib.parse
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -243,6 +244,8 @@ def respaldar_drive(db: Session) -> dict[str, Any]:
             "mensaje": "Todavia no autorizaste el acceso a Google Drive.",
         }
     datos = json.dumps(snapshot(db), ensure_ascii=False, indent=2).encode("utf-8")
+    # El nombre lleva fecha: asi Drive guarda el historial de respaldos.
+    nombre = f"lifeagente-respaldo-{datetime.now().strftime('%Y-%m-%d-%H%M')}.json"
     try:
         with httpx.Client(timeout=60) as client:
             resp = client.post(
@@ -251,9 +254,7 @@ def respaldar_drive(db: Session) -> dict[str, Any]:
                 files={
                     "metadata": (
                         "application/json",
-                        json.dumps(
-                            {"name": "lifesync-respaldo.json", "mimeType": "application/json"}
-                        ).encode("utf-8"),
+                        json.dumps({"name": nombre, "mimeType": "application/json"}).encode("utf-8"),
                     ),
                     "file": ("application/json", datos),
                 },
@@ -273,10 +274,67 @@ def respaldar_drive(db: Session) -> dict[str, Any]:
         db.flush()
     return {
         "ok": True,
-        "archivo": info.get("name", "lifesync-respaldo.json"),
+        "archivo": info.get("name", nombre),
         "id": info.get("id", ""),
         "enlace": f"https://drive.google.com/file/d/{info.get('id', '')}/view",
     }
+
+
+def listar_respaldos_drive(db: Session) -> list[dict[str, Any]]:
+    """Los respaldos que la persona tiene guardados en su Drive (el mas nuevo primero)."""
+    token = token_acceso(db)
+    if not token:
+        return []
+    url = (
+        "https://www.googleapis.com/drive/v3/files"
+        "?q=" + urllib.parse.quote("name contains 'lifeagente-respaldo'")
+        + "&orderBy=modifiedTime desc&pageSize=10&fields=files(id,name,modifiedTime,size)"
+    )
+    try:
+        with httpx.Client(timeout=30) as client:
+            resp = client.get(url, headers={"Authorization": f"Bearer {token}"})
+    except Exception:  # pragma: no cover - depende de la red
+        return []
+    if resp.status_code >= 400:
+        return []
+    try:
+        archivos = resp.json().get("files", []) or []
+    except Exception:
+        return []
+    return [
+        {
+            "id": f.get("id", ""),
+            "nombre": f.get("name", ""),
+            "modificado": f.get("modifiedTime", ""),
+            "tamano": f.get("size", "0"),
+        }
+        for f in archivos
+    ]
+
+
+def restaurar_drive(db: Session) -> dict[str, Any] | None:
+    """Descarga el ultimo respaldo de Drive y devuelve su contenido (JSON)."""
+    token = token_acceso(db)
+    if not token:
+        return None
+    respaldos = listar_respaldos_drive(db)
+    if not respaldos:
+        return None
+    ultimo = respaldos[0]
+    try:
+        with httpx.Client(timeout=60) as client:
+            resp = client.get(
+                f"https://www.googleapis.com/drive/v3/files/{ultimo['id']}?alt=media",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+    except Exception:  # pragma: no cover - depende de la red
+        return None
+    if resp.status_code >= 400:
+        return None
+    try:
+        return json.loads(resp.text)
+    except Exception:
+        return None
 
 
 def _momento(texto: str) -> datetime | None:

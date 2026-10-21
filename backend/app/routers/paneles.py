@@ -18,6 +18,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from ..cuentas import usuario_actual
+from ..cuentas import usuario_verificado
 from ..database import get_db
 from ..paneles import (
     NIVELES,
@@ -73,7 +74,7 @@ def tipos():
 @router.get("")
 def listar_paneles(
     db: Session = Depends(get_db, scope="function"),
-    usuario=Depends(usuario_actual),
+    usuario=Depends(usuario_verificado),
 ):
     """Tus paneles: los tuyos y los que otras personas te compartieron."""
     salida = []
@@ -116,8 +117,7 @@ def listar_paneles(
 def crear(
     payload: PanelIn,
     db: Session = Depends(get_db, scope="function"),
-    usuario=Depends(usuario_actual),
-):
+    usuario=Depends(usuario_verificado)):
     """Crea un panel a tu nombre."""
     panel = crear_panel(
         db, usuario.id, payload.nombre, payload.tipo, payload.color, payload.descripcion
@@ -147,8 +147,7 @@ def editar(
     panel_id: int,
     payload: PanelPatch,
     db: Session = Depends(get_db, scope="function"),
-    usuario=Depends(usuario_actual),
-):
+    usuario=Depends(usuario_verificado)):
     """Renombra o colorea un panel (solo su dueño)."""
     panel, rol = panel_con_acceso(db, panel_id, usuario.id)
     if rol != "dueno":
@@ -169,8 +168,7 @@ def editar(
 def borrar(
     panel_id: int,
     db: Session = Depends(get_db, scope="function"),
-    usuario=Depends(usuario_actual),
-):
+    usuario=Depends(usuario_verificado)):
     """Borra el panel; su contenido vuelve a tu panel personal."""
     panel, rol = panel_con_acceso(db, panel_id, usuario.id)
     if rol != "dueno":
@@ -185,7 +183,7 @@ def borrar(
 def listar_miembros(
     panel_id: int,
     db: Session = Depends(get_db, scope="function"),
-    usuario=Depends(usuario_actual),
+    usuario=Depends(usuario_verificado),
 ):
     """Quien tiene acceso a este panel."""
     panel, _ = panel_con_acceso(db, panel_id, usuario.id)
@@ -197,8 +195,7 @@ def compartir_panel(
     panel_id: int,
     payload: CompartirIn,
     db: Session = Depends(get_db, scope="function"),
-    usuario=Depends(usuario_actual),
-):
+    usuario=Depends(usuario_verificado)):
     """Da acceso a otra persona (por correo). Solo el dueño."""
     panel, rol = panel_con_acceso(db, panel_id, usuario.id)
     if rol != "dueno":
@@ -221,8 +218,7 @@ def quitar_acceso(
     panel_id: int,
     usuario_id: int,
     db: Session = Depends(get_db, scope="function"),
-    usuario=Depends(usuario_actual),
-):
+    usuario=Depends(usuario_verificado)):
     """Quita el acceso de una persona (solo el dueño)."""
     panel, rol = panel_con_acceso(db, panel_id, usuario.id)
     if rol != "dueno":
@@ -237,7 +233,7 @@ def quitar_acceso(
 def datos(
     panel_id: int,
     db: Session = Depends(get_db, scope="function"),
-    usuario=Depends(usuario_actual),
+    usuario=Depends(usuario_verificado),
 ):
     """Contenido del panel. Si no tienes permiso: 403 con mensaje claro."""
     panel, rol = panel_con_acceso(db, panel_id, usuario.id)

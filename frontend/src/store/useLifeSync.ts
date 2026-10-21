@@ -1,6 +1,6 @@
 /** Estado global de LifeSync AI (Zustand). */
 import { create } from 'zustand'
-import { api, guardarApiKeyLocal, leerApiKeyLocal, paneles as apiPaneles } from '../lib/api'
+import { api, cuentas as apiCuentas, guardarApiKeyLocal, leerApiKeyLocal, paneles as apiPaneles } from '../lib/api'
 import { aIso } from '../lib/format'
 import { analizarLocal } from '../lib/motorLocal'
 import type { DatoLocal } from '../lib/motorLocal'
@@ -291,6 +291,13 @@ interface Estado {
   compartirPanel: (id: number, correo: string, nivel: 'ver' | 'editar') => Promise<void>
   quitarAcceso: (id: number, usuarioId: number) => Promise<void>
   borrarPanel: (id: number) => Promise<void>
+
+  // --- Cuenta y almacenamiento (v20) ---------------------------------------
+  /** Al entrar con tu cuenta: recupera de Drive lo que falta y carga todo. */
+  sincronizarCuenta: () => Promise<void>
+  /** Mensaje para la persona (por ejemplo: "recuperamos tu contenido de Drive"). */
+  mensajeSesion: string
+  setMensajeSesion: (mensaje: string) => void
 }
 
 export const useLifeSync = create<Estado>((set, get) => ({
@@ -318,6 +325,24 @@ export const useLifeSync = create<Estado>((set, get) => ({
   modoLocal: false,
   paneles: [],
   panelId: null,
+  mensajeSesion: '',
+
+  setMensajeSesion: (mensaje: string) => set({ mensajeSesion: mensaje }),
+
+  async sincronizarCuenta() {
+    // Sin cuenta (modo local o de prueba) no hay nada que sincronizar.
+    if (get().modoPrueba || get().modoLocal) return
+    try {
+      const r = await apiCuentas.sincronizar()
+      if (r?.restaurado) {
+        await get().cargarTodo()
+        await get().cargarPaneles()
+        set({ mensajeSesion: r.mensaje || 'Recuperamos tu contenido de Google Drive.' })
+      }
+    } catch {
+      /* si no hay Drive o no hay permiso, la app sigue con lo que hay */
+    }
+  },
 
   async cargarPaneles() {
     try {

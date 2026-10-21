@@ -127,7 +127,7 @@ Detalle completo en [`docs/06-CONE-XIONES.md`](docs/06-CONE-XIONES.md).
 
 ### Verificación automática
 
-Con el backend corriendo, `backend/smoke.py` comprueba los 92 casos de uso contra la
+Con el backend corriendo, `backend/smoke.py` comprueba los 99 casos de uso contra la
 base de datos real (calendario, bitácora, tareas, mantenimiento, multi-intención,
 cascadas de registro automático, el sistema de IA responsable, el centro de conexiones
 y los permisos con piloto automático):
@@ -342,7 +342,7 @@ imagen de Python 3.12 que corre la API. La base SQLite vive en el volumen `/data
 
 ### 1-bis.4 Automatización (CI)
 
-`.github/workflows/ci.yml` corre en cada push: levanta la API, ejecuta los **92 casos** de
+`.github/workflows/ci.yml` corre en cada push: levanta la API, ejecuta los **99 casos** de
 `backend/smoke.py` (que incluyen el chat multi-intención, las cascadas, el sistema responsable,
 el centro de conexiones y los permisos con piloto automático) y compila el frontend con
 `tsc -b && vite build`. La insignia de arriba refleja el estado real del último push.
@@ -354,7 +354,7 @@ el centro de conexiones y los permisos con piloto automático) y compila el fron
 ```
 .
 ├── .github/workflows/
-│   ├── ci.yml                   ← CI: 92 casos del smoke test + build del frontend
+│   ├── ci.yml                   ← CI: 99 casos del smoke test + build del frontend
 │   └── deploy-pages.yml         ← Publica la interfaz en GitHub Pages
 ├── .devcontainer/               ← Codespaces: Python 3.12 + Node 20 preinstalados
 ├── Dockerfile                   ← Multi-stage: Node 20 compila, Python 3.12 sirve
@@ -449,6 +449,7 @@ el centro de conexiones y los permisos con piloto automático) y compila el fron
 | [docs/13-MOTOR-LOCAL.md](docs/13-MOTOR-LOCAL.md) | El motor de reglas: la app funciona sin IA, sin claves y sin servidor |
 | [docs/14-RESPONSIVE.md](docs/14-RESPONSIVE.md) | Diseño responsivo: 3 columnas en pantallas grandes, menu desplegable en el móvil y un solo scroll |
 | [docs/15-CUENTAS-Y-PANELES.md](docs/15-CUENTAS-Y-PANELES.md) | Cuentas que siempre funcionan (correo + contraseña) y paneles con permiso de acceso |
+| [docs/16-RESPALDO-Y-NUBE.md](docs/16-RESPALDO-Y-NUBE.md) | El error 500 explicado y arreglado, el código de verificación y Drive como almacén real |
 
 ---
 
@@ -645,6 +646,29 @@ Donde vive cada cosa:
 
 Detalle tecnico (endpoints, scopes, renovacion del token, tabla
 `permisos_cuenta`): `docs/12-PERMISOS-Y-NUBE.md`.
+
+### Tu Drive es el almacen real: al entrar de nuevo, todo vuelve
+
+El servidor puede reiniciarse (los planes gratuitos lo hacen). Por eso el
+**respaldo completo** vive tambien en tu **Google Drive**, y al entrar con tu
+cuenta LifeAgente lo recupera solo:
+
+| Cuando | Que pasa |
+|---|---|
+| Entras con tu cuenta | si el servidor esta vacio, se descarga el ultimo respaldo de Drive y se restaura |
+| Cada 12 horas (piloto automatico) | se sube un respaldo nuevo con fecha: `lifeagente-respaldo-AAAAMM-DD-HHMM.json` |
+| Quieres hacerlo a mano | boton **«Recuperar de Drive»** en la pestaña Permisos |
+
+Ademas, el **codigo de verificacion** se manda por correo y **una cuenta sin
+confirmar no puede guardar contenido** (la API responde 403 con el mensaje
+claro). Si el servidor no tiene SMTP, el codigo se muestra en pantalla para
+poder probarlo.
+
+Y para diagnosticar tu despliegue sin mirar logs: `GET /api/diagnostico` te dice
+que tablas hay, si falta alguna y si el SMTP y Google estan configurados.
+
+Detalle tecnico (el error 500 explicado, el flujo de verificacion y el ciclo
+Drive): `docs/16-RESPALDO-Y-NUBE.md`.
 
 ---
 
