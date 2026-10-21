@@ -5,12 +5,12 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import {
-  Bot, BookOpen, CalendarClock, GraduationCap, ListChecks, Receipt, Send, Sparkles,
-  User, Wrench,
+  Bot, BookOpen, CalendarClock, GraduationCap, ListChecks, Receipt, Send, ShieldAlert,
+  ShieldCheck, Sparkles, User, Wrench,
 } from 'lucide-react'
 import { useLifeSync } from '../store/useLifeSync'
 import { Chip } from './ui'
-import type { RegistroDetallado, RespuestaAgente } from '../types'
+import type { AprobacionPendiente, RegistroDetallado, RespuestaAgente } from '../types'
 
 const CATEGORIA_META: Record<string, { label: string; icon: typeof Bot; clase: string }> = {
   CALENDARIO: { label: 'Calendario', icon: CalendarClock, clase: 'bg-indigo-500/15 text-indigo-300 ring-indigo-500/30' },
@@ -190,6 +190,8 @@ export function FichaAgente({
   const movidos = asignaciones.filter((a) => a.movido).length
   const sinCaber = (plan?.sin_caber as Array<Record<string, unknown>>) ?? []
   const registros = (agente.resumen_estado?.registros_detallados as RegistroDetallado[]) ?? []
+  const pendientes = (agente.resumen_estado?.aprobaciones_pendientes as AprobacionPendiente[]) ?? []
+  const bloqueadas = (agente.resumen_estado?.acciones_bloqueadas as { tipo: string; motivo: string }[]) ?? []
 
   return (
     <div className="space-y-1.5">
@@ -255,6 +257,44 @@ export function FichaAgente({
                 </li>
               )
             })}
+          </ul>
+        </div>
+      )}
+
+      {pendientes.length > 0 && (
+        <div className="rounded-xl border border-amber-500/25 bg-amber-500/8 p-2.5">
+          <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-amber-300">
+            <ShieldAlert size={12} />
+            Requiere tu aprobación ({pendientes.length})
+          </p>
+          <ul className="space-y-1">
+            {pendientes.map((p, i) => (
+              <li key={i} className="flex items-start gap-1.5 text-[11px] text-slate-300">
+                <ShieldAlert size={12} className="mt-0.5 shrink-0 text-amber-400" />
+                <span className="font-medium text-slate-200">{p.resumen}</span>
+                {p.motivo && <span className="text-slate-500">· {p.motivo}</span>}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-1.5 text-[10px] text-slate-500">
+            Revísalo en Responsabilidad → Aprobaciones.
+          </p>
+        </div>
+      )}
+
+      {bloqueadas.length > 0 && (
+        <div className="rounded-xl border border-rose-500/25 bg-rose-500/8 p-2.5">
+          <p className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold text-rose-300">
+            <ShieldCheck size={12} />
+            No ejecutado por política ({bloqueadas.length})
+          </p>
+          <ul className="space-y-1">
+            {bloqueadas.map((b, i) => (
+              <li key={i} className="text-[11px] text-slate-300">
+                <span className="font-medium text-slate-200">{b.tipo}</span>
+                {b.motivo && <span className="text-slate-500">· {b.motivo}</span>}
+              </li>
+            ))}
           </ul>
         </div>
       )}

@@ -34,14 +34,15 @@
 │  TopBar ── ChatPanel ──────────► api.ts (fetch + BYOK)              │
 │            CalendarPanel                                                 │
 │            AcademicPanel / LogbookPanel                               │
+│            ResponsibilityPanel (política, auditoría, aprobaciones)   │
 │            Zustand (useLifeSync) ← fuente única de verdad             │
 └───────────────────────────────┬──────────────────────────────────────┘
                                 │ HTTP /api/*  (Vite proxy en dev)
 ┌───────────────────────────────▼──────────────────────────────────────┐
 │                        FASTAPI (backend/app)                         │
 │                                                                      │
-│  routers/crud.py    routers/agent.py                                  │
-│        │                  │                                           │
+│  routers/crud.py    routers/agent.py   routers/responsabilidad.py     │
+│        │                  │                       │                   │
 │        │            ┌─────▼──────┐  ┌──────────────┐                │
 │        │            │ agent.py   │─►│ providers.py │                │
 │        │            │ contexto   │  │ OpenAI       │                │
@@ -51,6 +52,11 @@
 │        │            └─────┬──────┘        ▲                          │
 │        │                  │               │ system_prompt.txt         │
 │        │            ┌─────▼──────┐        │ (shared/)                 │
+│        │            │ policy.py  │  GOBIERNO: reglas, riesgo, PII,   │
+│        │            │ ¿puede     │  auditoría, aprobación humana    │
+│        │            │  ejecutar? │                                   │
+│        │            └─────┬──────┘                                  │
+│        │            ┌─────▼──────┐                                  │
 │        │            │ planner.py │  determinista: sin solapes       │
 │        │            └─────┬──────┘                                  │
 │        │                  │                                          │
@@ -112,7 +118,8 @@ dispatcher (`aplicar_acciones`) valida y ejecuta. Esto además abre la puerta a 
 | `schemas.py` | Contrato Pydantic (API + agente) | Lógica |
 | `providers.py` | Llamada HTTP al LLM + `extract_json` | Tocar la BD |
 | `planner.py` | Resolución de conflictos de agenda | Interpretar lenguaje natural |
-| `agent.py` | Contexto → LLM → validar → aplicar | Hablar con la red directamente |
+| `policy.py` | Gobierno: reglas, riesgo, PII, auditoría, aprobación | Ejecutar la acción por su cuenta |
+| `agent.py` | Contexto → LLM → política → validar → aplicar | Hablar con la red directamente |
 | `security.py` | Cifrar/descifrar la API Key | Guardar claves en claro |
 | `routers/*` | HTTP puro (validar → servicio → responder) | Reglas de negocio |
 
@@ -203,11 +210,37 @@ legible en lugar de un traceback.
 
 ---
 
+## 8bis. La capa de gobierno (IA responsable)
+
+Entre el LLM y la ejecución hay una capa que decide **qué se permite hacer**:
+
+```
+LLM → intenciones tipadas → policy.py → AUTONOMO | REQUIERE_APROBACION | BLOQUEADO → agent.py
+```
+
+`policy.py` aplica 7 reglas ordenadas (modo prudente, acción no reconocida, confianza
+baja, borrado irreversible, gasto sobre umbral, compromiso inamovible, motivo ausente),
+clasifica el riesgo de cada tipo de acción, redacta los datos personales antes de que
+salgan del servidor y escribe cada decisión en `audit_log`.
+
+Lo que no pasa el filtro **no se ejecuta**: se crea un `ApprovalRequest` y espera al
+usuario en la bandeja de *Responsabilidad → Aprobaciones*.
+
+| Módulo | Responsabilidad |
+|---|---|
+| `policy.py` | `evaluar_accion`, `redactar_pii`, `registrar_auditoria`, `crear_aprobacion`, `reporte_cumplimiento` |
+| `routers/responsabilidad.py` | Política, auditoría, aprobaciones, redacción, cumplimiento, inventario de datos |
+
+Detalle completo en [05-RESPONSABILIDAD.md](05-RESPONSABILIDAD.md).
+
+---
+
 ## 9. Roadmap técnico
 
 | Fase | Entregable |
 |---|---|
 | **v1 (este repo)** | Chat + calendario + tareas + bitácora + planner + BYOK |
+| **v1.05 (este repo)** | IA responsable: gobierno, auditoría, aprobación humana, PII, cumplimiento |
 | v1.1 | Login multiusuario, Postgres, Alembic, tests unitarios del planner |
 | v1.2 | OAuth Google Classroom (tareas/entregas) y Notion (bases de datos) |
 | v1.3 | Worker asíncrono para PDFs largos + vectorización para el chat de.material |

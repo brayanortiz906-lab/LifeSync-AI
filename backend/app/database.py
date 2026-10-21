@@ -87,6 +87,14 @@ class Base(DeclarativeBase):
 
 
 def get_db() -> Generator[Session, None, None]:
+    """Sesion por request.
+
+    IMPORTANTE: los routers la usan con `Depends(get_db, scope="function")`.
+    Con el scope por defecto ("request") FastAPI cierra la dependencia DESPUES
+    de enviar la respuesta, asi que el `commit` ocurre tarde y un GET
+    inmediato posterior todavia no ve los datos. Con scope="function" el
+    commit se confirma antes de responder y la lectura siguiente es consistente.
+    """
     db = SessionLocal()
     try:
         yield db

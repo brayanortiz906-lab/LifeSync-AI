@@ -32,7 +32,7 @@ router = APIRouter(prefix="/api", tags=["datos"])
 def listar_eventos(
     desde: date | None = None,
     hasta: date | None = None,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ):
     q = select(Event).order_by(Event.inicio)
     if desde:
@@ -43,7 +43,7 @@ def listar_eventos(
 
 
 @router.post("/events", response_model=EventOut, status_code=201)
-def crear_evento(payload: EventCreate, db: Session = Depends(get_db)):
+def crear_evento(payload: EventCreate, db: Session = Depends(get_db, scope="function")):
     ev = Event(**payload.model_dump())
     db.add(ev)
     db.flush()
@@ -51,7 +51,7 @@ def crear_evento(payload: EventCreate, db: Session = Depends(get_db)):
 
 
 @router.patch("/events/{evento_id}", response_model=EventOut)
-def actualizar_evento(evento_id: int, payload: EventUpdate, db: Session = Depends(get_db)):
+def actualizar_evento(evento_id: int, payload: EventUpdate, db: Session = Depends(get_db, scope="function")):
     ev = db.get(Event, evento_id)
     if ev is None:
         raise HTTPException(404, "Evento no encontrado")
@@ -62,7 +62,7 @@ def actualizar_evento(evento_id: int, payload: EventUpdate, db: Session = Depend
 
 
 @router.delete("/events/{evento_id}", status_code=204)
-def eliminar_evento(evento_id: int, db: Session = Depends(get_db)):
+def eliminar_evento(evento_id: int, db: Session = Depends(get_db, scope="function")):
     ev = db.get(Event, evento_id)
     if ev is None:
         raise HTTPException(404, "Evento no encontrado")
@@ -73,7 +73,7 @@ def eliminar_evento(evento_id: int, db: Session = Depends(get_db)):
 # Tareas académicas
 # --------------------------------------------------------------------------- #
 @router.get("/tasks", response_model=list[TaskOut])
-def listar_tareas(estado: str | None = None, db: Session = Depends(get_db)):
+def listar_tareas(estado: str | None = None, db: Session = Depends(get_db, scope="function")):
     q = select(Task).order_by(Task.estado, Task.fecha_entrega.asc().nullslast())
     if estado:
         q = q.where(Task.estado == estado)
@@ -81,7 +81,7 @@ def listar_tareas(estado: str | None = None, db: Session = Depends(get_db)):
 
 
 @router.post("/tasks", response_model=TaskOut, status_code=201)
-def crear_tarea(payload: TaskCreate, db: Session = Depends(get_db)):
+def crear_tarea(payload: TaskCreate, db: Session = Depends(get_db, scope="function")):
     tarea = Task(**payload.model_dump())
     db.add(tarea)
     db.flush()
@@ -89,7 +89,7 @@ def crear_tarea(payload: TaskCreate, db: Session = Depends(get_db)):
 
 
 @router.patch("/tasks/{tarea_id}", response_model=TaskOut)
-def actualizar_tarea(tarea_id: int, payload: TaskUpdate, db: Session = Depends(get_db)):
+def actualizar_tarea(tarea_id: int, payload: TaskUpdate, db: Session = Depends(get_db, scope="function")):
     tarea = db.get(Task, tarea_id)
     if tarea is None:
         raise HTTPException(404, "Tarea no encontrada")
@@ -100,7 +100,7 @@ def actualizar_tarea(tarea_id: int, payload: TaskUpdate, db: Session = Depends(g
 
 
 @router.post("/tasks/{tarea_id}/completar", response_model=TaskOut)
-def completar_tarea(tarea_id: int, db: Session = Depends(get_db)):
+def completar_tarea(tarea_id: int, db: Session = Depends(get_db, scope="function")):
     tarea = db.get(Task, tarea_id)
     if tarea is None:
         raise HTTPException(404, "Tarea no encontrada")
@@ -115,7 +115,7 @@ def completar_tarea(tarea_id: int, db: Session = Depends(get_db)):
 @router.get("/logbook", response_model=list[LogOut])
 def listar_registros(
     mes: str | None = Query(None, pattern=r"^\d{4}-\d{2}$"),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ):
     q = select(LogEntry).order_by(LogEntry.fecha.desc(), LogEntry.id.desc())
     if mes:
@@ -124,7 +124,7 @@ def listar_registros(
 
 
 @router.post("/logbook", response_model=LogOut, status_code=201)
-def registrar(payload: LogCreate, db: Session = Depends(get_db)):
+def registrar(payload: LogCreate, db: Session = Depends(get_db, scope="function")):
     entrada = LogEntry(
         descripcion=payload.descripcion,
         monto=payload.monto,
@@ -139,7 +139,7 @@ def registrar(payload: LogCreate, db: Session = Depends(get_db)):
 
 
 @router.delete("/logbook/{registro_id}", status_code=204)
-def eliminar_registro(registro_id: int, db: Session = Depends(get_db)):
+def eliminar_registro(registro_id: int, db: Session = Depends(get_db, scope="function")):
     reg = db.get(LogEntry, registro_id)
     if reg is None:
         raise HTTPException(404, "Registro no encontrado")
@@ -158,13 +158,13 @@ def _enriquecer(m: Maintenance) -> MaintenanceOut:
 
 
 @router.get("/maintenance", response_model=list[MaintenanceOut])
-def listar_mantenimiento(db: Session = Depends(get_db)):
+def listar_mantenimiento(db: Session = Depends(get_db, scope="function")):
     items = db.scalars(select(Maintenance).order_by(Maintenance.proxima_fecha.asc().nullslast())).all()
     return [_enriquecer(m) for m in items]
 
 
 @router.post("/maintenance", response_model=MaintenanceOut, status_code=201)
-def crear_mantenimiento(payload: MaintenanceCreate, db: Session = Depends(get_db)):
+def crear_mantenimiento(payload: MaintenanceCreate, db: Session = Depends(get_db, scope="function")):
     datos = payload.model_dump()
     if datos.get("ultima_realizacion") and not datos.get("proxima_fecha"):
         datos["proxima_fecha"] = datos["ultima_realizacion"] + timedelta(days=datos.get("intervalo_dias", 90))
@@ -175,7 +175,7 @@ def crear_mantenimiento(payload: MaintenanceCreate, db: Session = Depends(get_db
 
 
 @router.post("/maintenance/{mant_id}/completar", response_model=MaintenanceOut)
-def completar_mantenimiento(mant_id: int, db: Session = Depends(get_db)):
+def completar_mantenimiento(mant_id: int, db: Session = Depends(get_db, scope="function")):
     mant = db.get(Maintenance, mant_id)
     if mant is None:
         raise HTTPException(404, "Mantenimiento no encontrado")
@@ -189,7 +189,7 @@ def completar_mantenimiento(mant_id: int, db: Session = Depends(get_db)):
 # Dashboard
 # --------------------------------------------------------------------------- #
 @router.get("/dashboard")
-def dashboard(db: Session = Depends(get_db)):
+def dashboard(db: Session = Depends(get_db, scope="function")):
     hoy = date.today()
     inicio = datetime.combine(hoy, datetime.min.time())
     fin = inicio + timedelta(days=1)

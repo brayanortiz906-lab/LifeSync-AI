@@ -16,6 +16,7 @@ from .config import settings
 from .database import Base, SessionLocal, _migrar_sqlite, engine
 from .routers import agent as agent_router
 from .routers import crud as crud_router
+from .routers import responsabilidad as responsabilidad_router
 from .seed import sembrar
 
 
@@ -46,6 +47,7 @@ app.add_middleware(
 
 app.include_router(crud_router.router)
 app.include_router(agent_router.router)
+app.include_router(responsabilidad_router.router)
 
 
 @app.get("/api/health")

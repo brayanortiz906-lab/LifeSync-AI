@@ -80,6 +80,104 @@ export interface RegistroDetallado {
   detalle: string
 }
 
+export interface RegistroDetallado {
+  tipo: TipoRegistro | string
+  titulo: string
+  detalle: string
+}
+
+export interface AprobacionPendiente {
+  id: number
+  tipo: string
+  resumen: string
+  motivo: string | null
+  regla: string
+  riesgo: string
+  confianza: number | null
+}
+
+// --------------------------------------------------------------------------- //
+// Sistema responsable (IA responsable)
+// --------------------------------------------------------------------------- //
+export type NivelRiesgo = 'bajo' | 'medio' | 'alto'
+
+export interface Politica {
+  id: number
+  umbral_confianza: number
+  gasto_max_autonomo: number
+  max_acciones_por_mensaje: number
+  eliminar_requiere_aprobacion: boolean
+  gasto_alto_requiere_aprobacion: boolean
+  baja_confianza_requiere_aprobacion: boolean
+  redactar_pii: boolean
+  registrar_auditoria: boolean
+  permitir_ia_externa: boolean
+  modo_prudente: boolean
+  exigir_motivo: boolean
+  dias_retencion_auditoria: number
+  actualizado_en?: string | null
+}
+
+export interface Aprobacion {
+  id: number
+  creado_en: string
+  estado: string
+  tipo_accion: string
+  resumen: string
+  motivo: string | null
+  regla: string
+  riesgo: NivelRiesgo | string
+  confianza: number | null
+  chat_message_id: number | null
+  decidido_en: string | null
+  decidido_por: string | null
+  nota_decision: string | null
+}
+
+export interface EntradaAuditoria {
+  id: number
+  creado_en: string
+  actor: string
+  tipo: string
+  modulo: string
+  entidad: string | null
+  entidad_id: number | null
+  descripcion: string
+  motivo: string | null
+  confianza: number | null
+  riesgo: NivelRiesgo | string
+  reversible: boolean
+  resultado: string
+}
+
+export interface ControlCumplimiento {
+  id: string
+  nombre: string
+  marco: string
+  estado: 'cumple' | 'parcial' | 'no_cumple'
+  detalle: string
+}
+
+export interface ReporteCumplimiento {
+  puntaje: number
+  controles: ControlCumplimiento[]
+  resumen: Record<string, number>
+  politica: Record<string, unknown>
+  actividad: {
+    decisiones_auditadas: number
+    aprobaciones_pendientes: number
+    aprobaciones_totales: number
+  }
+}
+
+export interface ResumenAuditoria {
+  total: number
+  por_tipo: Record<string, number>
+  por_riesgo: Record<string, number>
+  por_resultado: Record<string, number>
+  explicabilidad_pct: number
+}
+
 export interface RespuestaAgente {
   categoria: 'CALENDARIO' | 'TAREA_ACADEMICA' | 'BITACORA_GASTO' | 'MANTENIMIENTO' | 'CONVERSACION'
   /** Todas las categorías detectadas en el mensaje (multi-intención). */
@@ -90,7 +188,12 @@ export interface RespuestaAgente {
   requiere_confirmacion: boolean
   acciones: Accion[]
   alertas: Alerta[]
-  resumen_estado: Record<string, unknown>
+  resumen_estado: Record<string, unknown> & {
+    registros_detallados?: RegistroDetallado[]
+    aprobaciones_pendientes?: AprobacionPendiente[]
+    acciones_bloqueadas?: { tipo: string; motivo: string; regla: string }[]
+    plan?: Record<string, unknown>
+  }
 }
 
 export interface MensajeChat {

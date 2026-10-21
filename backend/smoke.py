@@ -161,6 +161,138 @@ def main() -> int:
     dash = pedir("GET", "/api/dashboard")
     check("dashboard responde", isinstance(dash, dict) and "eventos_hoy" in dash, f"claves={list(dash.keys()) if isinstance(dash, dict) else '-'}")  # type: ignore[union-attr]
 
+    # ==================================================================
+    # SISTEMA RESPONSABLE (IA responsable)
+    # ==================================================================
+    print("-" * 70)
+    print("SISTEMA RESPONSABLE")
+    print("-" * 70)
+
+    # --------------------------------------------------------- POLITICA Y UMBRALES
+    pol = pedir("GET", "/api/responsabilidad/politica")
+    check("[RESP] la politica es accesible", bool(pol) and "umbral_confianza" in pol, f"umbral={pol.get('umbral_confianza') if pol else '-'}")  # type: ignore[union-attr]
+
+    # Se baja el umbral de gasto para forzar el flujo de aprobacion.
+    pol_bajo = dict(pol)  # type: ignore[arg-type]
+    pol_bajo["gasto_max_autonomo"] = 1000.0
+    pedir("PUT", "/api/responsabilidad/politica", pol_bajo)
+
+    # ----------------------------------------------------- GASTO SOBRE UMBRAL
+    # Conteo previo: el test es repetible, asi que puede haber gastos iguales
+    # de corridas anteriores (ya aprobados). Se compara el delta, no el total.
+    previos = sum(1 for x in pedir("GET", "/api/logbook") if abs(x["monto"] - 800000.0) < 0.01)  # type: ignore[index]
+    r = chat("Pagué la matricula de la universidad por 800 mil")
+    ag = r["agente"]
+    pendientes = ag["resumen_estado"].get("aprobaciones_pendientes") or []
+    check("[RESP] gasto alto queda pendiente de aprobacion", len(pendientes) >= 1, f"pendientes={len(pendientes)}")
+    check(
+        "[RESP] el motivo de la regla se explica",
+        bool(pendientes) and bool(pendientes[0].get("regla")) and bool(pendientes[0].get("motivo")),
+        f"regla={pendientes[0].get('regla') if pendientes else '-'}",
+    )
+    despues = sum(1 for x in pedir("GET", "/api/logbook") if abs(x["monto"] - 800000.0) < 0.01)  # type: ignore[index]
+    check(
+        "[RESP] el gasto NO se ejecuto sin permiso",
+        despues == previos,
+        f"antes={previos} despues={despues}",
+    )
+    check(
+        "[RESP] el chat avisa que necesita confirmacion",
+        "confirmaci" in ag["mensaje_usuario"].lower() or "aprobaci" in ag["mensaje_usuario"].lower(),
+        ag["mensaje_usuario"][:90],
+    )
+
+    # ---------------------------------------------------------- APROBAR Y EJECUTAR
+    aprobaciones = pedir("GET", "/api/responsabilidad/aprobaciones?estado=pendiente")
+    check("[RESP] la aprobacion llega a la bandeja", len(aprobaciones or []) >= 1, f"n={len(aprobaciones or [])}")  # type: ignore[arg-type]
+    # Se toma la peticion que corresponde a ESTE gasto (no una de corridas previas).
+    objetivo = next(
+        (a for a in (aprobaciones or []) if "matricula" in (a.get("resumen") or "").lower()),  # type: ignore[union-attr]
+        (aprobaciones or [None])[0],  # type: ignore[index]
+    )
+    if objetivo:
+        pid = objetivo["id"]  # type: ignore[index]
+        antes_aprobar = sum(1 for x in pedir("GET", "/api/logbook") if abs(x["monto"] - 800000.0) < 0.01)  # type: ignore[index]
+        pedido = pedir("POST", f"/api/responsabilidad/aprobaciones/{pid}/decidir", {"aprobar": True, "nota": "Aprobado en la prueba", "actor": "usuario"})  # type: ignore[arg-type]
+        check("[RESP] aprobar cambia el estado", bool(pedido) and pedido.get("estado") == "aprobada", f"estado={pedido.get('estado') if pedido else '-'}")  # type: ignore[union-attr]
+        log = pedir("GET", "/api/logbook")
+        despues_aprobar = sum(1 for x in log if abs(x["monto"] - 800000.0) < 0.01)  # type: ignore[index]
+        check(
+            "[RESP] tras aprobar, el gasto SI queda registrado",
+            despues_aprobar == antes_aprobar + 1,
+            f"antes={antes_aprobar} despues={despues_aprobar}",
+        )
+
+    # ------------------------------------------------------------------ RECHAZAR
+    antes_rechazar = sum(1 for x in pedir("GET", "/api/logbook") if abs(x["monto"] - 3000000.0) < 0.01)  # type: ignore[index]
+    r = chat("Compré un computador de 3 millones")
+    aprobaciones = pedir("GET", "/api/responsabilidad/aprobaciones?estado=pendiente")
+    # Se busca la peticion del computador (no una de corridas previas).
+    objetivo = next(
+        (a for a in (aprobaciones or []) if "computador" in (a.get("resumen") or "").lower()),  # type: ignore[union-attr]
+        None,
+    )
+    if objetivo:
+        pid = objetivo["id"]  # type: ignore[index]
+        pedido = pedir("POST", f"/api/responsabilidad/aprobaciones/{pid}/decidir", {"aprobar": False, "nota": "Fuera de presupuesto", "actor": "usuario"})  # type: ignore[arg-type]
+        check("[RESP] rechazar cambia el estado", bool(pedido) and pedido.get("estado") == "rechazada", f"estado={pedido.get('estado') if pedido else '-'}")  # type: ignore[union-attr]
+        log = pedir("GET", "/api/logbook")
+        despues_rechazar = sum(1 for x in log if abs(x["monto"] - 3000000.0) < 0.01)  # type: ignore[index]
+        check(
+            "[RESP] tras rechazar, el gasto NO se registra",
+            despues_rechazar == antes_rechazar,
+            f"antes={antes_rechazar} despues={despues_rechazar}",
+        )
+
+    # ---------------------------------------------------------------- REDACCION PII
+    # Se restaura la politica para que este gasto normal pase de forma autonoma.
+    pedir("PUT", "/api/responsabilidad/politica", pol)
+
+    red = pedir("POST", "/api/responsabilidad/redactar", {"texto": "Mi correo es ana@correo.com, mi cedula 1234567890 y la tarjeta 4111111111111111"})
+    check("[RESP] la redaction detecta PII", bool(red) and int(red.get("total_encontrados", 0)) >= 3, f"encontrados={red.get('total_encontrados') if red else '-'}")  # type: ignore[union-attr]
+    check(
+        "[RESP] la redaction enmascara los datos",
+        bool(red) and "ana@correo.com" not in red.get("texto_redactado", "") and "4111111111111111" not in red.get("texto_redactado", ""),  # type: ignore[union-attr]
+    )
+
+    # Regresion: un MONTO de 6+ digitos no debe confundirse con una cedula.
+    red_monto = pedir("POST", "/api/responsabilidad/redactar", {"texto": "Pague 800000 por el arreglo"})
+    check(
+        "[RESP] un monto no se confunde con una cedula",
+        bool(red_monto) and "800000" in red_monto.get("texto_redactado", ""),  # type: ignore[union-attr]
+        red_monto.get("texto_redactado", "") if red_monto else "",  # type: ignore[union-attr]
+    )
+
+    antes_pii = sum(1 for x in pedir("GET", "/api/logbook") if abs(x["monto"] - 90000.0) < 0.01)  # type: ignore[index]
+    r = chat("Compre una chaqueta por 90 mil con mi cedula 1234567890")
+    log = pedir("GET", "/api/logbook")
+    nuevos_pii = [x for x in log if abs(x["monto"] - 90000.0) < 0.01][antes_pii:]  # type: ignore[index]
+    registro = nuevos_pii[0] if nuevos_pii else None
+    check(
+        "[RESP] el mensaje con PII se registra sin exponer la cedula",
+        registro is not None and "1234567890" not in registro["descripcion"],
+        f"desc={registro['descripcion'][:60] if registro else '-'}",
+    )
+
+    # -------------------------------------------------------------------- AUDITORIA
+    aud = pedir("GET", "/api/responsabilidad/auditoria?limite=200")
+    check("[RESP] la auditoria registra decisiones", len(aud or []) >= 1, f"entradas={len(aud or [])}")  # type: ignore[arg-type]
+    tipos_aud = {a["tipo"] for a in (aud or [])}  # type: ignore[union-attr]
+    check("[RESP] la auditoria tipa los eventos", "accion" in tipos_aud, f"tipos={sorted(tipos_aud)}")
+    check(
+        "[RESP] la auditoria conserva el motivo",
+        all("motivo" in a for a in (aud or [])),  # type: ignore[union-attr]
+    )
+    res_aud = pedir("GET", "/api/responsabilidad/auditoria/resumen")
+    check("[RESP] el resumen de auditoria responde", bool(res_aud) and "total" in res_aud, f"total={res_aud.get('total') if res_aud else '-'}")  # type: ignore[union-attr]
+
+    # ----------------------------------------------------------------- CUMPLIMIENTO
+    comp = pedir("GET", "/api/responsabilidad/cumplimiento")
+    check("[RESP] el reporte de cumplimiento responde", bool(comp) and "controles" in comp, f"puntaje={comp.get('puntaje') if comp else '-'}")  # type: ignore[union-attr]
+    check("[RESP] el reporte tiene controles", bool(comp) and len(comp.get("controles", [])) >= 6, f"controles={len(comp.get('controles', [])) if comp else 0}")  # type: ignore[union-attr]
+    inv = pedir("GET", "/api/responsabilidad/inventario")
+    check("[RESP] el inventario de datos responde", bool(inv) and "derechos" in inv, f"claves={list(inv.keys()) if isinstance(inv, dict) else '-'}")  # type: ignore[union-attr]
+
     print("=" * 70)
     if fallos:
         print(f"RESULTADO: {len(fallos)} CASO(S) FALLIDO(S): {fallos}")

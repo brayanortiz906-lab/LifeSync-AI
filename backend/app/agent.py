@@ -20,6 +20,7 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from . import policy as gober
 from . import providers
 from .config import settings
 from .models import ChatMessage, Event, LogEntry, Maintenance, Task
@@ -146,15 +147,106 @@ def _detectar_conflictos(db: Session, inicio: datetime, fin: datetime, excluir_i
     ]
 
 
-def aplicar_acciones(db: Session, acciones: list[AgentAction]) -> dict[str, Any]:
+def aplicar_acciones(
+    db: Session,
+    acciones: list[AgentAction],
+    confianza: float | None = None,
+    chat_message_id: int | None = None,
+    aprobada_por_usuario: bool = False,
+) -> dict[str, Any]:
+    """Ejecuta las acciones PERMITIDAS por la politica de gobierno.
+
+    Acciones que requieren aprobacion humana NO se ejecutan: se encolan en
+    `ApprovalRequest` y el usuario las resuelve desde la interfaz. Cada
+    decision queda registrada en la bitacora de auditoria.
+
+    `aprobada_por_usuario=True` salta la evaluacion automatica: se usa cuando
+    el humano ya aprobo explicitamente la accion (el visto bueno humano es
+    la maxima autoridad del sistema).
+    """
     resumen: dict[str, Any] = {
         "eventos_creados": [], "eventos_actualizados": [], "eventos_eliminados": 0,
         "tareas_creadas": [], "tareas_actualizadas": [], "registros": [],
         "mantenimientos": [], "estudio_programado": [], "plan": {},
         "registros_detallados": [],
+        "aprobaciones_pendientes": [],
+        "acciones_bloqueadas": [],
     }
     plan_resultado: dict[str, Any] = {}
     ultima_tarea: int | None = None
+
+    # --- Control de gobierno: separar autonomas / a aprobar / bloqueadas ------
+    politica = gober.obtener_politica(db)
+    lote = [
+        {"tipo": a.tipo, "datos": a.datos or {}, "motivo": a.motivo}
+        for a in acciones
+    ]
+    # Limite duro de acciones por mensaje (proteccion contra la IA runaway).
+    if len(lote) > politica.max_acciones_por_mensaje:
+        gober.registrar_auditoria(
+            db, actor="sistema", tipo="truncado", modulo="gobierno",
+            descripcion=f"Mensaje con {len(lote)} acciones truncado al maximo permitido",
+            motivo="max_acciones_por_mensaje", riesgo="medio", reversible=True,
+            resultado="aplicado",
+            datos={"original": len(lote), "permitidas": politica.max_acciones_por_mensaje},
+        )
+        lote = lote[: politica.max_acciones_por_mensaje]
+    if aprobada_por_usuario:
+        # El humano ya aprobo: la accion se ejecuta sin volver a pasar por los
+        # umbrales automaticos (el visto bueno humano es la maxima autoridad).
+        autonomas, a_aprobar, bloqueadas = [
+            gober.Decision(
+                nivel=gober.AUTONOMO, regla="aprobada_por_usuario",
+                motivo="Aprobada explicitamente por el usuario",
+                riesgo=gober.RIESGO_ACCION.get(str(a.tipo or ""), "medio"),
+                confianza=1.0, accion={"tipo": a.tipo, "datos": a.datos or {}, "motivo": a.motivo},
+            )
+            for a in acciones
+        ], [], []
+    else:
+        autonomas, a_aprobar, bloqueadas = gober.evaluar_lote(lote, politica, confianza)
+
+    for decision in bloqueadas:
+        resumen["acciones_bloqueadas"].append(
+            {"tipo": decision.accion.get("tipo"), "motivo": decision.motivo, "regla": decision.regla}
+        )
+        gober.registrar_auditoria(
+            db, actor="sistema", tipo="bloqueo", modulo="gobierno",
+            descripcion=gober._resumen_accion(decision.accion),
+            motivo=decision.motivo, confianza=decision.confianza,
+            riesgo=decision.riesgo, reversible=True, resultado="bloqueado",
+            entidad="accion", datos=decision.accion,
+        )
+
+    for decision in a_aprobar:
+        peticion = gober.crear_aprobacion(db, decision, chat_message_id)
+        resumen["aprobaciones_pendientes"].append({
+            "id": peticion.id,
+            "tipo": peticion.tipo_accion,
+            "resumen": peticion.resumen,
+            "motivo": peticion.motivo,
+            "regla": peticion.regla,
+            "riesgo": peticion.riesgo,
+            "confianza": peticion.confianza,
+        })
+        gober.registrar_auditoria(
+            db, actor="agente", tipo="solicitud_aprobacion", modulo="gobierno",
+            descripcion=peticion.resumen, motivo=decision.motivo,
+            confianza=decision.confianza, riesgo=decision.riesgo,
+            reversible=True, resultado="pendiente",
+            entidad="approval_request", entidad_id=peticion.id,
+            datos={"regla": decision.regla},
+        )
+
+    # Solo llegan al executor las acciones autonomas.
+    acciones_autorizadas = [
+        AgentAction(
+            tipo=str(d.accion.get("tipo") or ""),
+            datos=d.accion.get("datos") or {},
+            motivo=str(d.accion.get("motivo") or ""),
+        )
+        for d in autonomas
+    ]
 
     def anotar(tipo: str, titulo: str, detalle: str) -> None:
         """Guarda una línea legible de lo que quedó registrado (para la UI)."""
@@ -162,7 +254,7 @@ def aplicar_acciones(db: Session, acciones: list[AgentAction]) -> dict[str, Any]
             {"tipo": tipo, "titulo": titulo, "detalle": detalle}
         )
 
-    for accion in acciones:
+    for accion in acciones_autorizadas:
         tipo = accion.tipo
         d = accion.datos or {}
 
@@ -408,7 +500,58 @@ def aplicar_acciones(db: Session, acciones: list[AgentAction]) -> dict[str, Any]
         sin_caber = plan_resultado.get("sin_caber") or []
         if sin_caber:
             anotar("agenda", f"{len(sin_caber)} bloque(s) sin espacio", "Revisa o divide esas tareas")
+
+    # --- Auditoria: una entrada por accion efectivamente ejecutada -----------
+    if not politica.registrar_auditoria:
+        return resumen
+    for decision, registro in zip(autonomas, _acciones_ejecutadas(autonomas, resumen)):
+        gober.registrar_auditoria(
+            db, actor="agente", tipo="accion", modulo="agente",
+            descripcion=registro.get("descripcion", decision.accion.get("tipo", "")),
+            motivo=decision.motivo or gober.explicar(decision),
+            confianza=decision.confianza, riesgo=decision.riesgo,
+            reversible=True, resultado="ok",
+            entidad=registro.get("entidad"), entidad_id=registro.get("entidad_id"),
+            datos={"tipo_accion": decision.accion.get("tipo"), "regla": decision.regla},
+        )
     return resumen
+
+
+def _acciones_ejecutadas(autonomas: list, resumen: dict[str, Any]) -> list[dict[str, Any]]:
+    """Empareja cada decision autonoma con la entidad que produjo.
+
+    Se recorre el resumen en orden de aparicion para reconstruir que se
+    escribio en la base de datos a partir de cada accion.
+    """
+    cola: list[dict[str, Any]] = []
+
+    def _buscar(clave: str, entidad: str, prefijo: str) -> None:
+        for valor in reversed(resumen.get(clave) or []):
+            if not any(c["entidad"] == entidad and c["entidad_id"] == valor for c in cola):
+                cola.append({
+                    "entidad": entidad, "entidad_id": valor,
+                    "descripcion": f"{prefijo} #{valor}",
+                })
+                return
+
+    for decision in autonomas:
+        tipo = str(decision.accion.get("tipo") or "")
+        titulo = str((decision.accion.get("datos") or {}).get("titulo") or "")
+        if tipo == "crear_evento":
+            _buscar("eventos_creados", "evento", "Evento creado")
+        elif tipo == "actualizar_evento":
+            _buscar("eventos_actualizados", "evento", "Evento actualizado")
+        elif tipo == "crear_tarea":
+            _buscar("tareas_creadas", "tarea", "Tarea creada")
+        elif tipo == "registrar_gasto":
+            _buscar("registros", "log_entry", "Gasto registrado")
+        elif tipo in {"registrar_mantenimiento", "programar_mantenimiento"}:
+            _buscar("mantenimientos", "maintenance", "Mantenimiento registrado")
+        elif tipo == "programar_estudio":
+            _buscar("estudio_programado", "evento", "Bloque de estudio")
+        else:
+            cola.append({"entidad": None, "entidad_id": None, "descripcion": f"{tipo}: {titulo}"[:255]})
+    return cola
 
 
 def _hueco_libre(
@@ -611,6 +754,7 @@ def _preguntas_locales(material: str, n: int = 4) -> list[str]:
 # --------------------------------------------------------------------------- #
 async def procesar_mensaje(db: Session, req: ChatRequest) -> ChatResponse:
     app = _get_app_settings(db)
+    politica = gober.obtener_politica(db)
     proveedor_solicitado = (req.proveedor or app.proveedor or "mock").lower()
     proveedor = proveedor_solicitado
     modelo = req.modelo or app.modelo or settings.default_openai_model
@@ -621,27 +765,52 @@ async def procesar_mensaje(db: Session, req: ChatRequest) -> ChatResponse:
         # Sin credenciales no se puede llamar al proveedor: se usa el motor
         # local en vez de romper el chat, y se avisa en la respuesta.
         proveedor = "mock"
+    if proveedor != "mock" and not politica.permitir_ia_externa:
+        # Governance: la politica impide enviar datos a un proveedor externo.
+        proveedor = "mock"
+        gober.registrar_auditoria(
+            db, actor="sistema", tipo="redireccion", modulo="gobierno",
+            descripcion="Proveedor externo bloqueado por politica; se uso el motor local",
+            motivo="permitir_ia_externa=False", riesgo="bajo", reversible=True, resultado="ok",
+        )
+
+    # --- Privacidad: la PII se redacta ANTES de salir del servidor -------------
+    mensaje = req.mensaje
+    pii_encontrada: list[str] = []
+    if politica.redactar_pii:
+        mensaje, pii_encontrada = gober.redactar_pii(req.mensaje)
+        if pii_encontrada:
+            gober.registrar_auditoria(
+                db, actor="sistema", tipo="redaccion", modulo="privacidad",
+                descripcion=f"Datos personales redactados: {', '.join(pii_encontrada)}",
+                motivo="politica.redactar_pii", riesgo="bajo", reversible=True,
+                resultado="ok", datos={"categorias": pii_encontrada},
+            )
 
     system_prompt = settings.system_prompt
     contexto = construir_contexto(db) if req.usar_contexto else "{}"
     user_prompt = (
         f"CONTEXTO DEL USUARIO (JSON, estado actual de la app):\n{contexto}\n\n"
-        f"MENSAJE DEL USUARIO:\n{req.mensaje}\n\n"
+        f"MENSAJE DEL USUARIO:\n{mensaje}\n\n"
         "Responde SOLO con el JSON del contrato."
     )
 
     texto = await providers.complete(
         system_prompt, user_prompt, proveedor=proveedor, api_key=api_key, modelo=modelo,
-        mensaje_original=req.mensaje,
+        mensaje_original=mensaje,
     )
     crudo = providers.extract_json(texto)
     agente = AgentResponse.model_validate(_normalizar(crudo))
 
-    # Persistir el mensaje del usuario
+    # Persistir el mensaje del usuario (el original, sin redactar: es su dato)
     db.add(ChatMessage(rol="user", contenido=req.mensaje))
+    db.flush()
 
     if not agente.requiere_confirmacion:
-        agente.resumen_estado = aplicar_acciones(db, agente.acciones)
+        agente.resumen_estado = aplicar_acciones(
+            db, agente.acciones, confianza=agente.confianza,
+            chat_message_id=None,
+        )
         # Si se uso el motor local por falta de API Key, se avisa al usuario.
         if proveedor == "mock" and proveedor_solicitado != "mock":
             agente.mensaje_usuario = (
@@ -674,8 +843,64 @@ async def procesar_mensaje(db: Session, req: ChatRequest) -> ChatResponse:
             if len(faltan) > 6:
                 extra += f" Y {len(faltan) - 6} registro(s) más."
             agente.mensaje_usuario = f"{agente.mensaje_usuario}{extra}"
+
+        # --- Gobierno: informe de decisiones al usuario ------------------------
+        pendientes = agente.resumen_estado.get("aprobaciones_pendientes") or []
+        bloqueadas = agente.resumen_estado.get("acciones_bloqueadas") or []
+        if pendientes:
+            frases = "; ".join(p.get("resumen", "") for p in pendientes[:3])
+            extra = (
+                f" Necesito tu confirmación para {len(pendientes)} acción(es): {frases}. "
+                "Las dejé en la bandeja de Aprobaciones (panel Responsabilidad)."
+            )
+            if len(pendientes) > 3:
+                extra += f" Y {len(pendientes) - 3} más."
+            agente.mensaje_usuario = f"{agente.mensaje_usuario}{extra}"
+        if bloqueadas:
+            motivos = "; ".join(b.get("motivo", "") for b in bloqueadas[:2])
+            agente.mensaje_usuario = (
+                f"{agente.mensaje_usuario} No ejecuté {len(bloqueadas)} acción(es) "
+                f"por política: {motivos}."
+            )
+        if pii_encontrada:
+            agente.mensaje_usuario = (
+                f"{agente.mensaje_usuario} (Protegí tus datos personales: "
+                f"redacté {', '.join(pii_encontrada)} antes de procesarlo.)"
+            )
     else:
-        agente.resumen_estado = {"pendiente_confirmacion": True}
+        # El propio modelo pidio confirmacion: se encola igual que una
+        # aprobacion de gobierno, para que exista un registro y un decision.
+        decision = gober.Decision(
+            gober.REQUIERE_APROBACION,
+            "modelo_solicita_confirmacion",
+            "El modelo pidió confirmación antes de actuar.",
+            "medio",
+            agente.confianza,
+            {"tipo": (agente.acciones[0].tipo if agente.acciones else "accion"),
+             "datos": (agente.acciones[0].datos if agente.acciones else {}),
+             "motivo": (agente.acciones[0].motivo if agente.acciones else "")},
+        )
+        peticion = gober.crear_aprobacion(db, decision, None)
+        agente.resumen_estado = {
+            "pendiente_confirmacion": True,
+            "aprobaciones_pendientes": [{
+                "id": peticion.id, "tipo": peticion.tipo_accion,
+                "resumen": peticion.resumen, "motivo": peticion.motivo,
+                "regla": peticion.regla, "riesgo": peticion.riesgo,
+                "confianza": peticion.confianza,
+            }],
+        }
+        gober.registrar_auditoria(
+            db, actor="agente", tipo="solicitud_aprobacion", modulo="gobierno",
+            descripcion=peticion.resumen, motivo=decision.motivo,
+            confianza=agente.confianza, riesgo=peticion.riesgo,
+            reversible=True, resultado="pendiente",
+            entidad="approval_request", entidad_id=peticion.id,
+        )
+        agente.mensaje_usuario = (
+            f"{agente.mensaje_usuario} La dejé pendiente de tu confirmación "
+            "en la bandeja de Aprobaciones (panel Responsabilidad)."
+        )
 
     db.add(ChatMessage(
         rol="assistant", contenido=agente.mensaje_usuario,

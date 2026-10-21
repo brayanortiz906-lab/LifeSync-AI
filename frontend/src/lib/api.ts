@@ -1,7 +1,7 @@
 /** Cliente HTTP de la API de LifeSync AI. */
 import type {
-  Ajustes, Dashboard, Evento, HistorialMsg, Mantenimiento,
-  Registro, RespuestaAgente, Tarea,
+  Ajustes, Aprobacion, Dashboard, EntradaAuditoria, Evento, HistorialMsg, Mantenimiento,
+  Politica, Registro, ReporteCumplimiento, ResumenAuditoria, RespuestaAgente, Tarea,
 } from '../types'
 
 const BASE = import.meta.env.VITE_API_URL ?? '/api'
@@ -110,4 +110,50 @@ export const api = {
     '/agent/ingest',
     { method: 'POST', body: JSON.stringify(datos) },
   ),
+
+  // ---------------------------------------------------------------- responsable
+  politica: () => request<Politica>('/responsabilidad/politica'),
+
+  guardarPolitica: (datos: Partial<Politica>) =>
+    request<Politica>('/responsabilidad/politica', { method: 'PUT', body: JSON.stringify(datos) }),
+
+  auditoria: (params: { limite?: number; tipo?: string; riesgo?: string } = {}) => {
+    const q = new URLSearchParams()
+    if (params.limite) q.set('limite', String(params.limite))
+    if (params.tipo) q.set('tipo', params.tipo)
+    if (params.riesgo) q.set('riesgo', params.riesgo)
+    return request<EntradaAuditoria[]>(`/responsabilidad/auditoria?${q.toString()}`)
+  },
+
+  resumenAuditoria: () => request<ResumenAuditoria>('/responsabilidad/auditoria/resumen'),
+
+  purgarAuditoria: (dias?: number) =>
+    request<{ borrados: number }>(
+      `/responsabilidad/auditoria${dias !== undefined ? `?dias=${dias}` : ''}`,
+      { method: 'DELETE' },
+    ),
+
+  aprobaciones: (estado = 'pendiente') =>
+    request<Aprobacion[]>(`/responsabilidad/aprobaciones?estado=${estado}`),
+
+  decidirAprobacion: (id: number, aprobar: boolean, nota?: string) =>
+    request<Aprobacion>(`/responsabilidad/aprobaciones/${id}/decidir`, {
+      method: 'POST',
+      body: JSON.stringify({ aprobar, nota, actor: 'usuario' }),
+    }),
+
+  redactar: (texto: string) =>
+    request<{ texto_original: string; texto_redactado: string; categorias: string[]; total_encontrados: number }>(
+      '/responsabilidad/redactar',
+      { method: 'POST', body: JSON.stringify({ texto }) },
+    ),
+
+  cumplimiento: () => request<ReporteCumplimiento>('/responsabilidad/cumplimiento'),
+
+  inventario: () => request<{
+    categorias_datos: { categoria: string; dato: string; base: string; finalidad: string; base_legal: string }[]
+    terceros: { nombre: string; dato: string; proposito: string; control: string }[]
+    medidas: Record<string, unknown>
+    derechos: Record<string, string>
+  }>('/responsabilidad/inventario'),
 }

@@ -48,9 +48,9 @@ reorganización de agenda) sin gastar tokens. Para activar OpenAI o Gemini, ve a
 
 ### Verificación automática
 
-Con el backend corriendo, `backend/smoke.py` comprueba los 26 casos de uso contra la
-base de datos real (calendario, bitácora, tareas, mantenimiento, multi-intención y
-cascadas de registro automático):
+Con el backend corriendo, `backend/smoke.py` comprueba los 50 casos de uso contra la
+base de datos real (calendario, bitácora, tareas, mantenimiento, multi-intención,
+cascadas de registro automático y el sistema de IA responsable):
 
 ```powershell
 cd backend
@@ -59,10 +59,10 @@ cd backend
 
 ```
 [OK  ] [CALENDARIO] devuelve plan de reorganizacion -> movidos=2
-[OK  ] anti-duplicado: 1 sola cita tras 2 pedidos identicos -> encontradas=1
-[OK  ] [BITACORA_GASTO] monto 20000 correcto
 [OK  ] [MULTI] detecta 2 categorias -> categorias=['CALENDARIO', 'BITACORA_GASTO']
 [OK  ] [CASCADA] tarea genera bloque de estudio
+[OK  ] [RESP] gasto alto queda pendiente de aprobacion
+[OK  ] [RESP] tras aprobar, el gasto SI queda registrado
 ...
 RESULTADO: TODOS LOS CASOS PASARON
 ```
@@ -100,6 +100,27 @@ Claves de la experiencia:
 - **Sin API Key**: si el proveedor elegido no tiene clave, el backend cae al motor
   local (`mock`) y lo avisa en la respuesta; el chat nunca se rompe.
 
+### El sistema de IA responsable
+
+Un asistente que **escribe en tu base de datos** necesita justificar cada movimiento.
+LifeSync incluye una capa de gobierno completa entre el modelo y la ejecución
+(`backend/app/policy.py`): el LLM propone intenciones, la política decide si pueden
+ejecutarse, y todo queda auditado.
+
+| Mecanismo | Qué hace |
+|---|---|
+| **Gobernanza por reglas** | 7 reglas ordenadas: modo prudente, acción no reconocida (bloqueada), confianza baja, borrado irreversible, gasto sobre umbral, compromiso inamovible, motivo ausente |
+| **Autonomía graduada** | Cada acción es `AUTONOMO`, `REQUIERE_APROBACION` o `BLOQUEADO`, siempre con motivo legible |
+| **Bandeja de aprobaciones** | Lo que requiere permiso **no** se ejecuta: espera tu visto bueno en *Responsabilidad → Aprobaciones* |
+| **Auditoría** | Bitácora append-only: actor, tipo, motivo, confianza, riesgo, reversible, entidad tocada |
+| **Privacidad (PII)** | Cédulas, teléfonos, correos, tarjetas, claves y direcciones se enmascaran **antes** de salir del servidor |
+| **Cumplimiento** | Reporte de 8 controles con marco ISO/IEC 42001, EU AI Act, OECD, Ley 1581, GDPR y NIST AI RMF |
+
+Verificado en la interfaz: un gasto de 2.000.000 con umbral de 100.000 queda en la
+bandeja con el motivo *"supera el límite autónomo"*, y al aprobarlo se registra, se audita
+(`solicitud_aprobacion → aprobacion → accion → ejecucion_aprobada`) y desaparece de la
+bandeja. Detalle completo en [docs/05-RESPONSABILIDAD.md](docs/05-RESPONSABILIDAD.md).
+
 ### Modo producción (un solo proceso)
 
 `run.py` usa `--reload`, que en Windows deja un proceso *hijo* que puede sobrevivir y
@@ -124,22 +145,27 @@ O arranca sin recarga: `.\.venv\Scripts\python.exe -m uvicorn app.main:app --por
 │   ├── app/
 │   │   ├── main.py              ← FastAPI + CORS + sirve el build del frontend
 │   │   ├── config.py            ← Settings (pydantic-settings)
-│   │   ├── database.py          ← SQLAlchemy 2.0 + SQLite
-│   │   ├── models.py            ← Event, Task, LogEntry, Maintenance, ChatMessage, AppSettings
+│   │   ├── database.py          ← SQLAlchemy 2.0 + SQLite (+ migración de esquema)
+│   │   ├── models.py            ← Event, Task, LogEntry, Maintenance, ChatMessage,
+│   │   │                           AppSettings, PolicySettings, AuditLog, ApprovalRequest
 │   │   ├── schemas.py           ← Pydantic v2 (API + contrato del agente)
 │   │   ├── providers.py         ← Adaptadores OpenAI / Gemini / mock + extract_json
 │   │   ├── planner.py           ← Planificador determinista (sin solapes)
-│   │   ├── agent.py             ← Orquestador: contexto → LLM → validación → acciones
+│   │   ├── agent.py             ← Orquestador: contexto → LLM → política → acciones
+│   │   ├── policy.py            ← Motor de gobierno: reglas, riesgo, PII, auditoría
 │   │   ├── security.py          ← Cifrado Fernet de la API Key
 │   │   ├── seed.py              ← Datos de demostración
 │   │   └── routers/
 │   │       ├── crud.py          ← /api/events, /tasks, /logbook, /maintenance, /dashboard
-│   │       └── agent.py         ← /api/agent/chat, /ingest, /settings
+│   │       ├── agent.py         ← /api/agent/chat, /ingest, /settings
+│   │       └── responsabilidad.py ← /api/responsabilidad/* (política, auditoría,
+│   │                                 aprobaciones, redacción, cumplimiento)
 │   ├── requirements.txt
-│   └── run.py
+│   ├── run.py
+│   └── smoke.py                 ← 50 verificaciones end-to-end contra la BD real
 ├── frontend/
 │   └── src/
-│       ├── App.tsx              ← Layout de 3 paneles
+│       ├── App.tsx              ← Layout de 3 paneles + vista "Responsabilidad"
 │       ├── store/useLifeSync.ts ← Estado global (Zustand)
 │       ├── lib/api.ts           ← Cliente HTTP + manejo de la API Key local
 │       ├── lib/format.ts        ← Fechas, moneda, duraciones (es-CO)
@@ -150,12 +176,14 @@ O arranca sin recarga: `.\.venv\Scripts\python.exe -m uvicorn app.main:app --por
 │           ├── CalendarPanel.tsx← Calendario día/semana/mes (centro)
 │           ├── AcademicPanel.tsx← Tareas y resúmenes (derecha)
 │           ├── LogbookPanel.tsx ← Gastos y mantenimiento (derecha)
+│           ├── ResponsibilityPanel.tsx ← Aprobaciones, auditoría, política, cumplimiento
 │           ├── SettingsModal.tsx← Configuración de proveedor y clave
 │           └── ui.tsx           ← Atomos visuales
 └── docs/
     ├── 01-ARQUITECTURA.md
     ├── 02-SYSTEM-PROMPT.md
-    └── 03-INTEGRACION-API-KEY.md
+    ├── 03-INTEGRACION-API-KEY.md
+    └── 05-RESPONSABILIDAD.md
 ```
 
 ---
@@ -167,6 +195,7 @@ O arranca sin recarga: `.\.venv\Scripts\python.exe -m uvicorn app.main:app --por
 | [docs/01-ARQUITECTURA.md](docs/01-ARQUITECTURA.md) | Stack recomendado, diagrama, capas, modelo de datos, decisiones (ADR) |
 | [docs/02-SYSTEM-PROMPT.md](docs/02-SYSTEM-PROMPT.md) | El System Prompt completo, el contrato JSON y cómo extenderlo |
 | [docs/03-INTEGRACION-API-KEY.md](docs/03-INTEGRACION-API-KEY.md) | Paso a paso para conectar OpenAI / Gemini, seguridad, costos |
+| [docs/05-RESPONSABILIDAD.md](docs/05-RESPONSABILIDAD.md) | Motor de política, reglas, PII, auditoría, aprobaciones y marco normativo |
 
 ---
 
@@ -213,6 +242,21 @@ exactamente qué se guardó, sin tener que leer la base de datos.
 4. El agente responde con las 3 cosas hechas y la interfaz muestra 3 chips de categoría
    y 5 registros automáticos.
 
+### 4.6 Decisión gobernada (IA responsable)
+1. El usuario escribe: *«Pagué el refrigerador nuevo por 2 millones»*.
+2. `providers.py` emite la intención `registrar_gasto` con su motivo.
+3. `policy.py` la evalúa contra las 7 reglas → **REQUIERE_APROBACION** (regla
+   `gasto_sobre_umbral`: 2.000.000 > 100.000). Se crea un `ApprovalRequest` y se audita.
+4. El chat responde: *«Necesito tu confirmación para 1 acción(es)…»* con el bloque ámbar
+   **«Requiere tu aprobación (1)»**.
+5. En *Responsabilidad → Aprobaciones* el usuario pulsa **Aprobar y ejecutar**: la acción
+   se ejecuta con `aprobada_por_usuario=True` y queda auditada como
+   `ejecucion_aprobada`.
+
+Si el mensaje trae datos personales, `policy.redactar_pii` los enmascara **antes** de
+que salgan del servidor (cédula, teléfono, correo, tarjeta, clave, dirección) y la
+operación se audita sin guardar los valores.
+
 ---
 
 ## 5. Producción (qué falta para desplegar)
@@ -224,3 +268,8 @@ exactamente qué se guardó, sin tener que leer la base de datos.
 - [ ] Webhooks de Google Classroom / Notion (OAuth 2.0) para importar en segundo plano.
 - [ ] Cola de tareas (Celery / arq) para resúmenes largos de PDF.
 - [ ] Observabilidad: trazas por request + costo de tokens por usuario.
+- [ ] **Autenticación y roles**: la auditoría marca el actor como `usuario` genérico; falta
+  saber *quién* aprobó (y mantener la separación de responsabilidades).
+- [ ] **Firma criptográfica** de `audit_log` para que sea *tamper-evident*.
+- [ ] **Notificaciones** de aprobaciones fuera de la sesión (correo/push).
+- [ ] **DPIA** (Ley 1581) firmada por el responsable del tratamiento.

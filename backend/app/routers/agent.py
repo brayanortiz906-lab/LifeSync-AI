@@ -30,7 +30,7 @@ router = APIRouter(prefix="/api", tags=["agente"])
 # Chat con el agente
 # --------------------------------------------------------------------------- #
 @router.post("/agent/chat", response_model=ChatResponse)
-async def chat(payload: ChatRequest, db: Session = Depends(get_db)):
+async def chat(payload: ChatRequest, db: Session = Depends(get_db, scope="function")):
     try:
         return await procesar_mensaje(db, payload)
     except providers.ProviderError as exc:
@@ -38,7 +38,7 @@ async def chat(payload: ChatRequest, db: Session = Depends(get_db)):
 
 
 @router.get("/agent/history")
-def historial(limite: int = 50, db: Session = Depends(get_db)):
+def historial(limite: int = 50, db: Session = Depends(get_db, scope="function")):
     msgs = db.scalars(
         select(ChatMessage).order_by(ChatMessage.id.desc()).limit(limite)
     ).all()
@@ -54,7 +54,7 @@ def historial(limite: int = 50, db: Session = Depends(get_db)):
 
 
 @router.delete("/agent/history", status_code=204)
-def limpiar_historial(db: Session = Depends(get_db)):
+def limpiar_historial(db: Session = Depends(get_db, scope="function")):
     for m in db.scalars(select(ChatMessage)).all():
         db.delete(m)
 
@@ -63,7 +63,7 @@ def limpiar_historial(db: Session = Depends(get_db)):
 # Ingesta académica (Notion / Classroom / PDF pegado)
 # --------------------------------------------------------------------------- #
 @router.post("/agent/ingest")
-async def ingerir(payload: IngestRequest, db: Session = Depends(get_db)):
+async def ingerir(payload: IngestRequest, db: Session = Depends(get_db, scope="function")):
     """Resume el material, crea la tarea y agenda bloques de estudio."""
     app = _get_app_settings(db)
     proveedor = (payload.proveedor or app.proveedor or "mock").lower()
@@ -132,7 +132,7 @@ async def ingerir(payload: IngestRequest, db: Session = Depends(get_db)):
 # Configuración (BYOK)
 # --------------------------------------------------------------------------- #
 @router.get("/settings", response_model=SettingsOut)
-def leer_settings(db: Session = Depends(get_db)):
+def leer_settings(db: Session = Depends(get_db, scope="function")):
     app = _get_app_settings(db)
     return SettingsOut(
         proveedor=app.proveedor,
@@ -146,7 +146,7 @@ def leer_settings(db: Session = Depends(get_db)):
 
 
 @router.put("/settings", response_model=SettingsOut)
-def guardar_settings(payload: SettingsUpdate, db: Session = Depends(get_db)):
+def guardar_settings(payload: SettingsUpdate, db: Session = Depends(get_db, scope="function")):
     app = _get_app_settings(db)
     if payload.proveedor:
         app.proveedor = payload.proveedor.lower()
@@ -167,6 +167,6 @@ def guardar_settings(payload: SettingsUpdate, db: Session = Depends(get_db)):
 
 
 @router.get("/context")
-def contexto_actual(db: Session = Depends(get_db)):
+def contexto_actual(db: Session = Depends(get_db, scope="function")):
     """Estado que el agente ve (útil para depurar y para la UI)."""
     return json.loads(construir_contexto(db))

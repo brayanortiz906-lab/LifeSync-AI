@@ -117,3 +117,73 @@ class AppSettings(Base):
     inicio_jornada: Mapped[str] = mapped_column(String(5), default="07:00")
     fin_jornada: Mapped[str] = mapped_column(String(5), default="22:00")
     actualizado_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+# --------------------------------------------------------------------------- #
+# SISTEMA RESPONSABLE (IA responsable)
+# --------------------------------------------------------------------------- #
+class PolicySettings(Base):
+    """Parametros de gobierno del agente: umbrales, autonomia y trazabilidad."""
+
+    __tablename__ = "policy_settings"
+
+    id: Mapped[int] = mapped_column(primary_key=True, default=1)
+    # --- Umbrales de decision -------------------------------------------------
+    umbral_confianza: Mapped[float] = mapped_column(Float, default=0.65)
+    gasto_max_autonomo: Mapped[float] = mapped_column(Float, default=100000.0)
+    max_acciones_por_mensaje: Mapped[int] = mapped_column(Integer, default=12)
+    # --- Interruptores de gobierno --------------------------------------------
+    eliminar_requiere_aprobacion: Mapped[bool] = mapped_column(Boolean, default=True)
+    gasto_alto_requiere_aprobacion: Mapped[bool] = mapped_column(Boolean, default=True)
+    baja_confianza_requiere_aprobacion: Mapped[bool] = mapped_column(Boolean, default=True)
+    redactar_pii: Mapped[bool] = mapped_column(Boolean, default=True)
+    registrar_auditoria: Mapped[bool] = mapped_column(Boolean, default=True)
+    permitir_ia_externa: Mapped[bool] = mapped_column(Boolean, default=True)
+    modo_prudente: Mapped[bool] = mapped_column(Boolean, default=False)
+    # --- Explicabilidad --------------------------------------------------------
+    exigir_motivo: Mapped[bool] = mapped_column(Boolean, default=True)
+    # --- Privacidad ------------------------------------------------------------
+    dias_retencion_auditoria: Mapped[int] = mapped_column(Integer, default=365)
+    actualizado_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class AuditLog(Base):
+    """Bitacora de auditoria: que hizo el sistema, con que motivo y con que impacto."""
+
+    __tablename__ = "audit_log"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    creado_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)
+    actor: Mapped[str] = mapped_column(String(24), default="agente", index=True)
+    tipo: Mapped[str] = mapped_column(String(32), default="accion", index=True)
+    modulo: Mapped[str] = mapped_column(String(32), default="agente")
+    entidad: Mapped[str | None] = mapped_column(String(32), default=None)
+    entidad_id: Mapped[int | None] = mapped_column(Integer, default=None)
+    descripcion: Mapped[str] = mapped_column(String(255), default="")
+    motivo: Mapped[str | None] = mapped_column(Text, default=None)
+    confianza: Mapped[float | None] = mapped_column(Float, default=None)
+    riesgo: Mapped[str] = mapped_column(String(16), default="bajo", index=True)
+    reversible: Mapped[bool] = mapped_column(Boolean, default=True)
+    resultado: Mapped[str] = mapped_column(String(16), default="ok", index=True)
+    datos: Mapped[str | None] = mapped_column(Text, default=None)  # JSON
+
+
+class ApprovalRequest(Base):
+    """Accion que el agente propone pero NO ejecuta: espera decision humana."""
+
+    __tablename__ = "approval_requests"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    creado_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)
+    estado: Mapped[str] = mapped_column(String(16), default="pendiente", index=True)
+    tipo_accion: Mapped[str] = mapped_column(String(32), default="")
+    resumen: Mapped[str] = mapped_column(String(255), default="")
+    motivo: Mapped[str | None] = mapped_column(Text, default=None)
+    regla: Mapped[str] = mapped_column(String(64), default="")
+    riesgo: Mapped[str] = mapped_column(String(16), default="medio")
+    confianza: Mapped[float | None] = mapped_column(Float, default=None)
+    datos: Mapped[str | None] = mapped_column(Text, default=None)  # JSON de la accion
+    chat_message_id: Mapped[int | None] = mapped_column(Integer, default=None)
+    decidido_en: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    decidido_por: Mapped[str | None] = mapped_column(String(48), default=None)
+    nota_decision: Mapped[str | None] = mapped_column(Text, default=None)

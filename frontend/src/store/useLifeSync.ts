@@ -3,7 +3,8 @@ import { create } from 'zustand'
 import { api, guardarApiKeyLocal, leerApiKeyLocal } from '../lib/api'
 import { aIso } from '../lib/format'
 import type {
-  Ajustes, Dashboard, Evento, Mantenimiento, MensajeChat, Registro, RespuestaAgente, Tarea,
+  Ajustes, Aprobacion, Dashboard, EntradaAuditoria, Evento, Mantenimiento, MensajeChat,
+  Politica, Registro, ReporteCumplimiento, ResumenAuditoria, RespuestaAgente, Tarea,
 } from '../types'
 
 interface Estado {
@@ -21,6 +22,14 @@ interface Estado {
   apiKey: string
   ultimoPlan: Record<string, unknown> | null
 
+  // --- Sistema responsable -------------------------------------------------
+  politica: Politica | null
+  aprobaciones: Aprobacion[]
+  auditoria: EntradaAuditoria[]
+  resumenAuditoria: ResumenAuditoria | null
+  cumplimiento: ReporteCumplimiento | null
+  cargandoResponsable: boolean
+
   cargarTodo: () => Promise<void>
   enviarMensaje: (texto: string) => Promise<void>
   refrescarEventos: () => Promise<void>
@@ -31,6 +40,12 @@ interface Estado {
   limpiarChat: () => Promise<void>
   guardarAjustes: (datos: Partial<Ajustes> & { api_key?: string; borrar_api_key?: boolean }) => Promise<void>
   setApiKey: (key: string) => void
+
+  // --- Acciones del sistema responsable -------------------------------------
+  cargarResponsable: () => Promise<void>
+  guardarPolitica: (datos: Partial<Politica>) => Promise<void>
+  decidirAprobacion: (id: number, aprobar: boolean, nota?: string) => Promise<void>
+  purgarAuditoria: (dias?: number) => Promise<void>
 }
 
 export const useLifeSync = create<Estado>((set, get) => ({
@@ -47,6 +62,12 @@ export const useLifeSync = create<Estado>((set, get) => ({
   modelo: 'gpt-4o-mini',
   apiKey: leerApiKeyLocal(),
   ultimoPlan: null,
+  politica: null,
+  aprobaciones: [],
+  auditoria: [],
+  resumenAuditoria: null,
+  cumplimiento: null,
+  cargandoResponsable: false,
 
   async cargarTodo() {
     set({ cargando: true, error: null })
@@ -115,6 +136,9 @@ export const useLifeSync = create<Estado>((set, get) => ({
         enviando: false,
       }))
       await get().cargarTodo()
+      // El agente pudo dejar acciones en la bandeja de aprobaciones: refresca
+      // el panel de responsabilidad para que el badge y la lista no queden obsoletos.
+      await get().cargarResponsable()
     } catch (e) {
       set((s) => ({
         mensajes: [
@@ -181,5 +205,39 @@ export const useLifeSync = create<Estado>((set, get) => ({
   setApiKey(key) {
     guardarApiKeyLocal(key)
     set({ apiKey: key })
+  },
+
+  // ------------------------------------------------------------------ responsable
+  async cargarResponsable() {
+    set({ cargandoResponsable: true })
+    try {
+      const [politica, aprobaciones, auditoria, resumenAuditoria, cumplimiento] = await Promise.all([
+        api.politica(),
+        api.aprobaciones('pendiente'),
+        api.auditoria({ limite: 120 }),
+        api.resumenAuditoria(),
+        api.cumplimiento(),
+      ])
+      set({ politica, aprobaciones, auditoria, resumenAuditoria, cumplimiento, cargandoResponsable: false })
+    } catch (e) {
+      set({ cargandoResponsable: false, error: (e as Error).message })
+    }
+  },
+
+  async guardarPolitica(datos) {
+    const politica = await api.guardarPolitica(datos)
+    set({ politica })
+    await get().cargarResponsable()
+  },
+
+  async decidirAprobacion(id, aprobar, nota) {
+    await api.decidirAprobacion(id, aprobar, nota)
+    await get().cargarResponsable()
+    await get().cargarTodo()
+  },
+
+  async purgarAuditoria(dias) {
+    await api.purgarAuditoria(dias)
+    await get().cargarResponsable()
   },
 }))

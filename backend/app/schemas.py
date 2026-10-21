@@ -237,5 +237,97 @@ class SettingsOut(BaseModel):
     proveedor_efectivo: str = "mock"
 
 
+# --------------------------------------------------------------------------- #
+# Sistema responsable (IA responsable)
+# --------------------------------------------------------------------------- #
+class PolicyOut(ORMBase):
+    id: int = 1
+    umbral_confianza: float
+    gasto_max_autonomo: float
+    max_acciones_por_mensaje: int
+    eliminar_requiere_aprobacion: bool
+    gasto_alto_requiere_aprobacion: bool
+    baja_confianza_requiere_aprobacion: bool
+    redactar_pii: bool
+    registrar_auditoria: bool
+    permitir_ia_externa: bool
+    modo_prudente: bool
+    exigir_motivo: bool
+    dias_retencion_auditoria: int
+    actualizado_en: datetime | None = None
+
+
+class PolicyUpdate(BaseModel):
+    umbral_confianza: float | None = Field(default=None, ge=0.0, le=1.0)
+    gasto_max_autonomo: float | None = Field(default=None, ge=0.0)
+    max_acciones_por_mensaje: int | None = Field(default=None, ge=1, le=50)
+    eliminar_requiere_aprobacion: bool | None = None
+    gasto_alto_requiere_aprobacion: bool | None = None
+    baja_confianza_requiere_aprobacion: bool | None = None
+    redactar_pii: bool | None = None
+    registrar_auditoria: bool | None = None
+    permitir_ia_externa: bool | None = None
+    modo_prudente: bool | None = None
+    exigir_motivo: bool | None = None
+    dias_retencion_auditoria: int | None = Field(default=None, ge=0, le=3650)
+
+
+class AuditOut(ORMBase):
+    id: int
+    creado_en: datetime
+    actor: str
+    tipo: str
+    modulo: str
+    entidad: str | None = None
+    entidad_id: int | None = None
+    descripcion: str
+    motivo: str | None = None
+    confianza: float | None = None
+    riesgo: str
+    reversible: bool
+    resultado: str
+
+
+class ApprovalOut(ORMBase):
+    id: int
+    creado_en: datetime
+    estado: str
+    tipo_accion: str
+    resumen: str
+    motivo: str | None = None
+    regla: str
+    riesgo: str
+    confianza: float | None = None
+    chat_message_id: int | None = None
+    decidido_en: datetime | None = None
+    decidido_por: str | None = None
+    nota_decision: str | None = None
+
+
+class ApprovalDecision(BaseModel):
+    aprobar: bool
+    nota: str | None = None
+    actor: str = "usuario"
+
+
+class RedactRequest(BaseModel):
+    texto: str = Field(min_length=1, max_length=4000)
+
+
+class RedactOut(BaseModel):
+    texto_original: str
+    texto_redactado: str
+    categorias: list[str] = Field(default_factory=list)
+    total_encontrados: int = 0
+
+
+class ComplianceOut(BaseModel):
+    puntaje: float
+    controles: list[dict[str, Any]]
+    resumen: dict[str, int]
+    politica: dict[str, Any]
+    actividad: dict[str, Any]
+
+
 def dumps(obj: Any) -> str:
     return json.dumps(obj, ensure_ascii=False, default=str)

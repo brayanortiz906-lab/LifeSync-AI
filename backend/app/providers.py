@@ -116,7 +116,7 @@ _RE_MONTO = re.compile(
     r"(?:\$\s*|\bpor\s+|\bcosto\s*(?:de)?\s*|\bprecio\s*(?:de)?\s*|\bvalor\s*(?:de)?\s*|\bvale\s+"
     r"|\bgast\w*\s+|\bpagu\w*\s+|\bcompr\w*\s+|\bcobr\w*\s+|\bde\s+(?=\d))"
     r"(\d{1,3}(?:[.\s]\d{3})+(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?)"
-    r"(?:\s*(k|mil|miles|millones|pesos|bol[ií]var|d[oó]lares|usd|cop|d\b))?",
+    r"(?:\s*(millones|miles|mil|k|pesos|bol[ií]var|d[oó]lares|usd|cop|m\b|d\b))?",
     re.IGNORECASE,
 )
 _RE_DIA = re.compile(r"\b(lunes|mar[tí]es|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)\b", re.IGNORECASE)
