@@ -66,6 +66,7 @@ def _migrar_sqlite() -> None:
                 "orden_eventos": "VARCHAR(24) DEFAULT 'hora'",
                 "etiquetas": "TEXT DEFAULT ''",
                 "onboarding_completo": "BOOLEAN DEFAULT 0",
+                "google_client_id": "VARCHAR(200) DEFAULT ''",
             },
         )
         filas = conn.exec_driver_sql("PRAGMA foreign_key_list(tasks)").fetchall()

@@ -16,7 +16,8 @@ import {
 } from 'lucide-react'
 import { api, guardarUrlApi, leerUrlApi } from '../lib/api'
 import type {
-  AutorizacionCuenta, CatalogoModelos, Conexion, ModeloCatalogo, MotorLocal, ProveedorCatalogo,
+  AutorizacionCuenta, CatalogoModelos, Conexion, EstadoGoogle, ModeloCatalogo, MotorLocal,
+  ProveedorCatalogo,
 } from '../types'
 import { Aviso, Boton, Campo, Chip, Modal } from './ui'
 
@@ -56,7 +57,8 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
   const [catalogo, setCatalogo] = useState<ProveedorCatalogo[]>([])
   const [conexiones, setConexiones] = useState<Conexion[]>([])
   const [motores, setMotores] = useState<MotorLocal[]>([])
-  const [paso, setPaso] = useState<'inicio' | 'detalle' | 'elegir'>('inicio')
+  const [paso, setPaso] = useState<'inicio' | 'detalle' | 'elegir' | 'wizard'>('inicio')
+  const [googleInfo, setGoogleInfo] = useState<EstadoGoogle | null>(null)
   const [caminos, setCaminos] = useState<string[]>([])
   const [seleccion, setSeleccion] = useState<ProveedorCatalogo | null>(null)
   const [clave, setClave] = useState('')
@@ -76,14 +78,16 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
 
   const cargar = async () => {
     try {
-      const [cat, cons, loc] = await Promise.all([
+      const [cat, cons, loc, google] = await Promise.all([
         api.catalogoConexiones(),
         api.conexiones(),
         api.detectarLocales(),
+        api.estadoGoogle(),
       ])
       setCatalogo(cat.proveedores)
       setConexiones(cons)
       setMotores(loc.motores)
+      setGoogleInfo(google)
     } catch {
       /* el panel muestra el estado vacio */
     }
@@ -131,41 +135,50 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
   }
 
   /** Paso 1 del flujo de cuenta: pide el codigo de autorizacion al proveedor. */
-  const autorizar = async () => {
-    if (!seleccion) return
+  const autorizar = async (prov?: ProveedorCatalogo) => {
+    const objetivo = prov ?? seleccion
+    if (!objetivo) return
     setOcupado(true)
     setEstado(null)
     try {
       const inicio = await api.iniciarCuenta({
-        proveedor: seleccion.id,
+        proveedor: objetivo.id,
         client_id: clientId.trim(),
       })
       setAutorizacion(inicio)
       setEsperando(true)
-      await consultarAutorizacion()
+      await consultarAutorizacion(objetivo, inicio)
     } catch (e) {
-      setEstado({ ok: false, texto: (e as Error).message })
+      const mensaje = (e as Error).message
+      setEstado({ ok: false, texto: mensaje })
+      // Si falta el ID de cliente de Google no dejamos un callejon sin salida:
+      // abrimos el asistente con caminos que si funcionan.
+      if (mensaje.toLowerCase().includes('id de cliente de google')) {
+        setPaso('wizard')
+      }
     } finally {
       setOcupado(false)
     }
   }
 
   /** Paso 2: consulta al backend si el usuario ya autorizo en su navegador. */
-  const consultarAutorizacion = async () => {
-    if (!seleccion || !autorizacion) return
+  const consultarAutorizacion = async (prov?: ProveedorCatalogo, auth?: AutorizacionCuenta) => {
+    const objetivo = prov ?? seleccion
+    const actual = auth ?? autorizacion
+    if (!objetivo || !actual) return
     setEsperando(true)
     try {
       const res = await api.terminarCuenta({
-        proveedor: seleccion.id,
-        client_id: autorizacion.client_id,
-        device_code: autorizacion.device_code,
+        proveedor: objetivo.id,
+        client_id: actual.client_id,
+        device_code: actual.device_code,
       })
       if (res.ok) {
         setEstado({ ok: true, texto: res.mensaje })
         setEsperando(false)
         setAutorizacion(null)
         await cargar()
-        if (seleccion.id === 'google_cuenta') {
+        if (objetivo.id === 'google_cuenta') {
           // Ya entro con Google: ahora elige con que IA quiere trabajar.
           setPaso('elegir')
         } else {
@@ -178,6 +191,41 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
     } catch (e) {
       setEstado({ ok: false, texto: (e as Error).message })
       setEsperando(false)
+    }
+  }
+
+  /** Entrar con Google: si ya hay ID de cliente, arranca solo; si no, al asistente. */
+  const entrarConGoogle = async () => {
+    const google = catalogo.find((c) => c.id === 'google_cuenta')
+    if (!google) return
+    if (!googleInfo?.configurado) {
+      setPaso('wizard')
+      return
+    }
+    abrirDetalle(google)
+    await autorizar(google)
+  }
+
+  /** Guarda el ID de cliente de Google y entra de una vez. */
+  const guardarClientIdYEntrar = async () => {
+    setOcupado(true)
+    setEstado(null)
+    try {
+      await api.guardarGoogleClientId(clientId.trim())
+      setGoogleInfo({
+        configurado: true,
+        origen: 'app',
+        pista: 'ID de cliente de Google guardado. La proxima vez entras con un clic.',
+      })
+      const google = catalogo.find((c) => c.id === 'google_cuenta')
+      if (google) {
+        abrirDetalle(google)
+        await autorizar(google)
+      }
+    } catch (e) {
+      setEstado({ ok: false, texto: (e as Error).message })
+    } finally {
+      setOcupado(false)
     }
   }
 
@@ -346,13 +394,19 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
                     con que IA quieres trabajar: <strong className="text-slate-200">Gemini, GPT,
                     Claude, Llama, DeepSeek</strong> y mas de 300 modelos.
                   </p>
+                  {googleInfo?.configurado ? (
+                    <p className="mt-1 text-[10px] font-semibold text-emerald-300">
+                      Listo: el acceso con Google ya esta configurado en esta instalacion.
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-[10px] text-slate-400">
+                      Te guio con los pasos la primera vez (queda guardado para siempre).
+                    </p>
+                  )}
                   <div className="mt-2.5 flex flex-wrap gap-1.5">
                     <Boton
                       variante="primario"
-                      onClick={() => {
-                        const google = catalogo.find((c) => c.id === 'google_cuenta')
-                        if (google) abrirDetalle(google)
-                      }}
+                      onClick={() => void entrarConGoogle()}
                       disabled={!catalogo.some((c) => c.id === 'google_cuenta')}
                     >
                       <LogIn size={13} />
@@ -503,6 +557,161 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
               </div>
             )}
           </>
+        ) : paso === 'wizard' ? (
+          /* ---------------------------------------------------------------- */
+          /* Asistente de acceso con Google: 3 caminos, ninguno deja bloqueado */
+          /* ---------------------------------------------------------------- */
+          <div className="space-y-3">
+            <div className="rounded-2xl border border-blue-500/25 bg-blue-500/8 p-4 sm:p-5">
+              <div className="flex items-center gap-2.5 text-sm font-bold text-blue-100">
+                <span className="grid h-8 w-8 place-items-center rounded-lg bg-white text-base font-black text-blue-600">
+                  G
+                </span>
+                Entrar con Google
+              </div>
+              <p className="mt-2 text-[11px] leading-relaxed text-slate-300">
+                LifeSync necesita un identificador publico de aplicacion de Google (no es tu
+                contrasena ni una clave secreta). Puedes crearlo en un minuto, o usar cualquiera
+                de las otras dos vias: los tres caminos funcionan igual de bien.
+              </p>
+            </div>
+
+            {/* Camino 1 */}
+            <div className="rounded-2xl border border-white/8 bg-white/3 p-4 sm:p-5">
+              <div className="text-xs font-bold text-white">
+                Camino 1 · Activar el acceso con Google (1 minuto, queda guardado)
+              </div>
+              <ol className="mt-2.5 space-y-2">
+                {[
+                  'Abre la consola de Google Cloud y crea un proyecto (o usa el que ya tienes).',
+                  'Ve a "APIs y servicios" > "Credenciales" y pulsa "Crear credenciales".',
+                  'Elige "ID de cliente OAuth" y el tipo "App de escritorio".',
+                  'Copia el "ID de cliente": son unos caracteres y un punto, no tu contrasena.',
+                ].map((t, i) => (
+                  <li key={i} className="ls-paso">
+                    <span className="ls-paso-num">{i + 1}</span>
+                    <span>{t}</span>
+                  </li>
+                ))}
+              </ol>
+              <a
+                href="https://console.cloud.google.com/apis/credentials"
+                target="_blank"
+                rel="noreferrer"
+                className="mt-3 inline-flex items-center gap-1 text-[11px] font-semibold text-blue-300 underline hover:text-blue-200"
+              >
+                Abrir la consola de Google Cloud <ArrowRight size={11} />
+              </a>
+              <div className="mt-4">
+                <Campo
+                  etiqueta="ID de cliente"
+                  ayuda="Es publico: se puede guardar y borrar cuando quieras. No da acceso a tu cuenta sin que autorices."
+                >
+                  <input
+                    value={clientId}
+                    onChange={(e) => setClientId(e.target.value)}
+                    placeholder="1234567890-abc.apps.googleusercontent.com"
+                    autoComplete="off"
+                    className="ls-input font-mono"
+                  />
+                </Campo>
+              </div>
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <Boton
+                  variante="primario"
+                  onClick={() => void guardarClientIdYEntrar()}
+                  disabled={ocupado || clientId.trim().length < 10}
+                >
+                  {ocupado ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+                  Guardar y entrar con Google
+                </Boton>
+                <span className="text-[10px] text-slate-500">
+                  Se guarda y no vuelve a pedirse: la proxima vez es un clic.
+                </span>
+              </div>
+            </div>
+
+            {/* Camino 2 */}
+            <div className="rounded-2xl border border-white/8 bg-white/3 p-4 sm:p-5">
+              <div className="text-xs font-bold text-white">
+                Camino 2 · Entrar con Google en OpenRouter (sin crear nada en Google)
+              </div>
+              <p className="mt-1.5 text-[11px] leading-relaxed text-slate-400">
+                OpenRouter tiene boton "Sign in with Google". Con esa cuenta entras a mas de 300
+                IAs (GPT, Claude, Gemini, Llama, DeepSeek) eligiendo el modelo en una lista.
+              </p>
+              <ol className="mt-2.5 space-y-2">
+                {[
+                  'Abre openrouter.ai y pulsa "Sign in with Google".',
+                  'Entra a "Keys" y crea una clave (empieza por sk-or-).',
+                  'Pega la clave en el siguiente paso: es la unica que necesitaras.',
+                ].map((t, i) => (
+                  <li key={i} className="ls-paso">
+                    <span className="ls-paso-num">{i + 1}</span>
+                    <span>{t}</span>
+                  </li>
+                ))}
+              </ol>
+              <Boton
+                variante="secundario"
+                onClick={() => {
+                  const openrouter = catalogo.find((c) => c.id === 'openrouter')
+                  if (openrouter) abrirDetalle(openrouter)
+                }}
+                className="mt-4"
+              >
+                Ir al paso de la clave <ArrowRight size={12} />
+              </Boton>
+            </div>
+
+            {/* Camino 3 */}
+            {motoresDisponibles.length > 0 && (
+              <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/8 p-4 sm:p-5">
+                <div className="text-xs font-bold text-emerald-100">
+                  Camino 3 · Usar la IA de tu computador (gratis, sin cuentas)
+                </div>
+                <p className="mt-1.5 text-[11px] leading-relaxed text-slate-300">
+                  Ya detectamos IA instalada en tu equipo. No necesitas ni Google ni claves.
+                </p>
+                <div className="mt-3 space-y-2">
+                  {motoresDisponibles.map((m) => (
+                    <div
+                      key={m.id}
+                      className="flex items-center gap-2 rounded-xl border border-white/8 bg-black/20 px-3 py-2.5"
+                    >
+                      <Cpu size={13} className="shrink-0 text-emerald-300" />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[11px] font-semibold text-slate-200">{m.nombre}</div>
+                        <div className="truncate text-[10px] text-slate-500">
+                          {m.modelos_disponibles} modelo(s) · {m.url}
+                        </div>
+                      </div>
+                      <Boton
+                        variante="secundario"
+                        onClick={() => void conectarLocal(m)}
+                        disabled={ocupado}
+                        className="!px-2.5 !py-1 text-[10px]"
+                      >
+                        Conectar
+                      </Boton>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {estado && (
+              <Aviso tono={estado.ok ? 'ok' : 'error'}>
+                {estado.texto}
+              </Aviso>
+            )}
+
+            <div className="flex justify-end">
+              <Boton variante="secundario" onClick={() => setPaso('inicio')}>
+                Volver
+              </Boton>
+            </div>
+          </div>
         ) : paso === 'elegir' ? (
           /* ---------------------------------------------------------------- */
           /* Tras entrar con Google: elegir con que IA trabajar               */

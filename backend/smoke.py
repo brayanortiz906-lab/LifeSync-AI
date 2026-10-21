@@ -330,6 +330,35 @@ def main() -> int:
     con_seleccion = [p for p in proveedores if p.get("permite_seleccion_modelo")]
     check("[CONEX] hay un proveedor donde elegir cualquier IA", len(con_seleccion) >= 1, f"n={len(con_seleccion)}")
 
+    # ------------------- CONEXIONES: EL ACCESO CON GOOGLE SE PUEDE ACTIVAR
+    est_google = pedir("GET", "/api/conexiones/google/estado")
+    check(
+        "[CONEX] el estado del acceso con Google responde",
+        isinstance(est_google, dict) and "configurado" in est_google,
+        f"origen={(est_google or {}).get('origen') if isinstance(est_google, dict) else '-'}",
+    )
+    # Se guarda un ID de cliente publico de prueba y se comprueba que queda activo.
+    id_prueba = "1234567890-prueba-smoke.apps.googleusercontent.com"
+    guardado = pedir("PUT", "/api/conexiones/google/estado", {"client_id": id_prueba})
+    check(
+        "[CONEX] se puede activar el acceso con Google",
+        isinstance(guardado, dict) and guardado.get("configurado") is True,
+        f"origen={(guardado or {}).get('origen') if isinstance(guardado, dict) else '-'}",
+    )
+    est_google2 = pedir("GET", "/api/conexiones/google/estado")
+    check(
+        "[CONEX] el acceso con Google queda guardado",
+        isinstance(est_google2, dict) and est_google2.get("configurado") is True,
+        f"origen={(est_google2 or {}).get('origen') if isinstance(est_google2, dict) else '-'}",
+    )
+    # Se devuelve el estado original (el ID de prueba no debe quedarse).
+    pedido_olvidar = pedir("PUT", "/api/conexiones/google/estado", {"client_id": ""})
+    check(
+        "[CONEX] se puede olvidar el ID de cliente de Google",
+        isinstance(pedido_olvidar, dict) and pedido_olvidar.get("ok") is True,
+        f"origen={(pedido_olvidar or {}).get('origen') if isinstance(pedido_olvidar, dict) else '-'}",
+    )
+
     print("=" * 70)
     if fallos:
         print(f"RESULTADO: {len(fallos)} CASO(S) FALLIDO(S): {fallos}")

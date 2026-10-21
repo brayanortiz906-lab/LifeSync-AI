@@ -125,6 +125,9 @@ class AppSettings(Base):
     #: Etiquetas personalization por la persona (JSON con lista de textos).
     etiquetas: Mapped[str] = mapped_column(Text, default="")
     onboarding_completo: Mapped[bool] = mapped_column(Boolean, default=False)
+    #: ID de cliente OAuth de Google (identificador PUBLICO, no es un secreto).
+    #: Permite que cualquier persona conecte su cuenta de Google con un clic.
+    google_client_id: Mapped[str] = mapped_column(String(200), default="")
     actualizado_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
 

@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from .. import connections as con
 from ..agent import _get_app_settings
+from ..config import settings
 from ..database import get_db
 from ..models import ConexionIA
 from ..schemas import (
@@ -21,6 +22,7 @@ from ..schemas import (
     ConexionOut,
     ConexionTest,
     DetectarMotores,
+    GoogleClienteIn,
     MotorLocal,
 )
 from ..security import cifrar
@@ -170,13 +172,86 @@ def activar(conexion_id: int, db: Session = Depends(get_db, scope="function")):
 
 
 # --------------------------------------------------------------------------- #
+# Google: identificador publico de la app para conectar cuentas sin jerga
+# --------------------------------------------------------------------------- #
+@router.get("/google/estado")
+def google_estado(db: Session = Depends(get_db, scope="function")):
+    """Dice si esta copia de LifeSync ya puede conectar cuentas de Google.
+
+    El "ID de cliente" de OAuth es un identificador PUBLICO (no es una
+    contrasena ni un token). Basta con crearlo una vez en la consola de Google
+    Cloud para que TODAS las personas que usen esta copia conecten su cuenta
+    de Google con un clic y sin copiar nada.
+    """
+    app = _get_app_settings(db)
+    if (app.google_client_id or "").strip():
+        return {
+            "configurado": True,
+            "origen": "app",
+            "pista": "LifeSync ya tiene su ID de cliente de Google. Puedes entrar con un clic.",
+        }
+    if (settings.google_client_id or "").strip():
+        return {
+            "configurado": True,
+            "origen": "servidor",
+            "pista": "El servidor de LifeSync ya tiene su ID de cliente de Google.",
+        }
+    return {
+        "configurado": False,
+        "origen": "nada",
+        "pista": (
+            "Falta el ID de cliente de Google. Son unos caracteres publicos "
+            "(no es tu contrasena) y se crea en 1 minuto en la consola de Google Cloud."
+        ),
+    }
+
+
+@router.put("/google/estado")
+def guardar_google_cliente(payload: GoogleClienteIn, db: Session = Depends(get_db, scope="function")):
+    """Guarda (u olvida) el ID de cliente publico de Google de esta instalacion.
+
+    Enviar el ID en blanco borra el que habia: asi la persona puede empezar
+    de cero si el ID era de otra aplicacion.
+    """
+    client_id = (payload.client_id or "").strip()
+    app = _get_app_settings(db)
+    if not client_id:
+        # Modo "olvidar": se limpia el identificador guardado.
+        app.google_client_id = ""
+        db.flush()
+        hay_en_servidor = bool((settings.google_client_id or "").strip())
+        return {
+            "ok": True,
+            "configurado": hay_en_servidor,
+            "origen": "servidor" if hay_en_servidor else "nada",
+        }
+    if len(client_id) < 10:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Ese ID de cliente no parece completo. Copialo de nuevo desde la consola de "
+                "Google (debe terminar en .apps.googleusercontent.com) y pegalo entero."
+            ),
+        )
+    app.google_client_id = client_id
+    db.flush()
+    return {"ok": True, "configurado": True, "origen": "app"}
+
+
+# --------------------------------------------------------------------------- #
 # Camino "con mi cuenta": OAuth 2.0 Device Authorization
 # --------------------------------------------------------------------------- #
 @router.post("/cuenta/iniciar")
-def cuenta_iniciar(payload: ConexionTest):
+def cuenta_iniciar(payload: ConexionTest, db: Session = Depends(get_db, scope="function")):
     """Arranca la autorizacion con cuenta: devuelve el codigo y el link."""
+    client_id = (payload.client_id or "").strip()
+    if not client_id:
+        # Si la instalacion ya tiene su ID de cliente, no se le pide nada a la
+        # persona: el acceso con Google queda en un solo clic.
+        app = _get_app_settings(db)
+        client_id = (app.google_client_id or settings.google_client_id or "").strip()
     try:
-        return con.iniciar_autorizacion_cuenta(payload.proveedor, payload.client_id or "")
+        return con.iniciar_autorizacion_cuenta(payload.proveedor, client_id)
     except con.ErrorConexion as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

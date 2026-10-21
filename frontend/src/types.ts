@@ -328,6 +328,16 @@ export interface AutorizacionCuenta {
   client_id: string
 }
 
+/** Estado del acceso con Google: dice si ya hay un ID de cliente configurado. */
+export interface EstadoGoogle {
+  /** Ya hay un ID de cliente de Google guardado (un clic y entras). */
+  configurado: boolean
+  /** De donde sale: "app" (guardado por la persona), "servidor" (env) o "nada". */
+  origen: string
+  /** Explicacion en lenguaje llano de lo que hay que hacer. */
+  pista: string
+}
+
 /** Resultado de consultar si el usuario ya autorizo en su navegador. */
 export interface ResultadoAutorizacion {
   ok: boolean

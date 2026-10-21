@@ -86,6 +86,45 @@ detalle de Google queda vacío y la persona solo pulsa «Autorizar en el navegad
 Sin esa variable, LifeSync pide el ID de cliente de Google Cloud y explica en
 lenguaje llano que **es un identificador público, no una contraseña**.
 
+### 2.2 El asistente «Entrar con Google» (tres caminos, sin callejón sin salida)
+
+Si LifeSync todavía no tiene un ID de cliente de Google, el botón **«Entrar con
+Google» no muere en un error rojo**: abre un asistente con **tres caminos
+reales**, y el que elija la persona funciona siempre.
+
+```
+┌─ Entrar con Google ────────────────────────────────────────────┐
+│ Camino 1 · Activar el acceso con Google (1 minuto, queda guardado)
+│   1. Abre la consola de Google Cloud                          │
+│   2. Crea un proyecto                                          │
+│   3. APIs y servicios > Credenciales > Crear credenciales      │
+│   4. ID de cliente OAuth > App de escritorio > copiar el ID    │
+│   [ ID de cliente .............................. ] [Guardar]    │
+│ Camino 2 · Entrar con Google en OpenRouter (sin crear nada)     │
+│ Camino 3 · Usar la IA de tu computador (gratis, sin cuentas)    │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+| Camino | Qué hace | Resultado |
+|---|---|---|
+| **1. Activar el acceso con Google** | Pega el ID de cliente público de Google Cloud y pulsa «Guardar y entrar con Google» | Queda **guardado en la app** (`AppSettings.google_client_id`): la próxima vez es un solo clic |
+| **2. Entrar con Google en OpenRouter** | Abre `openrouter.ai`, inicia sesión con *Sign in with Google*, crea una clave y la pega | Acceso a **468 IAs** (GPT, Claude, Gemini, Llama, DeepSeek…) |
+| **3. Usar la IA de tu computador** | Detecta Ollama / LM Studio ya instalados y conecta | Gratis, offline, sin cuentas |
+
+Piezas técnicas:
+
+| Pieza | Dónde | Qué hace |
+|---|---|---|
+| Vista `wizard` | `ConexionesPanel.tsx` (`paso === 'wizard'`) | Los tres caminos, con pasos numerados (`ls-paso`) y aviso de privacidad |
+| Estado del acceso | `GET /api/conexiones/google/estado` | `{configurado, origen: "app" \| "servidor" \| "nada", pista}` |
+| Guardar el ID | `PUT /api/conexiones/google/estado` | Guarda (≥10 caracteres) u **olvida** (enviando `client_id` vacío) el ID |
+| Reutilización | `POST /api/conexiones/cuenta/iniciar` | Si no llega `client_id`, usa el guardado → **entrada en un clic** |
+| Almacén | `AppSettings.google_client_id` | Identificador **público** de OAuth (no es un secreto); columna añadida por migración |
+
+> El ID de cliente de Google es un identificador **público** (va en el código
+> de cualquier app). Aun así, LifeSync lo guarda cifrado con el resto de
+> credenciales y hay un botón para olvidarlo.
+
 ---
 
 ## 3. El camino local: IA en tu computador (sin claves, sin internet)
@@ -172,7 +211,7 @@ Cada proveedor decide qué integraciones de terceros permite. En la práctica, `
 
 | Método | Ruta | Qué hace |
 |---|---|---|
-| `GET` | `/api/conexiones/catalogo` | Catálogo con los 7 proveedores (modo, costo, instrucciones, modelos) |
+| `GET` | `/api/conexiones/catalogo` | Catálogo con los 10 proveedores (modo, costo, instrucciones, modelos) |
 | `GET` | `/api/conexiones/locales` | Motores locales detectados y sus modelos reales |
 | `GET` | `/api/conexiones` | Conexiones guardadas (sin credenciales) |
 | `POST` | `/api/conexiones` | Crea o actualiza una conexión (cifra la credencial, la activa) |
@@ -182,6 +221,8 @@ Cada proveedor decide qué integraciones de terceros permite. En la práctica, `
 | `POST` | `/api/conexiones/cuenta/iniciar` | OAuth Device Flow: devuelve `user_code` + `verification_uri` |
 | `POST` | `/api/conexiones/cuenta/terminar` | OAuth Device Flow: hace poll y guarda la conexión de cuenta |
 | `GET` | `/api/conexiones/modelos?proveedor=openrouter` | Catálogo de IAs para el buscador: `{proveedor, modelos:[{id,nombre,familia,gratis,contexto}], total, familias}` |
+| `GET` | `/api/conexiones/google/estado` | `{configurado, origen, pista}`: si el acceso con Google ya quedó configurado |
+| `PUT` | `/api/conexiones/google/estado` | Guarda (`client_id` de ≥10 chars) u **olvida** (enviando `client_id` vacío) el ID de cliente de Google |
 | `DELETE` | `/api/conexiones/{id}` | Desconecta y vuelve al asistente demo |
 
 Verificación de credenciales por proveedor (`connections.verificar_credenciales`):

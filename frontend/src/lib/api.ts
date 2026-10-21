@@ -1,7 +1,7 @@
 /** Cliente HTTP de la API de LifeSync AI. */
 import type {
-  Ajustes, Aprobacion, AutorizacionCuenta, CatalogoModelos, Conexion, Dashboard, EntradaAuditoria, Evento,
-  HistorialMsg, Mantenimiento, MotorLocal, Politica, ProveedorCatalogo, Registro,
+  Ajustes, Aprobacion, AutorizacionCuenta, CatalogoModelos, Conexion, Dashboard, EntradaAuditoria, EstadoGoogle,
+  Evento, HistorialMsg, Mantenimiento, MotorLocal, Politica, ProveedorCatalogo, Registro,
   ReporteCumplimiento, ResumenAuditoria, RespuestaAgente, ResultadoAutorizacion, Tarea,
 } from '../types'
 
@@ -218,5 +218,15 @@ export const api = {
     request<ResultadoAutorizacion>('/conexiones/cuenta/terminar', {
       method: 'POST',
       body: JSON.stringify(datos),
+    }),
+
+  /** Estado del acceso con Google: dice si ya hay un ID de cliente configurado. */
+  estadoGoogle: () => request<EstadoGoogle>('/conexiones/google/estado'),
+
+  /** Guarda el ID de cliente de Google (es publico) para conectar en un clic. */
+  guardarGoogleClientId: (client_id: string) =>
+    request<{ ok: boolean; configurado: boolean; origen: string }>('/conexiones/google/estado', {
+      method: 'PUT',
+      body: JSON.stringify({ client_id }),
     }),
 }

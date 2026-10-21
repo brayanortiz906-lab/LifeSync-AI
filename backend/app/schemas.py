@@ -295,6 +295,16 @@ class ConexionTest(BaseModel):
     device_code: str | None = None
 
 
+class GoogleClienteIn(BaseModel):
+    """ID de cliente publico de Google para conectar cuentas sin jerga.
+
+    Es un identificador (no es un token ni una contrasena). Enviarlo en
+    blanco olvida el que habia guardado.
+    """
+
+    client_id: str = ""
+
+
 class MotorLocal(BaseModel):
     id: str
     nombre: str

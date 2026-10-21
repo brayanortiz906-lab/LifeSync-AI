@@ -99,6 +99,20 @@ GET /api/conexiones/modelos?proveedor=openrouter
 Si el despliegue define `GOOGLE_CLIENT_ID` (ver `backend/.env.example`), el botón
 funciona en **un solo clic** sin que nadie escriba identificadores.
 
+**Y si todavía no hay ID de cliente de Google, el botón no se queda muerto.** Abre
+un asistente con **tres caminos que siempre funcionan**:
+
+| Camino | Qué haces | Resultado |
+|---|---|---|
+| **1. Activar el acceso con Google** (1 minuto) | Pegas el ID de cliente público de Google Cloud | **Queda guardado**: la próxima vez es un clic |
+| **2. Entrar con Google en OpenRouter** | Inicias sesión con Google en `openrouter.ai` y pegas la clave | Acceso a **468 IAs** |
+| **3. Usar la IA de tu computador** | Pulsas «Conectar» sobre el motor detectado | Gratis, offline, sin cuentas |
+
+```
+GET  /api/conexiones/google/estado   -> {"configurado":true,"origen":"app","pista":"..."}
+PUT  /api/conexiones/google/estado   -> guarda u olvida el ID de cliente
+```
+
 Ventajas que ya trae:
 
 - **Los modelos locales no pierden tu frase**: si el modelo no devuelve el JSON del
@@ -113,7 +127,7 @@ Detalle completo en [`docs/06-CONE-XIONES.md`](docs/06-CONE-XIONES.md).
 
 ### Verificación automática
 
-Con el backend corriendo, `backend/smoke.py` comprueba los 59 casos de uso contra la
+Con el backend corriendo, `backend/smoke.py` comprueba los 67 casos de uso contra la
 base de datos real (calendario, bitácora, tareas, mantenimiento, multi-intención,
 cascadas de registro automático, el sistema de IA responsable y el centro de conexiones):
 
@@ -306,7 +320,7 @@ imagen de Python 3.12 que corre la API. La base SQLite vive en el volumen `/data
 
 ### 1-bis.4 Automatización (CI)
 
-`.github/workflows/ci.yml` corre en cada push: levanta la API, ejecuta los **59 casos** de
+`.github/workflows/ci.yml` corre en cada push: levanta la API, ejecuta los **67 casos** de
 `backend/smoke.py` (que incluyen el chat multi-intención, las cascadas, el sistema responsable
 y el centro de conexiones) y compila el frontend con `tsc -b && vite build`. La insignia de
 arriba refleja el estado real del último push.
@@ -318,7 +332,7 @@ arriba refleja el estado real del último push.
 ```
 .
 ├── .github/workflows/
-│   ├── ci.yml                   ← CI: 63 casos del smoke test + build del frontend
+│   ├── ci.yml                   ← CI: 67 casos del smoke test + build del frontend
 │   └── deploy-pages.yml         ← Publica la interfaz en GitHub Pages
 ├── .devcontainer/               ← Codespaces: Python 3.12 + Node 20 preinstalados
 ├── Dockerfile                   ← Multi-stage: Node 20 compila, Python 3.12 sirve
@@ -350,7 +364,7 @@ arriba refleja el estado real del último push.
 │   │                                 aprobaciones, redacción, cumplimiento)
 │   ├── requirements.txt
 │   ├── run.py
-│   └── smoke.py                 ← 63 verificaciones end-to-end contra la BD real
+│   └── smoke.py                 ← 67 verificaciones end-to-end contra la BD real
 ├── frontend/
 │   └── src/
 │       ├── App.tsx              ← Layout: agenda (vista inicial) + responsabilidad + ajustes
