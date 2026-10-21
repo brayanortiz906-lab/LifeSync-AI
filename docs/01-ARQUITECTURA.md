@@ -336,6 +336,7 @@ App.tsx                      Vista inicial = agenda; monta <ChatFlotante/> globa
 | **v1.11 (este repo)** | Chat flotante (widget aparte) y agenda como vista inicial |
 | **v1.12 (este repo)** | «Conectar con Google» y elección de cualquier IA (468 modelos vía OpenRouter) |
 | **v1.13 (este repo)** | Chat móvil arrastrable, 4 temas, órdenes por bloque y formulario de ajustes inicial |
+| **v1.14 (este repo)** | Sistema visual global: sin bloques pegados, modales con pie fijo y formularios con jerarquía |
 | v1.1 | Login multiusuario, Postgres, Alembic, tests unitarios del planner |
 | v1.2 | OAuth Google Classroom (tareas/entregas) y Notion (bases de datos) |
 | v1.3 | Worker asíncrono para PDFs largos + vectorización para el chat de material |

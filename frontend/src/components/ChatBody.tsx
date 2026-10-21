@@ -1,5 +1,5 @@
-/**
- * Cuerpo de la conversación con el agente.
+﻿/**
+ * Cuerpo de la conversaciÃ³n con el agente.
  * Se usa tanto en el panel izquierdo como en la vista ampliada (pantalla completa),
  * para que el chat sea exactamente el mismo en los dos lugares.
  */
@@ -14,10 +14,10 @@ import type { AprobacionPendiente, RegistroDetallado, RespuestaAgente } from '..
 
 const CATEGORIA_META: Record<string, { label: string; icon: typeof Bot; clase: string }> = {
   CALENDARIO: { label: 'Calendario', icon: CalendarClock, clase: 'bg-indigo-500/15 text-indigo-300 ring-indigo-500/30' },
-  TAREA_ACADEMICA: { label: 'Académica', icon: GraduationCap, clase: 'bg-violet-500/15 text-violet-300 ring-violet-500/30' },
-  BITACORA_GASTO: { label: 'Bitácora', icon: Receipt, clase: 'bg-orange-500/15 text-orange-300 ring-orange-500/30' },
+  TAREA_ACADEMICA: { label: 'AcadÃ©mica', icon: GraduationCap, clase: 'bg-violet-500/15 text-violet-300 ring-violet-500/30' },
+  BITACORA_GASTO: { label: 'BitÃ¡cora', icon: Receipt, clase: 'bg-orange-500/15 text-orange-300 ring-orange-500/30' },
   MANTENIMIENTO: { label: 'Mantenimiento', icon: Wrench, clase: 'bg-cyan-500/15 text-cyan-300 ring-cyan-500/30' },
-  CONVERSACION: { label: 'Conversación', icon: Bot, clase: 'bg-slate-500/15 text-slate-300 ring-slate-500/30' },
+  CONVERSACION: { label: 'ConversaciÃ³n', icon: Bot, clase: 'bg-slate-500/15 text-slate-300 ring-slate-500/30' },
 }
 
 const TIPO_REGISTRO: Record<string, { icon: typeof Bot; clase: string; etiqueta: string }> = {
@@ -31,8 +31,8 @@ const TIPO_REGISTRO: Record<string, { icon: typeof Bot; clase: string; etiqueta:
 
 const SUGERENCIAS = [
   'Tengo una cita hoy a las 3 PM',
-  'Reorganiza mi día',
-  'Hoy tanqueé la moto por $20.000',
+  'Reorganiza mi dÃ­a',
+  'Hoy tanqueÃ© la moto por $20.000',
   'Me toca cambiar el aceite de la moto',
   'Tengo que entregar el ensayo el viernes',
 ]
@@ -63,12 +63,12 @@ export default function ChatBody({
 
   return (
     <>
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-4">
+      <div className="min-h-0 flex-1 space-y-3.5 overflow-y-auto px-4 py-4">
         {mensajes.length === 0 && (
           <div className="ls-fade-up rounded-2xl border border-indigo-500/20 bg-indigo-500/8 p-4">
-            <p className="text-sm font-semibold text-indigo-200">Hola, soy tu asistente LifeSync 👋</p>
+            <p className="text-sm font-semibold text-indigo-200">Hola, soy tu asistente LifeSync ðŸ‘‹</p>
             <p className="mt-1 text-xs leading-relaxed text-slate-400">
-              Cuéntame tus compromisos, gastos y tareas en lenguaje natural. Yo los clasifico,
+              CuÃ©ntame tus compromisos, gastos y tareas en lenguaje natural. Yo los clasifico,
               los registro y reorganizo tu agenda para que nada se solape.
             </p>
             <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
@@ -157,7 +157,7 @@ export default function ChatBody({
               }
             }}
             rows={compacto ? 1 : 2}
-            placeholder="Escribe: «tengo una cita mañana a las 10», «gasté 45 mil en transporte»…"
+            placeholder="Escribe: Â«tengo una cita maÃ±ana a las 10Â», Â«gastÃ© 45 mil en transporteÂ»â€¦"
             className="max-h-32 min-h-[38px] flex-1 resize-none bg-transparent px-2 py-1.5 text-sm text-slate-100 outline-none placeholder:text-slate-500"
           />
           <button
@@ -170,14 +170,14 @@ export default function ChatBody({
           </button>
         </div>
         <p className="mt-1.5 px-1 text-[10px] text-slate-500">
-          Enter envía · Shift+Enter salto de línea · todo se registra solo
+          Enter envÃ­a Â· Shift+Enter salto de lÃ­nea Â· todo se registra solo
         </p>
       </div>
     </>
   )
 }
 
-/** Ficha con el detalle técnico de la respuesta del agente. */
+/** Ficha con el detalle tÃ©cnico de la respuesta del agente. */
 export function FichaAgente({
   agente,
   plan,
@@ -200,7 +200,7 @@ export function FichaAgente({
           const meta = CATEGORIA_META[c] ?? CATEGORIA_META.CONVERSACION
           const Icono = meta.icon
           return (
-            <Chip key={c} className={meta.clase} title={`Categoría detectada: ${c}`}>
+            <Chip key={c} className={meta.clase} title={`CategorÃ­a detectada: ${c}`}>
               <Icono size={11} />
               {meta.label}
             </Chip>
@@ -243,7 +243,7 @@ export function FichaAgente({
         <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/8 p-2.5">
           <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-emerald-300">
             <Sparkles size={12} />
-            Registrado automáticamente ({registros.length})
+            Registrado automÃ¡ticamente ({registros.length})
           </p>
           <ul className="space-y-1">
             {registros.map((r, i) => {
@@ -253,7 +253,7 @@ export function FichaAgente({
                 <li key={i} className="flex items-start gap-1.5 text-[11px] text-slate-300">
                   <Icono size={12} className={`mt-0.5 shrink-0 ${meta.clase}`} />
                   <span className="font-medium text-slate-200">{r.titulo}</span>
-                  {r.detalle && <span className="text-slate-500">· {r.detalle}</span>}
+                  {r.detalle && <span className="text-slate-500">Â· {r.detalle}</span>}
                 </li>
               )
             })}
@@ -265,19 +265,19 @@ export function FichaAgente({
         <div className="rounded-xl border border-amber-500/25 bg-amber-500/8 p-2.5">
           <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-amber-300">
             <ShieldAlert size={12} />
-            Requiere tu aprobación ({pendientes.length})
+            Requiere tu aprobaciÃ³n ({pendientes.length})
           </p>
           <ul className="space-y-1">
             {pendientes.map((p, i) => (
               <li key={i} className="flex items-start gap-1.5 text-[11px] text-slate-300">
                 <ShieldAlert size={12} className="mt-0.5 shrink-0 text-amber-400" />
                 <span className="font-medium text-slate-200">{p.resumen}</span>
-                {p.motivo && <span className="text-slate-500">· {p.motivo}</span>}
+                {p.motivo && <span className="text-slate-500">Â· {p.motivo}</span>}
               </li>
             ))}
           </ul>
           <p className="mt-1.5 text-[10px] text-slate-500">
-            Revísalo en Responsabilidad → Aprobaciones.
+            RevÃ­salo en Responsabilidad â†’ Aprobaciones.
           </p>
         </div>
       )}
@@ -286,13 +286,13 @@ export function FichaAgente({
         <div className="rounded-xl border border-rose-500/25 bg-rose-500/8 p-2.5">
           <p className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold text-rose-300">
             <ShieldCheck size={12} />
-            No ejecutado por política ({bloqueadas.length})
+            No ejecutado por polÃ­tica ({bloqueadas.length})
           </p>
           <ul className="space-y-1">
             {bloqueadas.map((b, i) => (
               <li key={i} className="text-[11px] text-slate-300">
                 <span className="font-medium text-slate-200">{b.tipo}</span>
-                {b.motivo && <span className="text-slate-500">· {b.motivo}</span>}
+                {b.motivo && <span className="text-slate-500">Â· {b.motivo}</span>}
               </li>
             ))}
           </ul>

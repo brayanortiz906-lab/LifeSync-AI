@@ -79,6 +79,95 @@ body {
   --ls-glow-b: rgba(217, 70, 239, 0.12);
 }
 
+/* --------------------------------------------------------------------------
+   SISTEMA VISUAL
+   Un solo lugar define tarjetas, campos, etiquetas y separadores. Asi
+   ninguna pantalla se ve "pegada": todo bloque respira con el mismo aire y
+   los bordes nunca quedan pegados al bloque vecino.
+   -------------------------------------------------------------------------- */
+
+/* Tarjeta base: la unidad de decoracion de toda la app. */
+.ls-card {
+  border-radius: 1rem;
+  border: 1px solid rgb(255 255 255 / 0.07);
+  background: rgb(255 255 255 / 0.03);
+  padding: 1rem;
+}
+.ls-card-apretado {
+  padding: 0.75rem;
+}
+
+/* Etiqueta de seccion (mayusculas, pequena, discreta). */
+.ls-label {
+  font-size: 10px;
+  line-height: 1.5;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: rgb(148 163 184 / 0.85);
+}
+
+/* Texto de apoyo bajo un titulo o un campo. */
+.ls-hint {
+  font-size: 11px;
+  line-height: 1.6;
+  color: rgb(148 163 184 / 0.9);
+}
+
+/* Separador con aire a los dos lados. */
+.ls-sep {
+  border-top: 1px solid rgb(255 255 255 / 0.07);
+  margin-top: 0.25rem;
+  padding-top: 0.875rem;
+}
+
+/* Campo de formulario: mismo alto, mismo radio, mismo foco. */
+.ls-input {
+  width: 100%;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(255 255 255 / 0.1);
+  background: rgb(0 0 0 / 0.3);
+  padding: 0.625rem 0.75rem;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: rgb(226 232 240);
+  outline: none;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+.ls-input::placeholder {
+  color: rgb(100 116 139 / 0.9);
+}
+.ls-input:focus {
+  border-color: rgb(99 102 241 / 0.7);
+  background: rgb(0 0 0 / 0.42);
+}
+
+/* Lista de pasos numerados: cada paso en su propia fila, con aire. */
+.ls-paso {
+  display: flex;
+  gap: 0.625rem;
+  align-items: flex-start;
+  font-size: 11px;
+  line-height: 1.65;
+  color: rgb(203 213 225);
+}
+.ls-paso-num {
+  display: flex;
+  height: 18px;
+  width: 18px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: rgb(99 102 241 / 0.22);
+  color: rgb(199 210 254);
+  font-size: 10px;
+  font-weight: 700;
+  margin-top: 1px;
+}
+
 /* Scrollbars discretas */
 * {
   scrollbar-width: thin;

@@ -1,4 +1,4 @@
-/** Panel derecho (superior): tareas académicas, resúmenes y material importado. */
+﻿/** Panel derecho (superior): tareas acadÃ©micas, resÃºmenes y material importado. */
 import { useMemo, useState } from 'react'
 import {
   BookOpen, CheckCircle2, Circle, FileUp, GraduationCap, Loader2, Sparkles,
@@ -72,7 +72,7 @@ export default function AcademicPanel() {
       titulo={
         <>
           <GraduationCap size={15} className="text-violet-400" />
-          Tareas académicas
+          Tareas acadÃ©micas
         </>
       }
       acciones={
@@ -83,7 +83,7 @@ export default function AcademicPanel() {
       }
       cuerpoClass="overflow-y-auto"
     >
-      <div className="flex gap-1 border-b border-white/8 px-3 py-2">
+      <div className="flex gap-1 border-b border-white/8 px-4 py-2.5">
         {(['pendientes', 'todas', 'completadas'] as const).map((f) => (
           <Chip
             key={f}
@@ -111,7 +111,7 @@ export default function AcademicPanel() {
       </div>
 
       {visibles.length === 0 ? (
-        <Vacio icono={<BookOpen size={24} />} texto="Sin tareas por aquí" sub="Pídele al agente que registre una entrega." />
+        <Vacio icono={<BookOpen size={24} />} texto="Sin tareas por aquÃ­" sub="PÃ­dele al agente que registre una entrega." />
       ) : (
         <ul className="divide-y divide-white/5">
           {visibles.map((t) => (
@@ -173,7 +173,7 @@ function TareaItem({
                       : 'bg-white/5 text-slate-400 ring-white/10'
                 }
               >
-                {dias !== null && dias < 0 ? 'vencida' : dias === 0 ? 'hoy' : `en ${dias}d`} ·{' '}
+                {dias !== null && dias < 0 ? 'vencida' : dias === 0 ? 'hoy' : `en ${dias}d`} Â·{' '}
                 {tarea.fecha_entrega}
               </Chip>
             )}
@@ -196,7 +196,7 @@ function TareaItem({
                   <ul className="space-y-0.5">
                     {tarea.preguntas.map((p, i) => (
                       <li key={i} className="text-xs text-slate-400">
-                        • {p}
+                        â€¢ {p}
                       </li>
                     ))}
                   </ul>
@@ -253,13 +253,13 @@ function ModalImportar({
     <Modal abierto={abierto} onCerrar={onCerrar} titulo="Importar material de estudio">
       <div className="space-y-3">
         <p className="text-xs text-slate-400">
-          Pega el contenido (o el texto extraído de un PDF / Notion / Classroom). El agente lo resume,
-          genera preguntas de estudio y agenda un bloque de práctica en tu calendario.
+          Pega el contenido (o el texto extraÃ­do de un PDF / Notion / Classroom). El agente lo resume,
+          genera preguntas de estudio y agenda un bloque de prÃ¡ctica en tu calendario.
         </p>
         <input
           value={titulo}
           onChange={(e) => setTitulo(e.target.value)}
-          placeholder="Título (ej. Capítulo 4 — Límites)"
+          placeholder="TÃ­tulo (ej. CapÃ­tulo 4 â€” LÃ­mites)"
           className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 outline-none focus:border-indigo-500/60"
         />
         <input
@@ -272,7 +272,7 @@ function ModalImportar({
           value={material}
           onChange={(e) => setMaterial(e.target.value)}
           rows={8}
-          placeholder="Pega aquí el material…"
+          placeholder="Pega aquÃ­ el materialâ€¦"
           className="w-full resize-y rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 outline-none focus:border-indigo-500/60"
         />
         {error && <p className="text-xs text-rose-300">{error}</p>}

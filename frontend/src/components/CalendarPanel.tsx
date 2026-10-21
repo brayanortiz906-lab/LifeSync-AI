@@ -1,4 +1,4 @@
-/** Panel central: calendario / rutina del dia.
+﻿/** Panel central: calendario / rutina del dia.
  *
  * DISENO: en vez de una rejilla de horas "pixel" (dificil de leer y facil de
  * malinterpretar), el dia se presenta como una LINEA DE TIEMPO CLARA:
@@ -27,11 +27,11 @@ import { Boton, Chip, Vacio } from './ui'
 
 type Vista = 'dia' | 'semana' | 'mes'
 
-const ETIQUETAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+const ETIQUETAS = ['Lun', 'Mar', 'MiÃ©', 'Jue', 'Vie', 'SÃ¡b', 'Dom']
 
 /** Franjas del dia: cada bloque se muestra en su franja con su hora exacta. */
 const FRANJAS = [
-  { id: 'manana', titulo: 'Mañana', desde: 0, hasta: 12 },
+  { id: 'manana', titulo: 'MaÃ±ana', desde: 0, hasta: 12 },
   { id: 'tarde', titulo: 'Tarde', desde: 12, hasta: 18 },
   { id: 'noche', titulo: 'Noche', desde: 18, hasta: 24 },
 ]
@@ -83,7 +83,7 @@ export default function CalendarPanel({
 
   return (
     <section className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-white/8 bg-slate-900/60 shadow-xl shadow-black/30 backdrop-blur">
-      <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-white/8 px-4 py-3">
+      <header className="flex shrink-0 flex-wrap items-center gap-2.5 border-b border-white/8 px-5 py-3.5">
         <div className="flex items-center gap-2 text-sm font-semibold text-slate-200">
           <CalendarRange size={15} className="text-indigo-400" />
           Mi agenda
@@ -92,7 +92,7 @@ export default function CalendarPanel({
 
         <div className="ml-auto flex items-center gap-1 rounded-lg border border-white/10 bg-white/4 p-0.5">
           {([
-            ['dia', 'Día', Rows3],
+            ['dia', 'DÃ­a', Rows3],
             ['semana', 'Semana', List],
             ['mes', 'Mes', LayoutGrid],
           ] as const).map(([v, label, Icono]) => (
@@ -111,7 +111,7 @@ export default function CalendarPanel({
       </header>
 
       {/* Filtros y formas de ordenar lo que se ve */}
-      <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-white/8 px-4 py-2">
+      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-white/8 px-5 py-2.5">
         <Chip
           onClick={() => setCategoria(null)}
           className={
@@ -208,7 +208,7 @@ function Leyenda() {
     ['social', 'Social'],
   ]
   return (
-    <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-t border-white/8 bg-slate-950/40 px-4 py-2">
+    <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-white/8 bg-slate-950/40 px-5 py-2.5">
       {items.map(([cat, texto]) => {
         const color = COLOR_EVENTO[cat]
         return (
@@ -280,7 +280,7 @@ function VistaDia({
               {franja.titulo}
               <span className="h-px flex-1 bg-white/8" />
             </h3>
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               {todos.map((e) => (
                 <TarjetaEvento
                   key={e.id}
@@ -305,13 +305,13 @@ function ResumenDia({ eventos }: { eventos: Evento[] }) {
   const cruzados = eventos.filter((e) => tieneCruce(e, eventos)).length
   return (
     <div className="grid grid-cols-3 gap-2">
-      <div className="rounded-xl border border-white/8 bg-white/4 px-3 py-2">
+      <div className="rounded-xl border border-white/8 bg-white/4 px-4 py-3">
         <div className="text-lg font-bold leading-none text-white">{eventos.length}</div>
         <div className="mt-0.5 text-[10px] text-slate-400">
           {eventos.length === 1 ? 'bloque agendado' : 'bloques agendados'}
         </div>
       </div>
-      <div className="rounded-xl border border-white/8 bg-white/4 px-3 py-2">
+      <div className="rounded-xl border border-white/8 bg-white/4 px-4 py-3">
         <div className="text-lg font-bold leading-none text-indigo-300">{duracionLegible(minutos)}</div>
         <div className="mt-0.5 text-[10px] text-slate-400">de tiempo ocupado</div>
       </div>
@@ -348,7 +348,7 @@ function TarjetaEvento({
   const fin = aFecha(evento.fin)
   const enCurso = esHoy && ahora >= inicio && ahora < fin
   const cruzados = eventos.filter((o) => o.id !== evento.id && seCruzan(evento, o))
-  // Títulos únicos: si 5 bloques se cruzan con el mismo título, se dice una vez.
+  // TÃ­tulos Ãºnicos: si 5 bloques se cruzan con el mismo tÃ­tulo, se dice una vez.
   const titulosCruce = Array.from(new Set(cruzados.map((c) => c.titulo)))
   const otrosCruces = titulosCruce.length - 1
 
@@ -389,7 +389,7 @@ function TarjetaEvento({
               {otrosCruces > 0 && (
                 <span className="font-normal opacity-90">
                   {' '}
-                  y {otrosCruces} {otrosCruces === 1 ? 'bloque más' : 'bloques más'}
+                  y {otrosCruces} {otrosCruces === 1 ? 'bloque mÃ¡s' : 'bloques mÃ¡s'}
                 </span>
               )}
             </span>
@@ -449,7 +449,7 @@ function VistaSemana({
                 </span>
               </div>
               <div className="text-[10px] text-slate-500">
-                {delDia.length === 0 ? 'libre' : `${delDia.length} · ${duracionLegible(minutos)}`}
+                {delDia.length === 0 ? 'libre' : `${delDia.length} Â· ${duracionLegible(minutos)}`}
               </div>
             </button>
 
@@ -604,7 +604,7 @@ function DetalleEvento({
           </div>
           <p className="mt-1 flex items-center gap-1 text-xs text-slate-400">
             <AlarmClock size={12} />
-            {hhmm(evento.inicio)} – {hhmm(evento.fin)} · {duracionLegible(evento.duracion_min)}
+            {hhmm(evento.inicio)} â€“ {hhmm(evento.fin)} Â· {duracionLegible(evento.duracion_min)}
           </p>
           {evento.notas && <p className="mt-1 text-xs text-slate-500">{evento.notas}</p>}
           {evento.inamovible && (

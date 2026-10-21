@@ -201,6 +201,26 @@ compromisos inamovibles que el agente nunca mueve).
 
 Detalle completo en [docs/07-AJUSTES.md](docs/07-AJUSTES.md).
 
+### Un sistema visual: nada queda pegado ni raro
+
+La interfaz se construye con un **sistema visual único** (no clases sueltas pantalla por pantalla):
+
+| Pieza | Qué resuelve |
+|---|---|
+| `Modal` con pie fijo | El modal ya no se corta ni esconde sus botones: título, subtítulo, contenido con scroll y acciones siempre visibles. Se monta con `createPortal`, así que ningún `backdrop-filter` puede descolgarlo. |
+| `Tarjeta`, `Seccion`, `Campo`, `Aviso` | Bloques, títulos, formularios y mensajes con la misma jerarquía en toda la app. |
+| `.ls-card`, `.ls-input`, `.ls-paso`… | Separación,aire y tipografía consistentes; cambian solas con el tema. |
+| Reglas de espaciado | `p-4` en páginas, `gap-4` entre columnas, `space-y-3` dentro, `px-5 py-3.5` en cabeceras. |
+
+| Síntoma | Causa | Arreglo |
+|---|---|---|
+| El modal salía cortado por arriba | El `backdrop-blur` de la barra superior convertía el `fixed` en `absolute` | `createPortal` a `document.body` |
+| Bloques pegados entre sí | Padding y gaps distintos en cada pantalla | Sistema visual global |
+| "Conectar mi cuenta de Google (con mi cuenta de Google)" | El nombre del proveedor se pintaba dos veces | Un solo lugar para cada título |
+| Dos botones "Volver" | Acciones dentro del cuerpo con scroll | Pie fijo del modal |
+
+Detalle completo en [docs/08-SISTEMA-VISUAL.md](docs/08-SISTEMA-VISUAL.md).
+
 ### El sistema de IA responsable
 
 Un asistente que **escribe en tu base de datos** necesita justificar cada movimiento.
@@ -370,6 +390,7 @@ arriba refleja el estado real del último push.
 | [docs/05-RESPONSABILIDAD.md](docs/05-RESPONSABILIDAD.md) | Motor de política, reglas, PII, auditoría, aprobaciones y marco normativo |
 | [docs/06-CONE-XIONES.md](docs/06-CONE-XIONES.md) | Centro de Conexiones: cualquier IA, sin claves, con IA local |
 | [docs/07-AJUSTES.md](docs/07-AJUSTES.md) | Formulario inicial, temas, órdenes de cada bloque y etiquetas |
+| [docs/08-SISTEMA-VISUAL.md](docs/08-SISTEMA-VISUAL.md) | Sistema visual: separación, tarjetas, formularios, modales y reglas de espaciado |
 
 ---
 

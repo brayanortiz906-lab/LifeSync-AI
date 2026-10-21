@@ -1,4 +1,4 @@
-/** Ajustes de LifeSync: formulario guiado, temas y formas de organizar.
+﻿/** Ajustes de LifeSync: formulario guiado, temas y formas de organizar.
  *
  * DISENO: la persona no es tecnica. Por eso el formulario va en pasos cortos
  * (una idea por pantalla, botones grandes, lenguaje llano) y los cambios se
@@ -25,7 +25,7 @@ import { Boton, Chip, Panel } from './ui'
 // --------------------------------------------------------------------------- //
 const TEMAS: Array<{ id: TemaId; nombre: string; desc: string; muestra: string[] }> = [
   { id: 'medianoche', nombre: 'Medianoche', desc: 'Violeta y verde. El clasico.', muestra: ['bg-indigo-500', 'bg-violet-500', 'bg-emerald-500'] },
-  { id: 'oceano', nombre: 'Oceanía', desc: 'Cian y azul profundo.', muestra: ['bg-cyan-500', 'bg-indigo-500', 'bg-sky-500'] },
+  { id: 'oceano', nombre: 'OceanÃ­a', desc: 'Cian y azul profundo.', muestra: ['bg-cyan-500', 'bg-indigo-500', 'bg-sky-500'] },
   { id: 'bosque', nombre: 'Bosque', desc: 'Verdes y turquesa.', muestra: ['bg-lime-500', 'bg-teal-500', 'bg-emerald-500'] },
   { id: 'atardecer', nombre: 'Atardecer', desc: 'Naranja y fucsia.', muestra: ['bg-orange-500', 'bg-fuchsia-500', 'bg-rose-500'] },
 ]
@@ -79,7 +79,7 @@ export default function AjustesPanel({ onAbrirConexiones }: { onAbrirConexiones?
   if (!ajustes) {
     return (
       <Panel titulo="Ajustes">
-        <p className="text-xs text-slate-400">Cargando tus preferencias…</p>
+        <p className="text-xs text-slate-400">Cargando tus preferenciasâ€¦</p>
       </Panel>
     )
   }
@@ -96,7 +96,7 @@ export default function AjustesPanel({ onAbrirConexiones }: { onAbrirConexiones?
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {/* ---------------------------------------------------------------- */}
       {/* Sobre ti                                                          */}
       {/* ---------------------------------------------------------------- */}
@@ -221,7 +221,7 @@ export default function AjustesPanel({ onAbrirConexiones }: { onAbrirConexiones?
       <Panel titulo={<><Tag size={14} className="text-amber-400" />Tus temas (etiquetas)</>}>
         <p className="mb-2 text-[11px] leading-relaxed text-slate-400">
           Son tus propias categorias: nombra como quieras a las areas de tu vida
-          (Universidad, Trabajo, Salud…). El agente las usa cuando registras algo.
+          (Universidad, Trabajo, Saludâ€¦). El agente las usa cuando registras algo.
         </p>
         <div className="flex flex-wrap gap-1.5">
           {ajustes.etiquetas.map((e) => (
@@ -284,7 +284,7 @@ export default function AjustesPanel({ onAbrirConexiones }: { onAbrirConexiones?
               Motor actual: {ajustes.proveedor_efectivo === 'mock' ? 'asistente demo (local)' : ajustes.proveedor}
             </div>
             <div className="text-[10px] text-slate-500">
-              Modelo {ajustes.modelo} · moneda {ajustes.moneda}
+              Modelo {ajustes.modelo} Â· moneda {ajustes.moneda}
             </div>
           </div>
           {onAbrirConexiones && (
@@ -427,7 +427,7 @@ export function AsistenteBienvenida({
 
         <div className="px-5 py-4">
           {paso === 0 && (
-            <div className="space-y-3">
+            <div className="space-y-4">
               <label className="block">
                 <span className="mb-1 block text-xs font-semibold text-slate-200">
                   Como te llamas
@@ -458,7 +458,7 @@ export function AsistenteBienvenida({
           )}
 
           {paso === 1 && (
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div>
                 <span className="mb-1 flex items-center gap-1 text-xs font-semibold text-slate-200">
                   <Clock size={12} /> Cuando empieza y termina tu dia
@@ -538,7 +538,7 @@ export function AsistenteBienvenida({
           )}
 
           {paso === 2 && (
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div>
                 <span className="mb-1 flex items-center gap-1 text-xs font-semibold text-slate-200">
                   <Palette size={12} /> Elige el tema que mas te guste
@@ -597,7 +597,7 @@ export function AsistenteBienvenida({
             </Boton>
           ) : (
             <Boton onClick={() => void finalizar()} disabled={guardando}>
-              {guardando ? 'Guardando…' : 'Empezar'}
+              {guardando ? 'Guardandoâ€¦' : 'Empezar'}
             </Boton>
           )}
         </footer>

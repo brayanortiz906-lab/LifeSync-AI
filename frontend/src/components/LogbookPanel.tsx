@@ -1,4 +1,4 @@
-/** Panel derecho (inferior): bitácora, gastos y mantenimiento. */
+﻿/** Panel derecho (inferior): bitÃ¡cora, gastos y mantenimiento. */
 import { useMemo, useState } from 'react'
 import { AlertTriangle, CheckCircle2, Plus, Receipt, TrendingUp, Wrench } from 'lucide-react'
 import { useLifeSync } from '../store/useLifeSync'
@@ -72,7 +72,7 @@ export default function LogbookPanel() {
       titulo={
         <>
           <Receipt size={15} className="text-orange-400" />
-          Bitácora y gastos
+          BitÃ¡cora y gastos
         </>
       }
       acciones={
@@ -83,14 +83,14 @@ export default function LogbookPanel() {
       }
       cuerpoClass="overflow-y-auto"
     >
-      {/* Registro rápido */}
-      <div className="space-y-2 border-b border-white/8 p-3">
+      {/* Registro rÃ¡pido */}
+      <div className="space-y-2.5 border-b border-white/8 p-4">
         <div className="flex gap-2">
           <input
             value={descripcion}
             onChange={(e) => setDescripcion(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && guardar()}
-            placeholder="Ej: Tanqueé la moto"
+            placeholder="Ej: TanqueÃ© la moto"
             className="min-w-0 flex-1 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-slate-100 outline-none focus:border-indigo-500/60"
           />
           <input
@@ -126,7 +126,7 @@ export default function LogbookPanel() {
       {Object.keys(porCategoria).length > 0 && (
         <div className="space-y-1.5 border-b border-white/8 p-3">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-            Gasto del mes por categoría
+            Gasto del mes por categorÃ­a
           </p>
           {Object.entries(porCategoria)
             .sort((a, b) => b[1] - a[1])
@@ -174,11 +174,11 @@ export default function LogbookPanel() {
                     {m.activo}: {m.tarea}
                   </p>
                   <p className="text-[10px] text-slate-500">
-                    {m.proxima_fecha ?? 'sin fecha'} ·{' '}
+                    {m.proxima_fecha ?? 'sin fecha'} Â·{' '}
                     {m.vencido
-                      ? `venció hace ${Math.abs(m.dias_restantes ?? 0)} d`
+                      ? `venciÃ³ hace ${Math.abs(m.dias_restantes ?? 0)} d`
                       : `en ${m.dias_restantes ?? 0} d`}
-                    {m.costo_estimado ? ` · ${monto(m.costo_estimado)}` : ''}
+                    {m.costo_estimado ? ` Â· ${monto(m.costo_estimado)}` : ''}
                   </p>
                 </div>
                 <button
@@ -196,7 +196,7 @@ export default function LogbookPanel() {
 
       {/* Movimientos */}
       {registros.length === 0 ? (
-        <Vacio icono={<Receipt size={24} />} texto="Bitácora vacía" sub="Registra un gasto o cuéntale al agente." />
+        <Vacio icono={<Receipt size={24} />} texto="BitÃ¡cora vacÃ­a" sub="Registra un gasto o cuÃ©ntale al agente." />
       ) : (
         <>
           <div className="flex items-center gap-2 border-t border-white/8 px-3 py-1.5">
@@ -221,7 +221,7 @@ export default function LogbookPanel() {
               <div className="min-w-0 flex-1">
                 <p className="truncate text-xs font-medium text-slate-200">{r.descripcion}</p>
                 <p className="text-[10px] text-slate-500">
-                  {r.categoria} · {fechaCorta(r.fecha)}
+                  {r.categoria} Â· {fechaCorta(r.fecha)}
                 </p>
               </div>
               <span className="shrink-0 text-xs font-semibold tabular-nums text-slate-300">

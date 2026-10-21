@@ -94,7 +94,7 @@ export default function App() {
       />
 
       {/* Navegacion principal: agenda / responsabilidad / ajustes */}
-      <nav className="flex shrink-0 items-center gap-1.5 border-b border-white/8 bg-slate-950/40 px-3 py-2">
+      <nav className="flex shrink-0 items-center gap-2 border-b border-white/8 bg-slate-950/40 px-4 py-2.5">
         {pestanas.map((p) => (
           <button
             key={p.id}
@@ -136,11 +136,11 @@ export default function App() {
 
       {vista === 'agenda' && (
         /* ------------------------------ AGENDA (inicial) ------------------- */
-        <main className="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-y-auto p-3 lg:grid-cols-[1fr_minmax(300px,360px)] lg:overflow-hidden">
+        <main className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto p-4 lg:grid-cols-[1fr_minmax(300px,360px)] lg:overflow-hidden">
           <div className="min-h-[520px] lg:min-h-0">
             <CalendarPanel fecha={fecha} onCambiarFecha={setFecha} />
           </div>
-          <div className="flex min-h-0 flex-col gap-3 overflow-y-auto">
+          <div className="flex min-h-0 flex-col gap-4 overflow-y-auto">
             {/* Atajo al chat dentro de la agenda: la entrada al agente siempre
                 a mano, sin salir de lo que estabas mirando. */}
             <Panel titulo="Habla con tu asistente" icono={<Sparkles size={13} className="text-indigo-400" />}>
@@ -169,13 +169,13 @@ export default function App() {
       )}
 
       {vista === 'responsabilidad' && (
-        <main className="min-h-0 flex-1 overflow-y-auto p-3">
+        <main className="min-h-0 flex-1 overflow-y-auto p-4">
           <ResponsibilityPanel />
         </main>
       )}
 
       {vista === 'ajustes' && (
-        <main className="min-h-0 flex-1 overflow-y-auto p-3">
+        <main className="min-h-0 flex-1 overflow-y-auto p-4">
           <AjustesPanel onAbrirConexiones={() => setConexionesAbiertas(true)} />
         </main>
       )}

@@ -18,7 +18,7 @@ import { api, guardarUrlApi, leerUrlApi } from '../lib/api'
 import type {
   AutorizacionCuenta, CatalogoModelos, Conexion, ModeloCatalogo, MotorLocal, ProveedorCatalogo,
 } from '../types'
-import { Boton, Chip, Modal } from './ui'
+import { Aviso, Boton, Campo, Chip, Modal } from './ui'
 
 /** Los 4 caminos, ordenados de mas facil a mas avanzado. */
 const CAMINOS: Array<{ id: string; titulo: string; texto: string; icono: string; modo: string }> = [
@@ -240,6 +240,9 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
   const porModo = (modo: string) => catalogo.filter((c) => c.modo === modo)
   const motoresDisponibles = motores.filter((m) => porModo('local').some((c) => c.id === m.id))
   const activa = conexiones.find((c) => c.activa)
+  // "Google (con mi cuenta de Google)" -> "Google": evita titles duplicados.
+  const nombreCorto =
+    (seleccion?.nombre ?? '').replace(/\s*\(.*\)\s*$/, '').trim() || (seleccion?.nombre ?? '')
 
   /** Modelos que coinciden con el filtro de busqueda ("cualquier IA"). */
   const modelosFiltrados = useMemo(() => {
@@ -251,7 +254,28 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
   }, [modelos, filtroModelo])
 
   return (
-    <Modal abierto={abierto} onCerrar={onCerrar} titulo="Conectar tu IA" ancho="max-w-2xl">
+    <Modal
+      abierto={abierto}
+      onCerrar={onCerrar}
+      titulo="Conectar tu IA"
+      descripcion="Elige como conectarte. No necesitas saber que es una API key: te guio paso a paso."
+      ancho="max-w-2xl"
+      pie={
+        paso === 'detalle' ? (
+          <>
+            <Boton variante="fantasma" onClick={() => setPaso('inicio')}>
+              Volver
+            </Boton>
+            {seleccion?.modo !== 'cuenta' && (
+              <Boton onClick={() => void conectar()} disabled={ocupado}>
+                {ocupado ? <Loader2 size={13} className="animate-spin" /> : <Plug size={13} />}
+                {seleccion?.modo === 'demo' ? 'Usar el asistente demo' : 'Conectar y verificar'}
+              </Boton>
+            )}
+          </>
+        ) : null
+      }
+    >
       <div className="space-y-4">
         {/* Resumen del estado actual */}
         <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/4 p-3">
@@ -272,7 +296,7 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
         </div>
 
         {/* Direccion de la API: util cuando la interfaz esta en GitHub Pages */}
-        <div className="rounded-xl border border-white/10 bg-white/4 p-3">
+        <div className="rounded-2xl border border-white/8 bg-white/4 p-4">
           <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
             <Server size={13} />
             Direccion de la API
@@ -287,7 +311,7 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
               value={apiUrl}
               onChange={(e) => setApiUrl(e.target.value)}
               placeholder="dejala vacio si la API esta en este mismo sitio"
-              className="min-w-0 flex-1 rounded-lg border border-white/10 bg-black/30 px-2.5 py-1.5 text-[11px] text-slate-100 outline-none focus:border-indigo-500/60"
+              className="min-w-0 flex-1 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[11px] text-slate-100 outline-none transition focus:border-indigo-500/60"
             />
             <Boton
               variante="secundario"
@@ -374,12 +398,12 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
             )}
 
             {/* Los 4 caminos */}
-            <div className="space-y-2">
+            <div className="space-y-3">
               {CAMINOS.map((c) => {
                 const opciones = porModo(c.modo)
                 if (c.modo === 'local') {
                   return (
-                    <div key={c.id} className="rounded-xl border border-white/10 bg-white/3 p-3">
+                    <div key={c.id} className="rounded-2xl border border-white/8 bg-white/3 p-4">
                       <div className="flex items-start gap-3">
                         <span className="text-xl">{c.icono}</span>
                         <div className="min-w-0 flex-1">
@@ -403,7 +427,7 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
                 }
                 if (c.modo === 'cuenta' || c.modo === 'api_key') {
                   return (
-                    <div key={c.id} className="rounded-xl border border-white/10 bg-white/3 p-3">
+                    <div key={c.id} className="rounded-2xl border border-white/8 bg-white/3 p-4">
                       <div className="flex items-start gap-3">
                         <span className="text-xl">{c.icono}</span>
                         <div className="min-w-0 flex-1">
@@ -543,50 +567,45 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
           /* ---------------------------------------------------------------- */
           /* Detalle de un proveedor: onboarding paso a paso                   */
           /* ---------------------------------------------------------------- */
-          <div className="space-y-3">
-            <button
-              onClick={() => setPaso('inicio')}
-              className="text-[11px] font-semibold text-slate-400 hover:text-white"
-            >
-              ← Volver
-            </button>
-
-            <div className="flex items-start gap-3">
-              <span className="text-2xl">{seleccion?.icono}</span>
+          <div className="space-y-4">
+            <div className="flex items-start gap-3.5 rounded-2xl border border-white/8 bg-white/3 p-4">
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white/6 text-xl">
+                {seleccion?.icono}
+              </span>
               <div className="min-w-0 flex-1">
-                <h3 className="text-sm font-bold text-white">{seleccion?.nombre}</h3>
-                <p className="text-[11px] leading-relaxed text-slate-400">{seleccion?.resumen}</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-sm font-bold text-white">{seleccion?.nombre}</h3>
+                  {seleccion?.gratis && (
+                    <Chip className="bg-emerald-500/15 text-emerald-300 ring-emerald-500/30">gratis</Chip>
+                  )}
+                </div>
+                <p className="mt-1 text-[11px] leading-relaxed text-slate-400">{seleccion?.resumen}</p>
               </div>
-              {seleccion?.gratis && (
-                <Chip className="bg-emerald-500/15 text-emerald-300 ring-emerald-500/30">gratis</Chip>
-              )}
             </div>
 
             {/* Ruta "cuenta": inicio de sesion guiado (OAuth device flow) */}
             {seleccion?.modo === 'cuenta' && (
-              <div className="rounded-xl border border-indigo-500/25 bg-indigo-500/8 p-3">
+              <div className="rounded-2xl border border-indigo-500/25 bg-indigo-500/8 p-4 sm:p-5">
                 <div className="flex items-center gap-2 text-xs font-bold text-indigo-200">
-                  <LogIn size={13} />
-                  Conectar mi cuenta de {seleccion.nombre}
+                  <LogIn size={14} />
+                  Iniciar sesion con {nombreCorto}
                 </div>
-                <p className="mt-1.5 text-[11px] leading-relaxed text-slate-400">
-                  Autorizas desde tu navegador normal con tu usuario y contrasena. Tu contrasena
-                  nunca pasa por LifeSync.
+                <p className="mt-2 text-[11px] leading-relaxed text-slate-300">
+                  Autorizas desde tu navegador con tu usuario y contrasena. Tu contrasena nunca
+                  pasa por LifeSync.
                 </p>
 
                 {!autorizacion ? (
                   <>
-                    <ol className="mt-2 space-y-1.5">
+                    <ol className="mt-4 space-y-2.5">
                       {(seleccion.instrucciones.length ? seleccion.instrucciones : [
                         'Crea una aplicacion en la consola del proveedor.',
                         'Copia el "ID de cliente" (no es un token ni una contrasena).',
                         'Pega el ID aqui y pulsa "Autorizar en el navegador".',
                       ]).map((pasoTexto, i) => (
-                        <li key={i} className="flex gap-2 text-[11px] leading-relaxed text-slate-300">
-                          <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-indigo-500/30 text-[9px] font-bold text-indigo-100">
-                            {i + 1}
-                          </span>
-                          {pasoTexto}
+                        <li key={i} className="ls-paso">
+                          <span className="ls-paso-num">{i + 1}</span>
+                          <span>{pasoTexto}</span>
                         </li>
                       ))}
                     </ol>
@@ -595,33 +614,32 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
                         href={seleccion.url_client_id}
                         target="_blank"
                         rel="noreferrer"
-                        className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-300 underline hover:text-indigo-200"
+                        className="mt-3 inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-300 underline hover:text-indigo-200"
                       >
                         Abrir la consola del proveedor <ArrowRight size={11} />
                       </a>
                     )}
 
-                    <label className="mt-3 block">
-                      <span className="mb-1 block text-[11px] font-semibold text-slate-300">
-                        ID de cliente
-                        {seleccion.id === 'google_cuenta'
-                          ? ' (opcional: la app ya trae uno)'
-                          : ''}
-                      </span>
-                      <input
-                        value={clientId}
-                        onChange={(e) => setClientId(e.target.value)}
-                        placeholder={
-                          seleccion.id === 'google_cuenta'
-                            ? 'dejalo vacio si la app ya tiene uno'
-                            : '1234567890.apps.googleusercontent.com'
-                        }
-                        autoComplete="off"
-                        className="w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 font-mono text-xs text-slate-100 outline-none focus:border-indigo-500/60"
-                      />
-                    </label>
+                    <div className="mt-5">
+                      <Campo
+                        etiqueta="ID de cliente (opcional)"
+                        ayuda="Caracteres publicos de una aplicacion: no es un token ni tu contrasena. Dejalo vacio si esta copia de LifeSync ya trae uno."
+                      >
+                        <input
+                          value={clientId}
+                          onChange={(e) => setClientId(e.target.value)}
+                          placeholder={
+                            seleccion.id === 'google_cuenta'
+                              ? 'dejalo vacio si la app ya tiene uno'
+                              : '1234567890.apps.googleusercontent.com'
+                          }
+                          autoComplete="off"
+                          className="ls-input font-mono"
+                        />
+                      </Campo>
+                    </div>
 
-                    <div className="mt-2">
+                    <div className="mt-4">
                       <Boton
                         variante="secundario"
                         onClick={() => void autorizar()}
@@ -635,11 +653,11 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
                       </Boton>
                     </div>
                     {seleccion.pasos_ayuda.length > 0 && (
-                      <ul className="mt-2 space-y-1">
+                      <ul className="mt-5 space-y-1.5 border-t border-white/8 pt-3.5">
                         {seleccion.pasos_ayuda.map((p, i) => (
-                          <li key={i} className="flex gap-1.5 text-[10px] leading-relaxed text-slate-500">
+                          <li key={i} className="flex gap-2 text-[10px] leading-relaxed text-slate-400">
                             <CircleAlert size={11} className="mt-0.5 shrink-0" />
-                            {p}
+                            <span>{p}</span>
                           </li>
                         ))}
                       </ul>
@@ -696,17 +714,13 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
 
             {/* Ruta "clave": BYOK guiado */}
             {seleccion?.modo === 'api_key' && (
-              <div className="rounded-xl border border-white/10 bg-white/3 p-3">
-                <div className="mb-2 text-[11px] font-bold text-slate-300">
-                  Paso a paso para obtener tu clave
-                </div>
-                <ol className="space-y-1.5">
+              <div className="rounded-2xl border border-white/8 bg-white/3 p-4 sm:p-5">
+                <div className="ls-label">Paso a paso para obtener tu clave</div>
+                <ol className="mt-3 space-y-2.5">
                   {seleccion.instrucciones.map((p, i) => (
-                    <li key={i} className="flex gap-2 text-[11px] leading-relaxed text-slate-300">
-                      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-white/10 text-[9px] font-bold text-slate-200">
-                        {i + 1}
-                      </span>
-                      {p}
+                    <li key={i} className="ls-paso">
+                      <span className="ls-paso-num">{i + 1}</span>
+                      <span>{p}</span>
                     </li>
                   ))}
                 </ol>
@@ -721,46 +735,44 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
                   </a>
                 )}
 
-                <label className="mt-3 block">
-                  <span className="mb-1 block text-[11px] font-semibold text-slate-300">
-                    Pega aqui tu clave
-                  </span>
-                  <div className="relative">
-                    <input
-                      type={visible ? 'text' : 'password'}
-                      value={clave}
-                      onChange={(e) => setClave(e.target.value)}
-                      placeholder="sk-..."
-                      autoComplete="off"
-                      className="w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 pr-9 font-mono text-xs text-slate-100 outline-none focus:border-indigo-500/60"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setVisible(!visible)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
-                      aria-label="Mostrar u ocultar la clave"
-                    >
-                      {visible ? <EyeOff size={14} /> : <Eye size={14} />}
-                    </button>
-                  </div>
-                </label>
+                <div className="mt-5">
+                  <Campo etiqueta="Pega aqui tu clave">
+                    <div className="relative">
+                      <input
+                        type={visible ? 'text' : 'password'}
+                        value={clave}
+                        onChange={(e) => setClave(e.target.value)}
+                        placeholder="sk-..."
+                        autoComplete="off"
+                        className="ls-input pr-10 font-mono"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setVisible(!visible)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+                        aria-label="Mostrar u ocultar la clave"
+                      >
+                        {visible ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
+                    </div>
+                  </Campo>
+                </div>
 
-                <label className="mt-2 block">
-                  <span className="mb-1 block text-[11px] font-semibold text-slate-300">
-                    Modelo (opcional)
-                  </span>
-                  <input
-                    value={modelo}
-                    onChange={(e) => setModelo(e.target.value)}
-                    list="modelos-conexion"
-                    className="w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-xs text-slate-100 outline-none focus:border-indigo-500/60"
-                  />
-                  <datalist id="modelos-conexion">
-                    {seleccion.modelos.map((m: string) => (
-                      <option key={m} value={m} />
-                    ))}
-                  </datalist>
-                </label>
+                <div className="mt-4">
+                  <Campo etiqueta="Modelo (opcional)">
+                    <input
+                      value={modelo}
+                      onChange={(e) => setModelo(e.target.value)}
+                      list="modelos-conexion"
+                      className="ls-input"
+                    />
+                    <datalist id="modelos-conexion">
+                      {seleccion.modelos.map((m: string) => (
+                        <option key={m} value={m} />
+                      ))}
+                    </datalist>
+                  </Campo>
+                </div>
 
                 {/* Selector amplio: "cualquier IA que seleccione la persona" */}
                 {seleccion.permite_seleccion_modelo && (
@@ -854,17 +866,15 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
 
             {/* Ruta "local": sin credenciales */}
             {seleccion?.modo === 'local' && (
-              <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/8 p-3">
+              <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/8 p-4 sm:p-5">
                 <div className="text-[11px] font-bold text-emerald-200">
                   {seleccion.nombre} no necesita ninguna clave
                 </div>
-                <ol className="mt-2 space-y-1.5">
+                <ol className="mt-3 space-y-2.5">
                   {seleccion.instrucciones.map((p, i) => (
-                    <li key={i} className="flex gap-2 text-[11px] leading-relaxed text-slate-300">
-                      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-500/30 text-[9px] font-bold text-emerald-100">
-                        {i + 1}
-                      </span>
-                      {p}
+                    <li key={i} className="ls-paso">
+                      <span className="ls-paso-num">{i + 1}</span>
+                      <span>{p}</span>
                     </li>
                   ))}
                 </ol>
@@ -879,29 +889,28 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
                   </a>
                 )}
                 {baseUrl === '' && (
-                  <label className="mt-3 block">
-                    <span className="mb-1 block text-[11px] font-semibold text-slate-300">
-                      URL del servidor (opcional, se autodetecta)
-                    </span>
-                    <input
-                      value={baseUrl}
-                      onChange={(e) => setBaseUrl(e.target.value)}
-                      placeholder={seleccion.id === 'ollama' ? 'http://127.0.0.1:11434' : 'http://127.0.0.1:1234/v1'}
-                      className="w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-xs text-slate-100 outline-none focus:border-indigo-500/60"
-                    />
-                  </label>
+                  <div className="mt-5">
+                    <Campo etiqueta="URL del servidor (opcional, se autodetecta)">
+                      <input
+                        value={baseUrl}
+                        onChange={(e) => setBaseUrl(e.target.value)}
+                        placeholder={seleccion.id === 'ollama' ? 'http://127.0.0.1:11434' : 'http://127.0.0.1:1234/v1'}
+                        className="ls-input font-mono"
+                      />
+                    </Campo>
+                  </div>
                 )}
               </div>
             )}
 
             {/* Ruta "demo" */}
             {seleccion?.modo === 'demo' && (
-              <div className="rounded-xl border border-white/10 bg-white/3 p-3">
+              <div className="rounded-2xl border border-white/8 bg-white/3 p-4 sm:p-5">
                 <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
                   <Sparkles size={13} className="text-indigo-300" />
                   Asistente demo integrado
                 </div>
-                <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+                <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
                   Entiende citas, tareas, gastos y mantenimiento en español. No usa internet ni
                   claves. Puedes cambiarlo cuando quieras.
                 </p>
@@ -909,33 +918,17 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
             )}
 
             {estado && (
-              <div
-                className={`flex items-start gap-2 rounded-lg border p-2.5 text-[11px] ${
-                  estado.ok
-                    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200'
-                    : 'border-rose-500/30 bg-rose-500/10 text-rose-200'
-                }`}
-              >
-                {estado.ok ? (
-                  <Check size={13} className="mt-0.5 shrink-0" />
-                ) : (
-                  <CircleAlert size={13} className="mt-0.5 shrink-0" />
-                )}
-                {estado.texto}
-              </div>
+              <Aviso tono={estado.ok ? 'ok' : 'error'}>
+                <span className="flex items-start gap-2">
+                  {estado.ok ? (
+                    <Check size={13} className="mt-0.5 shrink-0" />
+                  ) : (
+                    <CircleAlert size={13} className="mt-0.5 shrink-0" />
+                  )}
+                  <span>{estado.texto}</span>
+                </span>
+              </Aviso>
             )}
-
-            <div className="flex justify-end gap-2 border-t border-white/8 pt-3">
-              <Boton variante="secundario" onClick={() => setPaso('inicio')}>
-                Volver
-              </Boton>
-              {seleccion?.modo !== 'cuenta' && (
-                <Boton onClick={() => void conectar()} disabled={ocupado}>
-                  {ocupado ? <Loader2 size={13} className="animate-spin" /> : <Plug size={13} />}
-                  {seleccion?.modo === 'demo' ? 'Usar el asistente demo' : 'Conectar y verificar'}
-                </Boton>
-              )}
-            </div>
           </div>
         )}
       </div>
