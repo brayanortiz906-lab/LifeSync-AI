@@ -168,6 +168,102 @@ body {
   margin-top: 1px;
 }
 
+/* --------------------------------------------------------------------------
+   RESPONSIVE
+   Reglas que hacen que la app se adapte sin romperse:
+   - la carcasa usa dvh (altura dinamica: respeta la barra del navegador movil)
+   - cada zona con scroll se aisla (overscroll) para que al arrastrar no se
+     mueva la pagina entera por sorpresa (el clasico "no se puede mover")
+   - la rejilla de la agenda se reorganiza sola segun el ancho disponible
+   -------------------------------------------------------------------------- */
+
+/* Carcasa de la app: ocupa la pantalla visible real, sin scroll propio. */
+.ls-shell {
+  height: 100vh;
+  height: 100dvh;
+}
+
+/* Zona con scroll propio: no propaga el gesto al padre. */
+.ls-scroll {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Hoja inferior del menu movil: respeta el gesto de la barra del telefono. */
+.ls-hoja {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+
+/* Entrada de la hoja inferior (sube desde abajo). */
+@keyframes ls-hoja-entra {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.ls-hoja-entra {
+  animation: ls-hoja-entra 0.22s ease-out both;
+}
+
+/*
+   Rejilla de la agenda.
+   - movil   : una sola columna (el calendario); el resto vive en el menu
+   - >=1024  : dos columnas (agenda | tareas y contexto / dinero)
+   - >=1280  : tres columnas (agenda | tareas | dinero)
+   - >=1920  : tres columnas mas anchas
+*/
+.ls-agenda {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 1024px) {
+  .ls-agenda {
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .ls-agenda > .ls-col-calendario {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+  }
+  .ls-agenda > .ls-col-tareas {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .ls-agenda > .ls-col-dinero {
+    grid-column: 2;
+    grid-row: 2;
+  }
+}
+@media (min-width: 1280px) {
+  .ls-agenda {
+    grid-template-columns: minmax(0, 1fr) minmax(340px, 400px) minmax(340px, 430px);
+    grid-template-rows: minmax(0, 1fr);
+  }
+  .ls-agenda > .ls-col-calendario {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .ls-agenda > .ls-col-tareas {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .ls-agenda > .ls-col-dinero {
+    grid-column: 3;
+    grid-row: 1;
+  }
+}
+@media (min-width: 1920px) {
+  .ls-agenda {
+    grid-template-columns: minmax(0, 1fr) 420px 460px;
+  }
+}
+
 /* Scrollbars discretas */
 * {
   scrollbar-width: thin;

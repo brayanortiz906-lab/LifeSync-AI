@@ -29,9 +29,12 @@ import AjustesPanel, { AsistenteBienvenida } from './components/AjustesPanel'
 import PermisosPanel from './components/PermisosPanel'
 import ContextoLateral from './components/ContextoLateral'
 import ChatFlotante from './components/ChatFlotante'
+import ResumenMovil from './components/ResumenMovil'
+import MenuMovil from './components/MenuMovil'
 import { Boton, Panel } from './components/ui'
 import AccesoPanel from './components/AccesoPanel'
 import Bienvenida from './components/Bienvenida'
+import { ESCRITORIO, useMediaQuery } from './lib/useMediaQuery'
 import { guardarToken, leerToken } from './lib/api'
 import type { Usuario } from './types'
 
@@ -54,6 +57,9 @@ export default function App() {
   /** Pantalla de bienvenida: aparece antes de iniciar sesion o crear cuenta. */
   const [portadaAbierta, setPortadaAbierta] = useState(() => !leerToken())
   const [mostrarAvisoPrueba, setMostrarAvisoPrueba] = useState(false)
+  const [menuMovilAbierto, setMenuMovilAbierto] = useState(false)
+  /** En pantallas grandes la agenda usa tres columnas; en movil, un menu. */
+  const esEscritorio = useMediaQuery(ESCRITORIO)
   const activarModoPrueba = useLifeSync((s) => s.activarModoPrueba)
   const activarModoLocal = useLifeSync((s) => s.activarModoLocal)
   const cargarPlantilla = useLifeSync((s) => s.cargarPlantilla)
@@ -95,7 +101,7 @@ export default function App() {
     !cargando && !!ajustes && !ajustes.onboarding_completo && !bienvenidaSaltada
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden">
+    <div className="ls-shell flex flex-col overflow-hidden">
       <TopBar
         onAbrirAcceso={() => setAccesoAbierto(true)}
         usuario={usuario}
@@ -106,15 +112,16 @@ export default function App() {
         conexionesAbiertas={conexionesAbiertas}
         onAbrirConexiones={() => setConexionesAbiertas(true)}
         onCerrarConexiones={() => setConexionesAbiertas(false)}
+        onAbrirMenu={() => setMenuMovilAbierto(true)}
       />
 
       {/* Navegacion principal: agenda / responsabilidad / ajustes */}
-      <nav className="flex shrink-0 items-center gap-2 border-b border-white/8 bg-slate-950/40 px-4 py-2.5">
+      <nav className="ls-scroll flex shrink-0 items-center gap-2 overflow-x-auto border-b border-white/8 bg-slate-950/40 px-4 py-2.5">
         {pestanas.map((p) => (
           <button
             key={p.id}
             onClick={() => setVista(p.id)}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+            className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
               vista === p.id
                 ? p.color === 'emerald'
                   ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'
@@ -136,7 +143,7 @@ export default function App() {
           </button>
         ))}
 
-        <span className="ml-auto hidden text-[10px] text-slate-600 sm:block">
+        <span className="ml-auto hidden shrink-0 text-[10px] text-slate-600 sm:block">
           Ctrl+K abre el chat flotante
         </span>
       </nav>
@@ -168,59 +175,100 @@ export default function App() {
       )}
 
       {vista === 'agenda' && (
-        /* ------------------------------ AGENDA (inicial) ------------------- */
-        <main className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto p-4 lg:grid-cols-[1fr_minmax(300px,360px)] lg:overflow-hidden">
-          <div className="min-h-[520px] lg:min-h-0">
-            <CalendarPanel fecha={fecha} onCambiarFecha={setFecha} />
-          </div>
-          <div className="flex min-h-0 flex-col gap-4 overflow-y-auto">
-            {/* Atajo al chat dentro de la agenda: la entrada al agente siempre
-                a mano, sin salir de lo que estabas mirando. */}
-            <Panel titulo="Habla con tu asistente" icono={<Sparkles size={13} className="text-indigo-400" />}>
-              <p className="text-[11px] leading-relaxed text-slate-400">
-                Cuentale un compromiso, un gasto o una entrega en palabras simples. Se registra
-                solo y reorganiza tu agenda.
-              </p>
-              <Boton
-                variante="primario"
-                onClick={() => setChatAbierto(true)}
-                className="mt-2 w-full justify-center"
-              >
-                <MessageSquare size={13} />
-                Abrir el chat
-              </Boton>
-            </Panel>
+        /* ------------------------------ AGENDA (inicial) -------------------
+           Pantallas grandes: 3 columnas (agenda | tareas y contexto | dinero).
+           Pantallas pequenas: el calendario completo + 3 lineas de resumen y
+           un menu con todo lo demas (nada queda escondido ni se rompe).   */
+        <main className="ls-scroll flex-1 p-3 sm:p-4 lg:overflow-hidden">
+          {esEscritorio ? (
+            <div className="ls-agenda mx-auto h-full w-full max-w-[1900px]">
+              {/* Columna 1: la agenda, siempre visible. */}
+              <div className="ls-col-calendario flex min-h-0 flex-col">
+                <CalendarPanel fecha={fecha} onCambiarFecha={setFecha} />
+              </div>
 
-            <aside className="hidden xl:block">
-              <ContextoLateral fecha={fecha} />
-            </aside>
+              {/* Columna 2: el agente, el contexto y las tareas. */}
+              <div className="ls-col-tareas ls-scroll flex min-h-0 flex-col gap-4 pr-0.5">
+                {/* Atajo al chat dentro de la agenda: la entrada al agente
+                    siempre a mano, sin salir de lo que estabas mirando. */}
+                <Panel titulo="Habla con tu asistente" icono={<Sparkles size={13} className="text-indigo-400" />}>
+                  <p className="text-[11px] leading-relaxed text-slate-400">
+                    Cuentale un compromiso, un gasto o una entrega en palabras simples. Se registra
+                    solo y reorganiza tu agenda.
+                  </p>
+                  <Boton
+                    variante="primario"
+                    onClick={() => setChatAbierto(true)}
+                    className="mt-2 w-full justify-center"
+                  >
+                    <MessageSquare size={13} />
+                    Abrir el chat
+                  </Boton>
+                </Panel>
 
-            <AcademicPanel />
-            <LogbookPanel />
-          </div>
+                <ContextoLateral fecha={fecha} />
+                <AcademicPanel />
+              </div>
+
+              {/* Columna 3: la bitacora y los gastos. */}
+              <div className="ls-col-dinero ls-scroll flex min-h-0 flex-col gap-4 pr-0.5">
+                <LogbookPanel />
+              </div>
+            </div>
+          ) : (
+            <div className="mx-auto flex w-full max-w-[1900px] flex-col gap-4">
+              <CalendarPanel fecha={fecha} onCambiarFecha={setFecha} />
+              <ResumenMovil onAbrirMas={() => setMenuMovilAbierto(true)} />
+            </div>
+          )}
         </main>
       )}
 
       {vista === 'responsabilidad' && (
-        <main className="min-h-0 flex-1 overflow-y-auto p-4">
-          <ResponsibilityPanel />
+        <main className="ls-scroll flex-1 p-3 sm:p-4">
+          <div className="mx-auto w-full max-w-[1500px]">
+            <ResponsibilityPanel />
+          </div>
         </main>
       )}
 
       {vista === 'permisos' && (
-        <main className="min-h-0 flex-1 overflow-y-auto p-4">
-          <PermisosPanel />
+        <main className="ls-scroll flex-1 p-3 sm:p-4">
+          <div className="mx-auto w-full max-w-[1100px]">
+            <PermisosPanel />
+          </div>
         </main>
       )}
 
       {vista === 'ajustes' && (
-        <main className="min-h-0 flex-1 overflow-y-auto p-4">
-          <AjustesPanel onAbrirConexiones={() => setConexionesAbiertas(true)} />
+        <main className="ls-scroll flex-1 p-3 sm:p-4">
+          <div className="mx-auto w-full max-w-[1100px]">
+            <AjustesPanel onAbrirConexiones={() => setConexionesAbiertas(true)} />
+          </div>
         </main>
       )}
 
       {/* El chat vive aparte: burbuja flotante disponible en cualquier vista. */}
       <ChatFlotante abierto={chatAbierto} onToggle={() => setChatAbierto((v) => !v)} />
+
+      {/* En movil: hoja con lo que no cabe en la pantalla. */}
+      <MenuMovil
+        abierto={menuMovilAbierto && !esEscritorio}
+        onCerrar={() => setMenuMovilAbierto(false)}
+        onAbrirConexiones={() => {
+          setMenuMovilAbierto(false)
+          setConexionesAbiertas(true)
+        }}
+        onAbrirAcceso={() => {
+          setMenuMovilAbierto(false)
+          setAccesoAbierto(true)
+        }}
+        onAbrirChat={() => {
+          setMenuMovilAbierto(false)
+          setChatAbierto(true)
+        }}
+        usuario={usuario}
+      />
     {mostrarAvisoPrueba && (
       <div className="fixed left-1/2 top-3 z-30 -translate-x-1/2 rounded-full border border-amber-500/30 bg-amber-500/15 px-4 py-1.5 text-[11px] font-semibold text-amber-100 backdrop-blur">
         Modo de prueba · los datos desaparecen al recargar la pagina (maximo 6 bloques, 4 tareas y 6 gastos)
@@ -250,11 +298,13 @@ export default function App() {
       }}
       onContinuarLocal={() => {
         activarModoLocal()
+        setMostrarAvisoPrueba(false)
         setPortadaAbierta(false)
       }}
       onCargarPlantilla={(id) => {
         if (!modoLocal && !useLifeSync.getState().modoPrueba) activarModoLocal()
         cargarPlantilla(id)
+        setMostrarAvisoPrueba(false)
         setPortadaAbierta(false)
       }}
       onPegarTexto={(texto) => {

@@ -82,7 +82,7 @@ export default function CalendarPanel({
   }, [eventos, fecha, categoria, soloFijos, modo])
 
   return (
-    <section className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-white/8 bg-slate-900/60 shadow-xl shadow-black/30 backdrop-blur">
+    <section className="flex min-h-0 flex-col overflow-visible rounded-2xl border border-white/8 bg-slate-900/60 shadow-xl shadow-black/30 backdrop-blur lg:flex-1 lg:overflow-hidden">
       <header className="flex shrink-0 flex-wrap items-center gap-2.5 border-b border-white/8 px-5 py-3.5">
         <div className="flex items-center gap-2 text-sm font-semibold text-slate-200">
           <CalendarRange size={15} className="text-indigo-400" />
@@ -157,7 +157,10 @@ export default function CalendarPanel({
         </select>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto">
+      {/* En movil el calendario crece con su contenido (la pagina hace un
+          solo scroll, sin scrolls anidados que roben el gesto); en escritorio
+          el panel tiene altura fija y scrollea por dentro. */}
+      <div className="flex-none overflow-visible lg:min-h-0 lg:flex-1 lg:overflow-auto">
         {vista === 'dia' && (
           <VistaDia fecha={fecha} eventos={delDia} onSeleccion={setSeleccion} />
         )}

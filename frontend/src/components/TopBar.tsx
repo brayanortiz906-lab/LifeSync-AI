@@ -1,6 +1,6 @@
 /** Barra superior: marca, navegación de fecha, KPIs y conexiones de IA. */
 import { useState } from 'react'
-import { CalendarDays, ChevronLeft, ChevronRight, MessageSquare, Plug, Sparkles, Trash2, User } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, Menu, MessageSquare, Plug, Sparkles, Trash2, User } from 'lucide-react'
 import { useLifeSync } from '../store/useLifeSync'
 import { duracionLegible, etiquetaDia, monto } from '../lib/format'
 import { Boton, Chip } from './ui'
@@ -10,6 +10,7 @@ import ConexionesPanel from './ConexionesPanel'
 export default function TopBar({
   fecha, onCambiarFecha, onAbrirChat, chatAbierto,
   conexionesAbiertas, onAbrirConexiones, onCerrarConexiones, onAbrirAcceso, usuario,
+  onAbrirMenu,
 
 }: {
   fecha: Date
@@ -23,6 +24,8 @@ export default function TopBar({
   conexionesAbiertas?: boolean
   onAbrirConexiones?: () => void
   onCerrarConexiones?: () => void
+  /** Abre el menu movil con lo que no cabe en pantallas pequeñas. */
+  onAbrirMenu?: () => void
 }) {
   const dashboard = useLifeSync((s) => s.dashboard)
   const proveedor = useLifeSync((s) => s.proveedor)
@@ -56,7 +59,7 @@ export default function TopBar({
         </div>
         <div className="leading-tight">
           <h1 className="text-sm font-bold tracking-tight text-white">LifeAgente AI</h1>
-          <p className="text-[10px] text-slate-500">Asistente Integral de Vida y Productividad</p>
+          <p className="hidden text-[10px] text-slate-500 sm:block">Asistente Integral de Vida y Productividad</p>
         </div>
       </div>
 
@@ -64,19 +67,62 @@ export default function TopBar({
         <button onClick={() => dia(-1)} className="rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-white" aria-label="Día anterior">
           <ChevronLeft size={16} />
         </button>
-        <div className="flex min-w-[150px] items-center justify-center gap-1.5 px-1 text-xs font-semibold text-slate-200">
-          <CalendarDays size={14} className="text-indigo-400" />
+        <div className="flex min-w-[104px] items-center justify-center gap-1.5 px-1 text-xs font-semibold text-slate-200 sm:min-w-[150px]">
+          <CalendarDays size={14} className="hidden text-indigo-400 sm:block" />
           {etiquetaDia(fecha)}
         </div>
         <button onClick={() => dia(1)} className="rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-white" aria-label="Día siguiente">
           <ChevronRight size={16} />
         </button>
-        <Boton variante="fantasma" onClick={() => onCambiarFecha(new Date())} className="ml-1">
+        <Boton variante="fantasma" onClick={() => onCambiarFecha(new Date())} className="ml-1 hidden sm:inline-flex">
           Hoy
         </Boton>
       </div>
 
-      <div className="ml-auto hidden items-center gap-2 md:flex">
+      {/* Movil: lo que no cabe en la barra se abre desde aqui. */}
+      <div className="ml-auto flex items-center gap-1 lg:hidden">
+        {onAbrirChat && (
+          <button
+            onClick={onAbrirChat}
+            className={`rounded-lg p-2 transition ${chatAbierto ? 'bg-indigo-500/20 text-indigo-200' : 'text-slate-300 hover:bg-white/10'}`}
+            aria-label="Abrir el chat"
+            title="Abrir el chat (Ctrl+K)"
+          >
+            <MessageSquare size={17} />
+          </button>
+        )}
+        {onAbrirAcceso && (
+          <button
+            onClick={onAbrirAcceso}
+            className="rounded-lg p-2 text-slate-300 transition hover:bg-white/10"
+            aria-label="Tu cuenta"
+            title="Tu cuenta"
+          >
+            <User size={17} />
+          </button>
+        )}
+        <button
+          onClick={abrirConexiones}
+          className="rounded-lg p-2 text-slate-300 transition hover:bg-white/10"
+          aria-label="Conectar IA"
+          title="Conectar IA"
+        >
+          <Plug size={17} />
+        </button>
+        {onAbrirMenu && (
+          <button
+            onClick={onAbrirMenu}
+            className="rounded-lg p-2 text-slate-300 transition hover:bg-white/10"
+            aria-label="Ver todo lo demas"
+            title="Tareas, dinero, contexto y cuenta"
+          >
+            <Menu size={18} />
+          </button>
+        )}
+      </div>
+
+      {/* Escritorio: los indicadores completos. */}
+      <div className="ml-auto hidden items-center gap-2 lg:flex">
         {dashboard && (
           <>
             <Chip className="bg-indigo-500/15 text-indigo-300 ring-indigo-500/30">

@@ -198,6 +198,27 @@ tape lo que ya tenías en pantalla.
 | **Pestaña «Ajustes»** | Tu nombre, moneda, jornada, tema de color, cómo ordenar cada bloque y tus etiquetas |
 | **Teclado** | `Ctrl+K` / `Cmd+K` alterna el chat · `Escape` lo cierra |
 
+### Responsive: la app se adapta y no se rompe
+
+LifeAgente se reorganiza según el ancho **sin scrolls anidados** (que era lo que hacía que
+"no se pudiera mover") y sin esconder cosas a la ligera.
+
+| Pantalla | Cómo se ve | Qué hay |
+|---|---|---|
+| **Móvil / tablet (< 1024 px)** | Una columna | Calendario completo + **3 líneas de resumen** y un botón **«Ver todo lo demás»** que abre una hoja con Tareas · Dinero · Contexto · Cuenta |
+| **Escritorio (≥ 1024 px)** | 2 columnas | Agenda (ocupa las dos filas) · tareas y contexto arriba, dinero abajo |
+| **Pantalla grande (≥ 1280 px)** | 3 columnas | Agenda · tareas y contexto · dinero |
+| **Muy grande (≥ 1920 px)** | 3 columnas anchas | Contenido centrado, máximo 1900 px: en un 4K no se estira de más |
+
+| Pieza | Qué resuelve |
+|---|---|
+| `frontend/src/components/ResumenMovil.tsx` | Las 3 líneas: `Hoy: 8 bloques · 5 h 30 min` · `51 tareas pendientes · próxima: …` · `$ 30.134.000 del mes · 5 mantenimientos` |
+| `frontend/src/components/MenuMovil.tsx` | La hoja desplegable con lo que no cabe (solo en pantallas pequeñas) |
+| `frontend/src/lib/useMediaQuery.ts` | El corte de pantalla en un solo sitio (`ESCRITORIO` = 1024 px) |
+| `.ls-shell` / `.ls-scroll` (CSS) | Una sola zona con scroll: la carcasa nunca scrollea y el gesto nunca se queda atrapado |
+
+Detalle técnico: `docs/14-RESPONSIVE.md`.
+
 ### Ajustes, temas y cómo ordenar lo que ves
 
 LifeAgente arranca con un **formulario de bienvenida** (3 pasos) la primera vez: te pide
@@ -376,8 +397,11 @@ el centro de conexiones y los permisos con piloto automático) y compila el fron
 │       ├── store/useLifeSync.ts ← Estado global (Zustand) + tema y ajustes
 │       ├── lib/api.ts           ← Cliente HTTP + manejo de la API Key local
 │       ├── lib/format.ts        ← Fechas, moneda, duraciones (es-CO)
+│       ├── lib/useMediaQuery.ts ← Cortes de pantalla (escritorio 1024 px)
 │       └── components/
 │           ├── TopBar.tsx       ← Marca, navegación de fecha, KPIs, conexiones
+│           ├── ResumenMovil.tsx ← Las 3 líneas de resumen (pantallas pequeñas)
+│           ├── MenuMovil.tsx    ← Hoja desplegable con lo que no cabe (móvil)
 │           ├── ChatFlotante.tsx ← Chat flotante móvil (burbuja arrastrable → panel → pantalla completa)
 │           ├── ChatBody.tsx    ← Burbujas, ficha del agente, input, sugerencias
 │           ├── ContextoLateral.tsx ← Resumen lateral (hoy, entregas, mes)
@@ -421,6 +445,7 @@ el centro de conexiones y los permisos con piloto automático) y compila el fron
 | [docs/11-AUTENTICACION.md](docs/11-AUTENTICACION.md) | Acceso con un clic: Google/Outlook/GitHub y sistemas alojados (Firebase, Supabase) |
 | [docs/12-PERMISOS-Y-NUBE.md](docs/12-PERMISOS-Y-NUBE.md) | Permisos de la cuenta, piloto automático y cómo trabaja sin que abras la app |
 | [docs/13-MOTOR-LOCAL.md](docs/13-MOTOR-LOCAL.md) | El motor de reglas: la app funciona sin IA, sin claves y sin servidor |
+| [docs/14-RESPONSIVE.md](docs/14-RESPONSIVE.md) | Diseño responsivo: 3 columnas en pantallas grandes, menu desplegable en el móvil y un solo scroll |
 
 ---
 
