@@ -33,6 +33,8 @@ from ..cuentas import (
     usuario_actual,
     verificar_codigo,
 )
+from .. import connections as con
+from ..config import settings
 from ..database import get_db
 
 router = APIRouter(prefix="/api/cuentas", tags=["cuentas"])
@@ -49,6 +51,12 @@ class CodigoIn(BaseModel):
 class VerificarIn(BaseModel):
     correo: str = ""
     codigo: str = ""
+
+
+class GoogleTerminarIn(BaseModel):
+    """Cuerpo de 'ya autorice': solo hace falta el codigo del dispositivo."""
+
+    device_code: str = ""
 
 
 class GoogleIn(BaseModel):
@@ -110,6 +118,71 @@ def verificar(payload: VerificarIn, db: Session = Depends(get_db, scope="functio
 def entrar_google(payload: GoogleIn, db: Session = Depends(get_db, scope="function")):
     """Entra con la cuenta de Google (usa el permiso que ya sabe ganar LifeSync)."""
     usuario = entrar_con_google(db, payload.access_token)
+    token = crear_sesion(db, usuario, "google")
+    return {"ok": True, "token": token, "usuario": _perfil(usuario)}
+
+
+def _client_id_google(db: Session) -> str:
+    """ID de cliente de Google configurado en el despliegue (una sola vez).
+
+    Lo pone quien instala LifeSync (en Render o en el .env). El usuario final
+    NUNCA ve este valor: solo pulsa "Continuar con Google" y autoriza.
+    """
+    if settings.google_client_id:
+        return settings.google_client_id.strip()
+    from ..models import ConexionIA
+
+    conexion = db.scalars(
+        select(ConexionIA)
+        .where(ConexionIA.proveedor == "google_cuenta")
+        .order_by(ConexionIA.activa.desc(), ConexionIA.id.desc())
+    ).first()
+    if conexion is not None:
+        cred = con.credenciales_desde_json(conexion.credenciales_cifradas)
+        client_id = str(cred.get("client_id") or "")
+        if client_id:
+            return client_id
+    raise HTTPException(
+        status_code=400,
+        detail=(
+            "Esta copia de LifeSync todavia no tiene el acceso con Google configurado. "
+            "Lo activa una sola vez quien la instala (ayuda en 'Conectar IA > Configuracion avanzada'). "
+            "Mientras tanto puedes entrar con tu correo o seguir en este equipo."
+        ),
+    )
+
+
+@router.post("/google/iniciar")
+def google_iniciar(db: Session = Depends(get_db, scope="function")):
+    """Arranca el acceso con Google (sin pedirle nada al usuario)."""
+    client_id = _client_id_google(db)
+    try:
+        datos = con.iniciar_autorizacion_cuenta("google_cuenta", client_id)
+    except con.ErrorConexion as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {
+        "ok": True,
+        "user_code": datos["user_code"],
+        "verification_uri": datos["verification_uri"],
+        "intervalo": datos["intervalo"],
+        "expira_en": datos["expira_en"],
+        "device_code": datos["device_code"],
+    }
+
+
+@router.post("/google/terminar")
+def google_terminar(payload: GoogleTerminarIn, db: Session = Depends(get_db, scope="function")):
+    """Comprueba si la persona ya autorizo y abre su sesion."""
+    client_id = _client_id_google(db)
+    try:
+        cred, mensaje = con.completar_autorizacion_cuenta(
+            "google_cuenta", client_id, payload.device_code or ""
+        )
+    except con.ErrorConexion as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if not cred:
+        return {"ok": False, "mensaje": "Todavia falta que autorices en el navegador."}
+    usuario = entrar_con_google(db, str(cred.get("access_token") or ""))
     token = crear_sesion(db, usuario, "google")
     return {"ok": True, "token": token, "usuario": _perfil(usuario)}
 

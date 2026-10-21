@@ -205,6 +205,7 @@ export default function App() {
       abierto={accesoAbierto}
       onCerrar={() => setAccesoAbierto(false)}
       onSesionCambiada={(u) => setUsuario(u)}
+      onAbrirConexiones={() => setConexionesAbiertas(true)}
     />
 
       {cargando && (

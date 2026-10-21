@@ -15,14 +15,21 @@ import type { Usuario } from '../types'
 import { Aviso, Boton, Campo, Modal } from './ui'
 
 export default function AccesoPanel({
-  abierto, onCerrar, onSesionCambiada,
+  abierto, onCerrar, onSesionCambiada, onAbrirConexiones,
 }: {
   abierto: boolean
   onCerrar: () => void
   onSesionCambiada: (usuario: Usuario | null) => void
+  /** Abre el Centro de Conexiones (para quien instala LifeSync). */
+  onAbrirConexiones?: () => void
 }) {
   const [usuario, setUsuario] = useState<Usuario | null>(null)
-  const [paso, setPaso] = useState<'inicio' | 'correo' | 'codigo'>('inicio')
+  const [paso, setPaso] = useState<'inicio' | 'correo' | 'codigo' | 'google'>('inicio')
+  const [googleAuth, setGoogleAuth] = useState<{
+    user_code: string
+    verification_uri: string
+    device_code: string
+  } | null>(null)
   const [correo, setCorreo] = useState('')
   const [nombre, setNombre] = useState('')
   const [codigo, setCodigo] = useState('')
@@ -58,12 +65,34 @@ export default function AccesoPanel({
     setPaso('inicio')
   }
 
+  /** Paso 1: pedir el codigo de autorizacion (la app ya tiene el permiso). */
   const entrarConGoogle = async () => {
     setOcupado(true)
     setEstado(null)
     try {
-      const r = await cuentas.entrarGoogleDesdeConexion()
-      entrar(r.token, r.usuario)
+      const r = await cuentas.iniciarAccesoGoogle()
+      setGoogleAuth({ user_code: r.user_code, verification_uri: r.verification_uri, device_code: r.device_code })
+      setPaso('google')
+    } catch (e) {
+      setEstado({ ok: false, texto: (e as Error).message })
+    } finally {
+      setOcupado(false)
+    }
+  }
+
+  /** Paso 2: la persona ya autorizo en su navegador -> abrir su sesion. */
+  const confirmarGoogle = async () => {
+    if (!googleAuth) return
+    setOcupado(true)
+    setEstado(null)
+    try {
+      const r = await cuentas.terminarAccesoGoogle(googleAuth.device_code)
+      if (r.ok && r.token && r.usuario) {
+        entrar(r.token, r.usuario)
+        setGoogleAuth(null)
+        return
+      }
+      setEstado({ ok: false, texto: r.mensaje || 'Todavia falta que autorices en el navegador.' })
     } catch (e) {
       setEstado({ ok: false, texto: (e as Error).message })
     } finally {
@@ -184,9 +213,9 @@ export default function AccesoPanel({
             >
               <span className="grid h-11 w-11 place-items-center rounded-xl bg-white/6 text-lg font-bold text-white">G</span>
               <div className="min-w-0 flex-1">
-                <div className="text-xs font-bold text-white">Entrar con Google</div>
+                <div className="text-xs font-bold text-white">Continuar con Google</div>
                 <div className="text-[11px] leading-relaxed text-slate-400">
-                  Un clic. Usamos la cuenta de Google que ya conectaste en "Conectar IA".
+                  Un clic y ya estas dentro. No necesitas claves ni archivos.
                 </div>
               </div>
               <LogIn size={15} className="mt-1 shrink-0 text-slate-500" />
@@ -217,6 +246,42 @@ export default function AccesoPanel({
                   Sin cuenta y sin subir nada. Tus datos viven en tu computador y puedes
                   guardarlos como respaldo cuando quieras.
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {!conectado && paso === 'google' && googleAuth && (
+          <div className="space-y-3">
+            <div className="rounded-2xl border border-indigo-500/25 bg-indigo-500/8 p-4">
+              <div className="text-xs font-bold text-indigo-200">Autoriza en tu navegador</div>
+              <p className="mt-1.5 text-[11px] leading-relaxed text-slate-300">
+                Elige tu cuenta de Google y pulsa "Permitir". Tu contrasena nunca pasa por LifeSync.
+              </p>
+              <div className="mt-3 select-all rounded-xl border border-indigo-500/30 bg-black/30 px-3 py-2 text-center font-mono text-lg font-bold tracking-widest text-indigo-100">
+                {googleAuth.user_code}
+              </div>
+              <a
+                href={googleAuth.verification_uri}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-3 inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-300 underline hover:text-indigo-200"
+              >
+                Abrir la pagina de autorizacion <LogIn size={11} />
+              </a>
+              <div className="mt-3 flex items-center gap-2">
+                <Boton onClick={() => void confirmarGoogle()} disabled={ocupado}>
+                  {ocupado ? 'Comprobando...' : 'Listo, ya autorice'}
+                </Boton>
+                <button
+                  onClick={() => {
+                    setPaso('inicio')
+                    setGoogleAuth(null)
+                  }}
+                  className="text-[11px] font-semibold text-slate-400 hover:text-white"
+                >
+                  Cancelar
+                </button>
               </div>
             </div>
           </div>
@@ -293,6 +358,22 @@ export default function AccesoPanel({
               <LogOut size={13} />
               Cerrar sesión y volver al modo local
             </Boton>
+          </div>
+        )}
+
+        {estado && !estado.ok && estado.texto.toLowerCase().includes('google') && onAbrirConexiones && (
+          <div className="rounded-2xl border border-white/10 bg-white/4 p-4">
+            <div className="text-[11px] font-bold text-slate-200">¿Eres quien instala LifeSync?</div>
+            <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+              El acceso con Google se activa una sola vez, en el servidor. Si esta es tu maquina,
+              puedes dejarlo listo aqui (tarda un minuto) y a partir de ahora todo el mundo entra
+              con un clic.
+            </p>
+            <div className="mt-2">
+              <Boton variante="secundario" onClick={() => { onAbrirConexiones(); onCerrar() }}>
+                Configurar el acceso con Google
+              </Boton>
+            </div>
           </div>
         )}
 

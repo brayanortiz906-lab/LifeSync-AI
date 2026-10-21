@@ -154,6 +154,25 @@ def main() -> int:
         f"usuario={(_r or {}).get('usuario')}",
     )
 
+    _r = pedir_tok("/api/cuentas/google/iniciar", "POST", {})
+    _msg = str((_r or {}).get("detail", ""))
+    check(
+        "[CUENTA] el acceso con Google pide configuracion solo si falta (nunca al usuario final)",
+        isinstance(_r, dict) and ("no tiene el acceso con Google" in _msg or "user_code" in _r),
+        f"respuesta={_msg[:80] or 'device flow listo'}",
+    )
+
+    _r = pedir_tok("/api/cuentas/google/terminar", "POST", {"device_code": "codigo-de-prueba"})
+    _msg2 = str((_r or {}).get("mensaje", "") or ( _r or {}).get("detail", ""))
+    check(
+        "[CUENTA] si aun no autorizaste, te lo dice sin error",
+        isinstance(_r, dict) and (
+            (_r.get("ok") is False and "autorices" in _msg2)
+            or _r.get("__error__") == 400
+        ),
+        f"mensaje={_msg2[:70]}",
+    )
+
     print("=" * 70)
     print("LIFESYNC AI — VERIFICACION END-TO-END")
     print("=" * 70)

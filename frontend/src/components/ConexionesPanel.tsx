@@ -385,7 +385,7 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
               qué es una API key</strong>: si eliges una cuenta, te guio con cada paso.
             </p>
 
-            {/* Camino destacado: entrar con Google y luego elegir IA */}
+            {/* Camino destacado: entrar con Google y luego elegir IA (un clic, sin configuracion) */}
             <div className="rounded-2xl border border-blue-500/30 bg-gradient-to-br from-blue-500/15 via-slate-900/60 to-slate-900/60 p-4">
               <div className="flex items-start gap-3">
                 <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white text-lg font-black text-blue-600 shadow-lg">
@@ -572,24 +572,36 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
           /* Asistente de acceso con Google: 3 caminos, ninguno deja bloqueado */
           /* ---------------------------------------------------------------- */
           <div className="space-y-3">
+            <button
+              onClick={() => setPaso('inicio')}
+              className="text-[11px] font-semibold text-slate-400 hover:text-white"
+            >
+              &larr; Volver (no necesito esto)
+            </button>
             <div className="rounded-2xl border border-blue-500/25 bg-blue-500/8 p-4 sm:p-5">
               <div className="flex items-center gap-2.5 text-sm font-bold text-blue-100">
                 <span className="grid h-8 w-8 place-items-center rounded-lg bg-white text-base font-black text-blue-600">
                   G
                 </span>
-                Entrar con Google
+                Configuracion avanzada (una sola vez)
               </div>
               <p className="mt-2 text-[11px] leading-relaxed text-slate-300">
-                LifeSync necesita un identificador publico de aplicacion de Google (no es tu
-                contrasena ni una clave secreta). Puedes crearlo en un minuto, o usar cualquiera
-                de las otras dos vias: los tres caminos funcionan igual de bien.
+                Si solo quieres <strong className="text-slate-200">usar</strong> LifeSync, no
+                necesitas nada de esto: abre el boton <strong className="text-slate-200">Acceder</strong> y
+                entra con tu cuenta de Google con un solo clic.
+              </p>
+              <p className="mt-1.5 text-[11px] leading-relaxed text-slate-400">
+                Esta pantalla es para quien <strong>instala</strong> LifeSync en un servidor: deja
+                preparado el acceso con Google una vez y a partir de ahi todas las personas entran
+                solas. Necesita un identificador publico de aplicacion de Google (no es tu
+                contrasena ni una clave secreta).
               </p>
             </div>
 
             {/* Camino 1 */}
             <div className="rounded-2xl border border-white/8 bg-white/3 p-4 sm:p-5">
               <div className="text-xs font-bold text-white">
-                Camino 1 · Activar el acceso con Google (1 minuto, queda guardado)
+                Camino 1 · Activar el acceso con Google (solo quien instala: 1 minuto, queda guardado)
               </div>
               <ol className="mt-2.5 space-y-2">
                 {[

@@ -516,3 +516,18 @@ que nadie ve lo de nadie. Ademas puede bajar un respaldo en JSON o guardarlo
 en su Google Drive.
 
 Guia completa: `docs/10-DESPLIEGUE.md`.
+
+### Entrar en un clic: la persona pone su cuenta y entra
+
+| Quien | Que hace |
+|---|---|
+| **Quien usa LifeSync** | `Acceder > Continuar con Google` -> autoriza en su navegador -> listo (2 clics) |
+| **Quien instala LifeSync** (una vez) | pega su ID de cliente OAuth en `GOOGLE_CLIENT_ID` (variables del despliegue) |
+
+La configuracion tecnica **nunca** se le pide a quien usa la app: vive en el
+despliegue. Si tu copia todavia no la tiene, la app lo dice y ofrece entrar
+con tu correo (codigo de 6 digitos) o seguir en el equipo (modo local).
+
+Comparativa de servicios de autenticacion ya existentes (Firebase, Supabase,
+Clerk) y por que el sistema propio sigue siendo la mejor opcion aqui:
+`docs/11-AUTENTICACION.md`.

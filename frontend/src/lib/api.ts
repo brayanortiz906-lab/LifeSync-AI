@@ -1,7 +1,7 @@
 /** Cliente HTTP de la API de LifeSync AI. */
 import type {
   Ajustes, Aprobacion, AutorizacionCuenta, CatalogoModelos, Conexion, Dashboard, EntradaAuditoria, EstadoGoogle,
-  PerfilCuenta, Respaldo, ResultadoCodigo, ResultadoSesion,
+  PerfilCuenta, Respaldo, ResultadoCodigo, ResultadoSesion, Usuario,
   Evento, HistorialMsg, Mantenimiento, MotorLocal, Politica, ProveedorCatalogo, Registro,
   ReporteCumplimiento, ResumenAuditoria, RespuestaAgente, ResultadoAutorizacion, Tarea,
 } from '../types'
@@ -277,6 +277,16 @@ export const cuentas = {
       method: 'POST',
       body: JSON.stringify({ access_token }),
     }),
+  iniciarAccesoGoogle: () =>
+    request<{ ok: boolean; user_code: string; verification_uri: string; device_code: string }>(
+      '/cuentas/google/iniciar',
+      { method: 'POST' },
+    ),
+  terminarAccesoGoogle: (device_code: string) =>
+    request<{ ok: boolean; token?: string; usuario?: Usuario; mensaje?: string }>(
+      '/cuentas/google/terminar',
+      { method: 'POST', body: JSON.stringify({ device_code }) },
+    ),
   entrarGoogleDesdeConexion: () =>
     request<ResultadoSesion>('/cuentas/google/desde-conexion', { method: 'POST' }),
   salir: () => request<{ ok: boolean }>('/cuentas/salir', { method: 'POST' }),
