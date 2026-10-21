@@ -1,6 +1,6 @@
-# Publicar LifeSync AI con datos reales (API en la nube + cuentas)
+# Publicar LifeAgente AI con datos reales (API en la nube + cuentas)
 
-Objetivo: que cualquier persona abra el enlace y use LifeSync con **datos
+Objetivo: que cualquier persona abra el enlace y use LifeAgente con **datos
 reales**, entrando **con su cuenta** (correo verificado o Google), y que sus
 datos no se mezclen con los de los demas.
 

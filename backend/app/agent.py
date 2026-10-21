@@ -1,4 +1,4 @@
-"""Orquestador del agente LifeSync.
+"""Orquestador del agente LifeAgente.
 
 Flujo:
    mensaje del usuario

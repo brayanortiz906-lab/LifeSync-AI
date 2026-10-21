@@ -1,4 +1,4 @@
-/** Ajustes de LifeSync: formulario guiado, temas y formas de organizar.
+/** Ajustes de LifeAgente: formulario guiado, temas y formas de organizar.
  *
  * DISENO: la persona no es tecnica. Por eso el formulario va en pasos cortos
  * (una idea por pantalla, botones grandes, lenguaje llano) y los cambios se
@@ -408,7 +408,7 @@ export function AsistenteBienvenida({
         <header className="border-b border-white/8 px-5 py-4">
           <div className="flex items-center gap-2 text-sm font-bold text-slate-100">
             <Sparkles size={15} className="text-indigo-400" />
-            Bienvenido a LifeSync AI
+            Bienvenido a LifeAgente AI
           </div>
           <p className="mt-0.5 text-[11px] text-slate-400">
             {pasos[paso].sub}. Esto toma menos de un minuto.

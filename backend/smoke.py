@@ -1,4 +1,4 @@
-"""Verificación end-to-end de LifeSync AI contra el backend en marcha.
+"""Verificación end-to-end de LifeAgente AI contra el backend en marcha.
 
 Uso (con el backend corriendo en http://127.0.0.1:8000):
     .\\.venv\\Scripts\\python.exe smoke.py
@@ -158,7 +158,7 @@ def main() -> int:
     _msg = str((_r or {}).get("detail", ""))
     check(
         "[CUENTA] el acceso con Google pide configuracion solo si falta (nunca al usuario final)",
-        isinstance(_r, dict) and ("no tiene el acceso con Google" in _msg or "user_code" in _r),
+        isinstance(_r, dict) and ("no tiene el acceso con" in _msg or "user_code" in _r),
         f"respuesta={_msg[:80] or 'device flow listo'}",
     )
 

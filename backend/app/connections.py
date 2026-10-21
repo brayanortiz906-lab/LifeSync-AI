@@ -1,7 +1,7 @@
 """Catálogo de proveedores de IA y flujo de conexión guiado.
 
 Objetivo de diseño: que una persona sin conocimientos técnicos pueda
-conectar LifeSync con "la cuenta de IA que ya tiene" (ChatGPT, Claude,
+conectar LifeAgente con "la cuenta de IA que ya tiene" (ChatGPT, Claude,
 Gemini, Copilot...) sin saber que es un token ni una API key.
 
 Tres caminos ofrecidos por el producto:
@@ -58,6 +58,8 @@ class Proveedor:
     token_url: str = ""
     scope: str = ""
     url_client_id: str = ""
+    #: URL donde se consulta el correo del usuario tras autorizar (OAuth).
+    userinfo_url: str = ""
     # El usuario puede crear/iniciar sesión en el sitio del proveedor con su
     # cuenta de Google ("Continuar con Google"). Es la via que la gente no
     # técnica conoce: la misma cuenta de Google que ya usa para el correo.
@@ -83,6 +85,7 @@ class Proveedor:
             "notas": self.notas,
             "acepta_cuenta": bool(self.device_auth_url),
             "url_client_id": self.url_client_id,
+            "userinfo_url": self.userinfo_url,
             "permite_google": self.permite_google,
             "permite_seleccion_modelo": self.permite_seleccion_modelo,
         }
@@ -189,11 +192,11 @@ CATALOGO: dict[str, Proveedor] = {
         instrucciones=[
             "Instala Ollama desde ollama.com (Windows, Mac o Linux).",
             "En una terminal ejecuta: ollama pull llama3.1",
-            "LifeSync detecta el servidor local automáticamente.",
+            "LifeAgente detecta el servidor local automáticamente.",
         ],
         pasos_ayuda=[
             "Todo se queda en tu equipo: nada sale a internet.",
-            "Requiere que Ollama este abierto mientras usas LifeSync.",
+            "Requiere que Ollama este abierto mientras usas LifeAgente.",
         ],
         modelos=["llama3.1", "llama3.2", "qwen2.5", "mistral", "gemma2"],
         modelo_defecto="llama3.1",
@@ -213,7 +216,7 @@ CATALOGO: dict[str, Proveedor] = {
             "En LM Studio activa el servidor local en el puerto 1234.",
         ],
         pasos_ayuda=[
-            "LifeSync busca solo en http://127.0.0.1:1234/v1.",
+            "LifeAgente busca solo en http://127.0.0.1:1234/v1.",
         ],
         modelos=["llama-3.1-8b-instruct", "qwen2.5-7b-instruct"],
         modelo_defecto="llama-3.1-8b-instruct",
@@ -224,12 +227,12 @@ CATALOGO: dict[str, Proveedor] = {
         id="jan",
         nombre="Jan (IA en tu computador)",
         modo="local",
-        resumen="Si tienes Jan abierto, LifeSync lo usa solo: gratis, sin clave y sin internet.",
+        resumen="Si tienes Jan abierto, LifeAgente lo usa solo: gratis, sin clave y sin internet.",
         icono="🟣",
         gratis=True,
         instrucciones=[
             "Abre Jan y deja el servidor de la API encendido (Settings > Local Server).",
-            "LifeSync lo detecta solo y se conecta al instante.",
+            "LifeAgente lo detecta solo y se conecta al instante.",
         ],
         pasos_ayuda=["Todo se queda en tu equipo: nada sale a internet."],
         modelos=["jan-llama-3.1-8b"],
@@ -241,12 +244,12 @@ CATALOGO: dict[str, Proveedor] = {
         id="gpt4all",
         nombre="GPT4All (IA en tu computador)",
         modo="local",
-        resumen="GPT4All abierto: LifeSync lo encuentra y lo usa sin configuracion.",
+        resumen="GPT4All abierto: LifeAgente lo encuentra y lo usa sin configuracion.",
         icono="🟤",
         gratis=True,
         instrucciones=[
             "Abre GPT4All y activa su servidor local (API Server).",
-            "LifeSync detecta los modelos que tienes cargados.",
+            "LifeAgente detecta los modelos que tienes cargados.",
         ],
         pasos_ayuda=["Nada sale de tu equipo."],
         modelos=["gpt4all-webui"],
@@ -258,12 +261,12 @@ CATALOGO: dict[str, Proveedor] = {
         id="llamacpp",
         nombre="llama.cpp / LocalAI (IA en tu computador)",
         modo="local",
-        resumen="Servidor local compatible con la API de OpenAI: LifeSync se conecta solo.",
+        resumen="Servidor local compatible con la API de OpenAI: LifeAgente se conecta solo.",
         icono="🦙",
         gratis=True,
         instrucciones=[
             "Levanta el servidor (por ejemplo: llama-server -m modelo).",
-            "LifeSync lo detecta y usa el primer modelo disponible.",
+            "LifeAgente lo detecta y usa el primer modelo disponible.",
         ],
         pasos_ayuda=["Compatible con la API de OpenAI, asi que sirve casi cualquier motor."],
         modelos=["local-model"],
@@ -280,7 +283,7 @@ CATALOGO: dict[str, Proveedor] = {
         gratis=True,
         instrucciones=[
             "Arranca text-generation-webui con la opcion de API activada.",
-            "LifeSync lo encuentra en el puerto 5000.",
+            "LifeAgente lo encuentra en el puerto 5000.",
         ],
         pasos_ayuda=["Nada sale de tu equipo."],
         modelos=["local-model"],
@@ -292,12 +295,12 @@ CATALOGO: dict[str, Proveedor] = {
         id="kobold",
         nombre="KoboldCpp (IA en tu computador)",
         modo="local",
-        resumen="KoboldCpp con la API activada: LifeSync lo detecta y lo usa.",
+        resumen="KoboldCpp con la API activada: LifeAgente lo detecta y lo usa.",
         icono="🐉",
         gratis=True,
         instrucciones=[
             "Arranca KoboldCpp con --api.",
-            "LifeSync lo encuentra en el puerto 5001.",
+            "LifeAgente lo encuentra en el puerto 5001.",
         ],
         pasos_ayuda=["Nada sale de tu equipo."],
         modelos=["local-model"],
@@ -309,12 +312,12 @@ CATALOGO: dict[str, Proveedor] = {
         id="claude_local",
         nombre="Claude en tu computador (proxy local)",
         modo="local",
-        resumen="Si tienes Claude CLI con un servidor local (ANTHROPIC_BASE_URL), LifeSync lo usa.",
+        resumen="Si tienes Claude CLI con un servidor local (ANTHROPIC_BASE_URL), LifeAgente lo usa.",
         icono="🟠",
         gratis=True,
         instrucciones=[
             "Abre Claude CLI con un proxy local (ANTHROPIC_BASE_URL).",
-            "LifeSync lo detecta y usa la API compatible con Anthropic.",
+            "LifeAgente lo detecta y usa la API compatible con Anthropic.",
         ],
         pasos_ayuda=["No hace falta pegar claves: el permiso lo tiene tu Claude local."],
         modelos=["claude-local"],
@@ -327,7 +330,7 @@ CATALOGO: dict[str, Proveedor] = {
         id="demo",
         nombre="Asistente demo (integrado)",
         modo="demo",
-        resumen="Funciona ya mismo sin configurar nada. Ideal para conocer LifeSync.",
+        resumen="Funciona ya mismo sin configurar nada. Ideal para conocer LifeAgente.",
         icono="✨",
         gratis=True,
         instrucciones=[
@@ -359,8 +362,8 @@ CATALOGO: dict[str, Proveedor] = {
             "Pégalo aquí y autorizaré en el navegador con tu cuenta.",
         ],
         pasos_ayuda=[
-            "LifeSync pide autorización en el navegador y guarda el permiso internamente.",
-            "Tu contraseña nunca pasa por LifeSync: la escribes solo en Google.",
+            "LifeAgente pide autorización en el navegador y guarda el permiso internamente.",
+            "Tu contraseña nunca pasa por LifeAgente: la escribes solo en Google.",
             "Puedes desconectar cuando quieras y el permiso se borra.",
         ],
         modelos=["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-pro"],
@@ -421,7 +424,61 @@ CATALOGO: dict[str, Proveedor] = {
         base_url="https://api.anthropic.com/v1",
         device_auth_url="https://console.anthropic.com/v1/oauth/device/code",
         token_url="https://console.anthropic.com/v1/oauth/token",
-        scope="org:create_api_key user:profile user:inference",
+        permite_google=True,
+    ),
+    # ------------------------------------------------------------------ #
+    # Mas cuentas: Outlook/Microsoft y GitHub (mismo patron de device flow).
+    # ------------------------------------------------------------------ #
+    "outlook_cuenta": Proveedor(
+        id="outlook_cuenta",
+        nombre="Outlook / Microsoft",
+        modo="cuenta",
+        resumen="Entra con tu cuenta de Outlook o Hotmail y accede de una vez.",
+        icono="🪟",
+        gratis=True,
+        instrucciones=[
+            "Abre el portal de Microsoft Entra y registra una aplicacion.",
+            "Copia el 'Id de cliente' (son unos caracteres, no es un token).",
+            "Pegalo aqui y autorizare en el navegador con tu cuenta.",
+        ],
+        pasos_ayuda=[
+            "Funciona con cuentas Hotmail, Outlook, Microsoft 365 y cuentas escolares.",
+            "Tu contrasena nunca pasa por LifeAgente: la escribes solo en Microsoft.",
+        ],
+        modelos=["gpt-4o-mini"],
+        modelo_defecto="gpt-4o-mini",
+        url_registro="https://portal.azure.com/",
+        url_client_id="https://portal.azure.com/",
+        device_auth_url="https://login.microsoftonline.com/common/oauth2/v2.0/devicecode",
+        token_url="https://login.microsoftonline.com/common/oauth2/v2.0/token",
+        scope="openid profile email offline_access",
+        userinfo_url="https://graph.microsoft.com/oidc/userinfo",
+        permite_google=True,
+    ),
+    "github_cuenta": Proveedor(
+        id="github_cuenta",
+        nombre="GitHub",
+        modo="cuenta",
+        resumen="Entra con tu cuenta de GitHub y accede al instante.",
+        icono="🐙",
+        gratis=True,
+        instrucciones=[
+            "Abre github.com > Settings > Developer settings > OAuth Apps.",
+            "Crea una aplicacion y copia el 'Client ID'.",
+            "Pegalo aqui y autorizare en el navegador con tu cuenta.",
+        ],
+        pasos_ayuda=[
+            "LifeAgente solo pide permiso para leer tu correo y saber quien eres.",
+            "Tu contrasena nunca pasa por LifeAgente.",
+        ],
+        modelos=["gpt-4o-mini"],
+        modelo_defecto="gpt-4o-mini",
+        url_registro="https://github.com/settings/developers",
+        url_client_id="https://github.com/settings/developers",
+        device_auth_url="https://github.com/login/device/code",
+        token_url="https://github.com/login/oauth/access_token",
+        scope="read:user user:email",
+        userinfo_url="https://api.github.com/user",
         permite_google=True,
     ),
 }
@@ -436,6 +493,7 @@ PROVEEDORES_SOPORTADOS = {
     "openai", "anthropic", "gemini", "openrouter", "ollama", "lmstudio", "mock",
     "jan", "gpt4all", "llamacpp", "textgen", "kobold", "claude_local",
     "google_cuenta", "chatgpt_cuenta", "claude_cuenta",
+    "outlook_cuenta", "github_cuenta",
 }
 
 #: Equivalencias de nombre -> id de catálogo.
@@ -454,6 +512,10 @@ ALIAS = {
     "chatgptcuenta": "chatgpt_cuenta",
     "claudecuenta": "claude_cuenta",
     "cuenta": "google_cuenta",
+    "outlook": "outlook_cuenta",
+    "microsoft": "outlook_cuenta",
+    "hotmail": "outlook_cuenta",
+    "github": "github_cuenta",
 }
 
 
@@ -853,7 +915,7 @@ def iniciar_autorizacion_cuenta(proveedor: str, client_id: str) -> dict[str, Any
         else:
             if prov.id == "google_cuenta":
                 raise ErrorConexion(
-                    "Esta copia de LifeSync todavia no trae un ID de cliente de Google. "
+                    "Esta copia de LifeAgente todavia no trae un ID de cliente de Google. "
                     "Pega el tuyo (son unos caracteres, no es tu contraseña) o usa otra via."
                 )
             raise ErrorConexion(

@@ -38,7 +38,12 @@ interface Estado {
   cumplimiento: ReporteCumplimiento | null
   cargandoResponsable: boolean
 
+  /** Modo de prueba: los datos viven solo en memoria y se borran al recargar. */
+  modoPrueba: boolean
+
   cargarTodo: () => Promise<void>
+  activarModoPrueba: () => void
+  salirModoPrueba: () => void
   enviarMensaje: (texto: string) => Promise<void>
   refrescarEventos: () => Promise<void>
   completarTarea: (id: number) => Promise<void>
@@ -77,8 +82,21 @@ export const useLifeSync = create<Estado>((set, get) => ({
   resumenAuditoria: null,
   cumplimiento: null,
   cargandoResponsable: false,
+  modoPrueba: false,
+
+  activarModoPrueba() {
+    set({ modoPrueba: true, ...datosDePrueba() })
+  },
+
+  salirModoPrueba() {
+    set({ modoPrueba: false })
+  },
 
   async cargarTodo() {
+    if (get().modoPrueba) {
+      set({ ...datosDePrueba(), cargando: false, error: null })
+      return
+    }
     set({ cargando: true, error: null })
     try {
       const [dashboard, tareas, registros, mantenimiento, ajustes, historial] = await Promise.all([
@@ -119,6 +137,17 @@ export const useLifeSync = create<Estado>((set, get) => ({
   async enviarMensaje(texto) {
     const trimmed = texto.trim()
     if (!trimmed) return
+    if (get().modoPrueba) {
+      const usuario: MensajeChat = { id: `u-${Date.now()}`, rol: 'user', contenido: trimmed }
+      const respuesta: MensajeChat = {
+        id: `a-${Date.now()}`,
+        rol: 'assistant',
+        contenido:
+          'Modo de prueba: puedes mirar como funciona la agenda, pero no hay IA conectada. En cuanto recargues la pagina, todo esto desaparece.',
+      }
+      set((s) => ({ mensajes: [...s.mensajes, usuario, respuesta], enviando: false }))
+      return
+    }
     const usuario: MensajeChat = { id: `u-${Date.now()}`, rol: 'user', contenido: trimmed }
     set((s) => ({ mensajes: [...s.mensajes, usuario], enviando: true, error: null }))
 
@@ -253,3 +282,28 @@ export const useLifeSync = create<Estado>((set, get) => ({
     await get().cargarResponsable()
   },
 }))
+
+
+/** Datos de ejemplo EN MEMORIA para el modo de prueba (se borran al recargar). */
+function datosDePrueba() {
+  const hoy = aIso(new Date())
+  const h = (hora: number) => `${hoy}T${String(hora).padStart(2, '0')}:00:00`
+  return {
+    eventos: [
+      { id: -1, titulo: 'Trabajo en oficina', categoria: 'trabajo', inicio: h(8), fin: h(12), inamovible: true, notas: '', fuente: 'demo', color: '' },
+      { id: -2, titulo: 'Estudio: parciales de calculo', categoria: 'estudio', inicio: h(15), fin: h(17), inamovible: false, notas: '', fuente: 'demo', color: '' },
+      { id: -3, titulo: 'Almuerzo', categoria: 'descanso', inicio: h(12), fin: h(13), inamovible: false, notas: '', fuente: 'demo', color: '' },
+    ] as unknown as Evento[],
+    tareas: [
+      { id: -1, titulo: 'Entregar el ensayo', materia: 'Metodologia', estado: 'pendiente', prioridad: 'media', minutos_estimados: 120, fecha_entrega: hoy, resumen: '', material: '', preguntas: [], fuente: 'demo' },
+    ] as unknown as Tarea[],
+    registros: [
+      { id: -1, descripcion: 'Tanqueo de la moto', monto: 20000, moneda: 'COP', categoria: 'combustible', fecha: hoy, notas: '', evento_id: null },
+    ] as unknown as Registro[],
+    mantenimiento: [
+      { id: -1, tarea: 'Cambio de aceite', intervalo_dias: 90, ultimo_realizacion: hoy, proxima_fecha: hoy, costo_estimado: 85000, notas: '', activo: true },
+    ] as unknown as Mantenimiento[],
+    dashboard: null,
+    mensajes: [],
+  }
+}

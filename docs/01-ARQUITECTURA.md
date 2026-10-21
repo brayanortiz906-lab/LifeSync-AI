@@ -1,11 +1,11 @@
-# Arquitectura de LifeSync AI
+# Arquitectura de LifeAgente AI
 
 ## 1. Stack recomendado
 
 | Capa | Tecnología | Por qué |
 |---|---|---|
 | **Frontend** | React 19 + Vite 7 + TypeScript + Tailwind CSS v4 | Arranque en segundos, HMR, tipado estricto, bundle pequeño |
-| **Estado** | Zustand | Poco boilerplate, ideal para el store `useLifeSync` |
+| **Estado** | Zustand | Poco boilerplate, ideal para el store `useLifeAgente` |
 | **Fechas** | date-fns (locale es) | Ligero y tree-shakeable, sin la<Intl> headache de Moment |
 | **Iconos** | lucide-react | Un solo paquete, consistente |
 | **Backend** | FastAPI + Uvicorn | Async nativo, tipado con Pydantic v2, docs OpenAPI automáticas |
@@ -38,7 +38,7 @@
 │            AcademicPanel / LogbookPanel                               │
 │            ConexionesPanel (Centro de Conexiones: 4 caminos)          │
 │            ResponsibilityPanel (política, auditoría, aprobaciones)   │
-│            Zustand (useLifeSync) ← fuente única de verdad             │
+│            Zustand (useLifeAgente) ← fuente única de verdad             │
 └───────────────────────────────┬──────────────────────────────────────┘
                                 │ HTTP /api/*  (Vite proxy en dev)
 ┌───────────────────────────────▼──────────────────────────────────────┐

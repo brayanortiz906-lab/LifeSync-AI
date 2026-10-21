@@ -353,8 +353,10 @@ export interface ResultadoCodigo {
 
 export interface ResultadoSesion {
   ok: boolean
-  token: string
-  usuario: Usuario
+  token?: string
+  usuario?: Usuario
+  /** Mensaje para la UI (por ejemplo: todavia falta autorizar en el navegador). */
+  mensaje?: string
 }
 
 export interface Respaldo {

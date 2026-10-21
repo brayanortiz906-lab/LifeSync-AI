@@ -1,4 +1,4 @@
-"""LifeSync AI — FastAPI.
+"""LifeAgente AI — FastAPI.
 
 Arranque:  python run.py     (http://localhost:8000/docs para ver la API)
 """
@@ -48,7 +48,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="LifeSync AI",
+    title="LifeAgente AI",
     description="Asistente Integral de Vida y Productividad — API de eventos, tareas, bitácora y agente.",
     version="1.0.0",
     lifespan=lifespan,

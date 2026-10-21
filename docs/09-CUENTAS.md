@@ -1,6 +1,6 @@
 # Cuentas de usuario, datos aislados y respaldo (v11)
 
-LifeSync AI funciona de **dos maneras**, y el usuario elige:
+LifeAgente AI funciona de **dos maneras**, y el usuario elige:
 
 | Modo | Que es | Donde viven los datos | Necesita internet |
 |---|---|---|---|
@@ -17,7 +17,7 @@ propio espacio de datos y puede guardar un respaldo.
 
 1. En **Conectar IA > Ya tengo mi cuenta de IA > Google (con mi cuenta de
    Google)** se autoriza una vez en el navegador.
-2. LifeSync guarda el permiso **cifrado** en el servidor (nunca ves el token).
+2. LifeAgente guarda el permiso **cifrado** en el servidor (nunca ves el token).
 3. En **Acceder > Entrar con Google** se usa ese mismo permiso para abrir la
    sesion: la cuenta queda verificada y se conoce tu correo.
 

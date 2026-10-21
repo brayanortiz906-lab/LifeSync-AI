@@ -24,9 +24,11 @@ from sqlalchemy.orm import Session
 
 from ..cuentas import (
     USUARIO_LOCAL,
+    client_id_de,
+    entrar_con_cuenta,
     cerrar_sesion,
     crear_sesion,
-    entrar_con_google,
+    entrar_con_cuenta,
     enviar_codigo,
     snapshot,
     solicitar_codigo,
@@ -70,6 +72,13 @@ class DriveIn(BaseModel):
 
 class RestaurarIn(BaseModel):
     datos: dict = {}
+
+
+class CuentaGoogleIn(BaseModel):
+    """Peticion del flujo de acceso con cuenta (Google, Outlook, GitHub)."""
+
+    proveedor: str = "google_cuenta"
+    device_code: str = ""
 
 
 def _perfil(usuario) -> dict:
@@ -116,8 +125,8 @@ def verificar(payload: VerificarIn, db: Session = Depends(get_db, scope="functio
 
 @router.post("/google")
 def entrar_google(payload: GoogleIn, db: Session = Depends(get_db, scope="function")):
-    """Entra con la cuenta de Google (usa el permiso que ya sabe ganar LifeSync)."""
-    usuario = entrar_con_google(db, payload.access_token)
+    """Entra con la cuenta de Google (usa el permiso que ya sabe ganar LifeAgente)."""
+    usuario = entrar_con_cuenta(db, payload.access_token, "google_cuenta")
     token = crear_sesion(db, usuario, "google")
     return {"ok": True, "token": token, "usuario": _perfil(usuario)}
 
@@ -125,7 +134,7 @@ def entrar_google(payload: GoogleIn, db: Session = Depends(get_db, scope="functi
 def _client_id_google(db: Session) -> str:
     """ID de cliente de Google configurado en el despliegue (una sola vez).
 
-    Lo pone quien instala LifeSync (en Render o en el .env). El usuario final
+    Lo pone quien instala LifeAgente (en Render o en el .env). El usuario final
     NUNCA ve este valor: solo pulsa "Continuar con Google" y autoriza.
     """
     if settings.google_client_id:
@@ -145,7 +154,7 @@ def _client_id_google(db: Session) -> str:
     raise HTTPException(
         status_code=400,
         detail=(
-            "Esta copia de LifeSync todavia no tiene el acceso con Google configurado. "
+            "Esta copia de LifeAgente todavia no tiene el acceso con Google configurado. "
             "Lo activa una sola vez quien la instala (ayuda en 'Conectar IA > Configuracion avanzada'). "
             "Mientras tanto puedes entrar con tu correo o seguir en este equipo."
         ),
@@ -153,72 +162,31 @@ def _client_id_google(db: Session) -> str:
 
 
 @router.post("/google/iniciar")
-def google_iniciar(db: Session = Depends(get_db, scope="function")):
-    """Arranca el acceso con Google (sin pedirle nada al usuario)."""
-    client_id = _client_id_google(db)
+def google_iniciar(payload: CuentaGoogleIn, db: Session = Depends(get_db, scope="function")):
+    """Arranca el inicio de sesion con cuenta: devuelve el codigo que hay que escribir."""
     try:
-        datos = con.iniciar_autorizacion_cuenta("google_cuenta", client_id)
+        client_id = client_id_de(db, payload.proveedor)
+        datos = con.iniciar_autorizacion_cuenta(payload.proveedor, client_id)
     except con.ErrorConexion as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {
-        "ok": True,
-        "user_code": datos["user_code"],
-        "verification_uri": datos["verification_uri"],
-        "intervalo": datos["intervalo"],
-        "expira_en": datos["expira_en"],
-        "device_code": datos["device_code"],
-    }
+    return {"ok": True, **datos}
 
 
 @router.post("/google/terminar")
-def google_terminar(payload: GoogleTerminarIn, db: Session = Depends(get_db, scope="function")):
-    """Comprueba si la persona ya autorizo y abre su sesion."""
-    client_id = _client_id_google(db)
+def google_terminar(payload: CuentaGoogleIn, db: Session = Depends(get_db, scope="function")):
+    """Comprueba si la persona ya autorizo y abre sesion."""
     try:
+        client_id = client_id_de(db, payload.proveedor)
         cred, mensaje = con.completar_autorizacion_cuenta(
-            "google_cuenta", client_id, payload.device_code or ""
+            payload.proveedor, client_id, payload.device_code
         )
     except con.ErrorConexion as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     if not cred:
-        return {"ok": False, "mensaje": "Todavia falta que autorices en el navegador."}
-    usuario = entrar_con_google(db, str(cred.get("access_token") or ""))
-    token = crear_sesion(db, usuario, "google")
+        return {"ok": False, "mensaje": mensaje.strip()}
+    usuario = entrar_con_cuenta(db, cred.get("access_token", ""), payload.proveedor)
+    token = crear_sesion(db, usuario, payload.proveedor)
     return {"ok": True, "token": token, "usuario": _perfil(usuario)}
-
-
-@router.post("/google/desde-conexion")
-def entrar_google_desde_conexion(db: Session = Depends(get_db, scope="function")):
-    """Entra con la cuenta de Google ya conectada en el Centro de Conexiones."""
-    token = _token_de_google(db)
-    usuario = entrar_con_google(db, token)
-    token_sesion = crear_sesion(db, usuario, "google")
-    return {"ok": True, "token": token_sesion, "usuario": _perfil(usuario)}
-
-
-def _token_de_google(db: Session) -> str:
-    """Permiso de Google guardado en la conexion activa del usuario."""
-    from .. import connections as con
-    from ..models import ConexionIA
-
-    conexion = db.scalars(
-        select(ConexionIA)
-        .where(ConexionIA.proveedor == "google_cuenta")
-        .order_by(ConexionIA.activa.desc(), ConexionIA.id.desc())
-    ).first()
-    if conexion is None:
-        raise HTTPException(
-            status_code=400,
-            detail="Primero conecta tu cuenta de Google en 'Conectar IA' (boton 'Entrar con Google').",
-        )
-    cred = con.credenciales_desde_json(conexion.credenciales_cifradas)
-    token = str(cred.get("access_token") or cred.get("api_key") or "")
-    if not token:
-        raise HTTPException(
-            status_code=400,
-            detail="Tu conexion con Google no tiene permiso guardado. Vuelve a autorizarla.",
-        )
-    return token
 
 
 @router.get("/yo")

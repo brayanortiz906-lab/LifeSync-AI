@@ -1,6 +1,6 @@
 """Motor de gobierno del agente: politicas, explicabilidad y trazabilidad.
 
-Este módulo implementa la capa de "IA responsable" de LifeSync AI. Encaja
+Este módulo implementa la capa de "IA responsable" de LifeAgente AI. Encaja
 exactamente entre el LLM (que propone intenciones) y la base de datos (que
 ejecuta). Ninguna acción llega a la BD sin pasar por aquí.
 

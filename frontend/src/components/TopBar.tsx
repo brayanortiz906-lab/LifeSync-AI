@@ -55,7 +55,7 @@ export default function TopBar({
           <Sparkles className="h-4.5 w-4.5 text-white" size={18} />
         </div>
         <div className="leading-tight">
-          <h1 className="text-sm font-bold tracking-tight text-white">LifeSync AI</h1>
+          <h1 className="text-sm font-bold tracking-tight text-white">LifeAgente AI</h1>
           <p className="text-[10px] text-slate-500">Asistente Integral de Vida y Productividad</p>
         </div>
       </div>
@@ -109,7 +109,7 @@ export default function TopBar({
           <Boton
             variante="secundario"
             onClick={onAbrirAcceso}
-            titulo="Tu cuenta de LifeSync AI (datos separados y respaldo)"
+            titulo="Tu cuenta de LifeAgente AI (datos separados y respaldo)"
           >
             <User size={14} />
             {usuario && !usuario.es_local ? usuario.nombre || usuario.correo : 'Acceder'}

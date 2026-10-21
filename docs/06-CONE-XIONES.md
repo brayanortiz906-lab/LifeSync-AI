@@ -1,6 +1,6 @@
 # 06 · Centro de Conexiones (IA sin jerga)
 
-> Cómo conectar LifeSync con **cualquier inteligencia artificial** — con tu cuenta, con una clave, o con la IA que ya tienes instalada en tu computador — sin obligar a nadie a entender qué es un *token* o una *API key*.
+> Cómo conectar LifeAgente con **cualquier inteligencia artificial** — con tu cuenta, con una clave, o con la IA que ya tienes instalada en tu computador — sin obligar a nadie a entender qué es un *token* o una *API key*.
 
 ---
 
@@ -8,12 +8,12 @@
 
 La mayoría de las apps de IA asumen que el usuario sabe lo que es una API key: una cadena de 51 caracteres que empieza por `sk-`, que se pega en un campo y que cuesta dinero. Para el 90 % de las personas eso es una barrera, no una opción.
 
-LifeSync abre con un **Centro de Conexiones** que ofrece cuatro caminos, en lenguaje llano, y **nunca obliga** a pasar por la clave:
+LifeAgente abre con un **Centro de Conexiones** que ofrece cuatro caminos, en lenguaje llano, y **nunca obliga** a pasar por la clave:
 
 | # | Camino | Qué necesitas | Costo | Para quién |
 |---|---|---|---|---|
 | 1 | **Ya tengo mi cuenta de IA** | Iniciar sesión con tu cuenta (OpenAI, Google, Anthropic, OpenRouter) | El de tu plan | Quien ya paga un servicio |
-| 2 | **Usar la IA de mi computador** | Nada: LifeSync detecta el motor solo | Gratis, sin internet | Quien no quiere gastar ni enviar datos |
+| 2 | **Usar la IA de mi computador** | Nada: LifeAgente detecta el motor solo | Gratis, sin internet | Quien no quiere gastar ni enviar datos |
 | 3 | **Tengo una clave de API** | Una clave (te explicamos cómo obtenerla, con el link a la consola) | Depende del uso | Quien ya usa IA programando |
 | 4 | **Solo quiero ver cómo funciona** | Nada | Gratis | Quien está explorando por primera vez |
 
@@ -43,7 +43,7 @@ Los alias `cuenta`, `googlecuenta`, `chatgptcuenta` y `claudecuenta` llevan al m
 
 Es la respuesta a la pregunta «¿con qué IA quiero trabajar?». En lugar de elegir
 proveedor antes de iniciar sesión, la persona **entra una vez con su cuenta de
-Google** y **después elige el modelo** dentro de LifeSync.
+Google** y **después elige el modelo** dentro de LifeAgente.
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -51,7 +51,7 @@ Google** y **después elige el modelo** dentro de LifeSync.
 │  Entra con la misma cuenta de Google que usas para el correo. │
 │  Después eliges con qué IA quieres trabajar: Gemini, GPT,     │
 │  Claude, Llama, DeepSeek y más de 300 modelos.                │
-│  Tu contraseña nunca pasa por LifeSync.                       │
+│  Tu contraseña nunca pasa por LifeAgente.                       │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -70,7 +70,7 @@ Dos matices importantes y honestos:
    `claude_cuenta`) o al camino de clave.
 2. **OpenRouter es el puente de «cualquier IA»**: su pantalla de acceso tiene
    *Sign in with Google*, y con esa cuenta se eligen **468 modelos** (GPT, Claude,
-   Gemini, Llama, DeepSeek, Mistral…) desde el buscador de LifeSync. Por eso
+   Gemini, Llama, DeepSeek, Mistral…) desde el buscador de LifeAgente. Por eso
    `openrouter` es el único proveedor con `permite_seleccion_modelo=True`.
 
 Los dos flags nuevos del catálogo (`ProveedorCatalogo`):
@@ -83,12 +83,12 @@ Los dos flags nuevos del catálogo (`ProveedorCatalogo`):
 **Conexión en un clic (opcional para quien despliega).** Si el despliegue define
 `GOOGLE_CLIENT_ID` (ver `backend/.env.example`), el campo «ID de cliente» del
 detalle de Google queda vacío y la persona solo pulsa «Autorizar en el navegador».
-Sin esa variable, LifeSync pide el ID de cliente de Google Cloud y explica en
+Sin esa variable, LifeAgente pide el ID de cliente de Google Cloud y explica en
 lenguaje llano que **es un identificador público, no una contraseña**.
 
 ### 2.2 El asistente «Entrar con Google» (tres caminos, sin callejón sin salida)
 
-Si LifeSync todavía no tiene un ID de cliente de Google, el botón **«Entrar con
+Si LifeAgente todavía no tiene un ID de cliente de Google, el botón **«Entrar con
 Google» no muere en un error rojo**: abre un asistente con **tres caminos
 reales**, y el que elija la persona funciona siempre.
 
@@ -122,7 +122,7 @@ Piezas técnicas:
 | Almacén | `AppSettings.google_client_id` | Identificador **público** de OAuth (no es un secreto); columna añadida por migración |
 
 > El ID de cliente de Google es un identificador **público** (va en el código
-> de cualquier app). Aun así, LifeSync lo guarda cifrado con el resto de
+> de cualquier app). Aun así, LifeAgente lo guarda cifrado con el resto de
 > credenciales y hay un botón para olvidarlo.
 
 ---
@@ -144,7 +144,7 @@ Si el motor está corriendo, el Centro de Conexiones muestra un botón **«Conec
 
 ### 3.2 Requisitos del modelo local
 
-Los modelos locales tienen memoria y velocidad limitadas. LifeSync lo contempla:
+Los modelos locales tienen memoria y velocidad limitadas. LifeAgente lo contempla:
 
 | Problema | Mitigación en el código |
 |---|---|
@@ -172,7 +172,7 @@ El objetivo es que **nadie tenga que saber qué es un token**. Hay dos sub-modos
 
 ### 4.1 OAuth 2.0 Device Authorization (implementado de verdad)
 
-Es el flujo estándar para "inicia sesión con tu cuenta": LifeSync te da un **código corto**, abres el sitio del proveedor en tu navegador, pegas el código, y la autorización vuelve sola a la app. **Nunca ves ni escribes tu contraseña.**
+Es el flujo estándar para "inicia sesión con tu cuenta": LifeAgente te da un **código corto**, abres el sitio del proveedor en tu navegador, pegas el código, y la autorización vuelve sola a la app. **Nunca ves ni escribes tu contraseña.**
 
 | Paso | Qué hace el usuario | Qué hace el backend |
 |---|---|---|
@@ -187,7 +187,7 @@ Los errores del proveedor se traducen antes de mostrarse (`_ERRORES_OAUTH`): si 
 
 ### 4.2 Credencial pegada a mano (modo `api_key`)
 
-Para quien ya tiene una clave, o prefiere no crear una aplicación: pega la clave en el campo con botón de ojo. LifeSync la cifra (Fernet), la verifica con una llamada real al proveedor y te dice en español si funcionó.
+Para quien ya tiene una clave, o prefiere no crear una aplicación: pega la clave en el campo con botón de ojo. LifeAgente la cifra (Fernet), la verifica con una llamada real al proveedor y te dice en español si funcionó.
 
 ### 4.3 Limitación honesta
 
@@ -267,8 +267,8 @@ Adaptadores en `backend/app/providers.py`:
 # 1. Instala Ollama (https://ollama.com) y abre la app.
 ollama pull qwen2.5:7b
 
-# 2. En LifeSync: "Conectar IA" -> "Usar la IA de mi computador" -> "Conectar"
-#    (LifeSync detecta el servidor y lista tus modelos).
+# 2. En LifeAgente: "Conectar IA" -> "Usar la IA de mi computador" -> "Conectar"
+#    (LifeAgente detecta el servidor y lista tus modelos).
 
 # 3. Listo. El chat ya usa tu modelo local, sin clave y sin internet.
 ```

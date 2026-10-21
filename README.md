@@ -1,4 +1,4 @@
-# LifeSync AI
+# LifeAgente AI
 
 **Asistente Integral de Vida y Productividad** — centraliza la rutina diaria, los estudios y
 las finanzas/mantenimiento personal mediante un agente conversacional que planifica,
@@ -55,7 +55,7 @@ reorganización de agenda) sin gastar tokens. Para conectar una IA real, ve a
 
 ### El Centro de Conexiones (conecta **cualquier** IA, sin jerga)
 
-LifeSync no te obliga a saber qué es un token o una API key. El botón **Conectar IA**
+LifeAgente no te obliga a saber qué es un token o una API key. El botón **Conectar IA**
 abre un asistente con cuatro caminos, explicados en lenguaje llano:
 
 | Camino | Qué necesitas | Costo |
@@ -67,13 +67,13 @@ abre un asistente con cuatro caminos, explicados en lenguaje llano:
 | **Solo quiero ver cómo funciona** | Nada | Gratis |
 
 El camino de **cuenta** usa **OAuth 2.0 Device Authorization**, el estándar de "inicia
-sesión con tu cuenta": LifeSync te da un **código corto**, abres el sitio del proveedor
+sesión con tu cuenta": LifeAgente te da un **código corto**, abres el sitio del proveedor
 en tu navegador, lo pegas y la autorización vuelve sola. **Nunca ves ni escribes tu
 contraseña**, y los errores del proveedor se traducen a lenguaje llano antes de
 mostrarse ("Ese ID de cliente no existe. Cópialo de nuevo desde el panel del
 proveedor…").
 
-LifeSync **detecta automáticamente** los motores locales y muestra los modelos que ya
+LifeAgente **detecta automáticamente** los motores locales y muestra los modelos que ya
 tienes instalados:
 
 ```
@@ -83,7 +83,7 @@ GET /api/conexiones/locales
 ```
 
 **«Continuar con Google» y elegir cualquier IA.** La tarjeta grande del modal inicia
-el acceso con tu cuenta de Google (OAuth Device Flow) y, al autorizar, LifeSync te
+el acceso con tu cuenta de Google (OAuth Device Flow) y, al autorizar, LifeAgente te
 enseña **todos** los proveedores para que elijas. El token de Google habilita
 **Gemini** al instante; y a través de **OpenRouter** (cuyo acceso tiene *Sign in with
 Google*) desbloqueas **468 modelos de 67 familias** —GPT, Claude, Gemini, Llama,
@@ -116,7 +116,7 @@ PUT  /api/conexiones/google/estado   -> guarda u olvida el ID de cliente
 Ventajas que ya trae:
 
 - **Los modelos locales no pierden tu frase**: si el modelo no devuelve el JSON del
-  contrato, LifeSync cae al motor por reglas y registra lo que corresponde igual.
+  contrato, LifeAgente cae al motor por reglas y registra lo que corresponde igual.
 - **Credenciales cifradas** (Fernet) y nunca enviadas al navegador: la API solo dice
   `tiene_credencial: true/false`.
 - **Conectores compatibles con OpenAI** (`lmstudio`, `openrouter`) reutilizan un mismo
@@ -184,7 +184,7 @@ Claves de la experiencia:
 
 ### La interfaz: la agenda manda, el chat acompaña
 
-Al abrir LifeSync ves **«Mi agenda»**, no el chat. El chat es un **widget flotante**
+Al abrir LifeAgente ves **«Mi agenda»**, no el chat. El chat es un **widget flotante**
 (`frontend/src/components/ChatFlotante.tsx`) superpuesto, para que la conversación
 tape lo que ya tenías en pantalla.
 
@@ -199,7 +199,7 @@ tape lo que ya tenías en pantalla.
 
 ### Ajustes, temas y cómo ordenar lo que ves
 
-LifeSync arranca con un **formulario de bienvenida** (3 pasos) la primera vez: te pide
+LifeAgente arranca con un **formulario de bienvenida** (3 pasos) la primera vez: te pide
 tu nombre, tu jornada y el tema que prefieres, antes de que toques nada. Después, todo
 lo demás vive en la pestaña **«Ajustes»** (`frontend/src/components/AjustesPanel.tsx`).
 
@@ -238,7 +238,7 @@ Detalle completo en [docs/08-SISTEMA-VISUAL.md](docs/08-SISTEMA-VISUAL.md).
 ### El sistema de IA responsable
 
 Un asistente que **escribe en tu base de datos** necesita justificar cada movimiento.
-LifeSync incluye una capa de gobierno completa entre el modelo y la ejecución
+LifeAgente incluye una capa de gobierno completa entre el modelo y la ejecución
 (`backend/app/policy.py`): el LLM propone intenciones, la política decide si pueden
 ejecutarse, y todo queda auditado.
 
@@ -285,7 +285,7 @@ en tu equipo. Hay tres caminos:
 
 1. Abre el repositorio en GitHub → botón verde **Code** → **Codespaces** → **Create codespace on main**.
 2. Espera a que termine `postCreate` (crea el venv, instala dependencias y compila la interfaz).
-3. Abre el puerto **8000** en la pestaña *Ports* → se abre LifeSync AI en el navegador.
+3. Abre el puerto **8000** en la pestaña *Ports* → se abre LifeAgente AI en el navegador.
 
 El `.devcontainer/devcontainer.json` ya trae Python 3.12, Node 20, y reenvía los puertos
 8000 y 5173.
@@ -368,7 +368,7 @@ arriba refleja el estado real del último push.
 ├── frontend/
 │   └── src/
 │       ├── App.tsx              ← Layout: agenda (vista inicial) + responsabilidad + ajustes
-│       ├── store/useLifeSync.ts ← Estado global (Zustand) + tema y ajustes
+│       ├── store/useLifeAgente.ts ← Estado global (Zustand) + tema y ajustes
 │       ├── lib/api.ts           ← Cliente HTTP + manejo de la API Key local
 │       ├── lib/format.ts        ← Fechas, moneda, duraciones (es-CO)
 │       └── components/
@@ -483,7 +483,7 @@ operación se audita sin guardar los valores.
 - [ ] **Notificaciones** de aprobaciones fuera de la sesión (correo/push).
 - [ ] **DPIA** (Ley 1581) firmada por el responsable del tratamiento.
 
-### Cuentas de usuario: usa LifeSync en tu equipo o con tu cuenta
+### Cuentas de usuario: usa LifeAgente en tu equipo o con tu cuenta
 
 | Camino | Como | Donde quedan los datos |
 |---|---|---|
@@ -521,8 +521,8 @@ Guia completa: `docs/10-DESPLIEGUE.md`.
 
 | Quien | Que hace |
 |---|---|
-| **Quien usa LifeSync** | `Acceder > Continuar con Google` -> autoriza en su navegador -> listo (2 clics) |
-| **Quien instala LifeSync** (una vez) | pega su ID de cliente OAuth en `GOOGLE_CLIENT_ID` (variables del despliegue) |
+| **Quien usa LifeAgente** | `Acceder > Continuar con Google` -> autoriza en su navegador -> listo (2 clics) |
+| **Quien instala LifeAgente** (una vez) | pega su ID de cliente OAuth en `GOOGLE_CLIENT_ID` (variables del despliegue) |
 
 La configuracion tecnica **nunca** se le pide a quien usa la app: vive en el
 despliegue. Si tu copia todavia no la tiene, la app lo dice y ofrece entrar

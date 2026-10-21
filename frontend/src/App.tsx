@@ -30,6 +30,8 @@ import ContextoLateral from './components/ContextoLateral'
 import ChatFlotante from './components/ChatFlotante'
 import { Boton, Panel } from './components/ui'
 import AccesoPanel from './components/AccesoPanel'
+import Bienvenida from './components/Bienvenida'
+import { guardarToken, leerToken } from './lib/api'
 import type { Usuario } from './types'
 
 type Vista = 'agenda' | 'responsabilidad' | 'ajustes'
@@ -48,6 +50,10 @@ export default function App() {
   const [usuario, setUsuario] = useState<Usuario | null>(null)
   const [conexionesAbiertas, setConexionesAbiertas] = useState(false)
   const [bienvenidaSaltada, setBienvenidaSaltada] = useState(false)
+  /** Pantalla de bienvenida: aparece antes de iniciar sesion o crear cuenta. */
+  const [portadaAbierta, setPortadaAbierta] = useState(() => !leerToken())
+  const [mostrarAvisoPrueba, setMostrarAvisoPrueba] = useState(false)
+  const activarModoPrueba = useLifeSync((s) => s.activarModoPrueba)
 
   useEffect(() => {
     cargarTodo()
@@ -201,6 +207,30 @@ export default function App() {
 
       {/* El chat vive aparte: burbuja flotante disponible en cualquier vista. */}
       <ChatFlotante abierto={chatAbierto} onToggle={() => setChatAbierto((v) => !v)} />
+    {mostrarAvisoPrueba && (
+      <div className="fixed left-1/2 top-3 z-30 -translate-x-1/2 rounded-full border border-amber-500/30 bg-amber-500/15 px-4 py-1.5 text-[11px] font-semibold text-amber-100 backdrop-blur">
+        Modo de prueba · los datos desaparecen al recargar la pagina
+      </div>
+    )}
+    <Bienvenida
+      abierto={portadaAbierta}
+      onCerrar={() => setPortadaAbierta(false)}
+      onSesion={(token, usuario) => {
+        guardarToken(token)
+        setUsuario(usuario ?? null)
+        setPortadaAbierta(false)
+      }}
+      onAbrirAcceso={() => {
+        setPortadaAbierta(false)
+        setAccesoAbierto(true)
+      }}
+      onModoPrueba={() => {
+        setPortadaAbierta(false)
+        activarModoPrueba()
+        setMostrarAvisoPrueba(true)
+      }}
+      onContinuarLocal={() => setPortadaAbierta(false)}
+    />
     <AccesoPanel
       abierto={accesoAbierto}
       onCerrar={() => setAccesoAbierto(false)}

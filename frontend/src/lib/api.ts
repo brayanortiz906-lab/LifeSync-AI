@@ -277,15 +277,15 @@ export const cuentas = {
       method: 'POST',
       body: JSON.stringify({ access_token }),
     }),
-  iniciarAccesoGoogle: () =>
+  iniciarAccesoGoogle: (proveedor = 'google_cuenta') =>
     request<{ ok: boolean; user_code: string; verification_uri: string; device_code: string }>(
       '/cuentas/google/iniciar',
-      { method: 'POST' },
+      { method: 'POST', body: JSON.stringify({ proveedor }) },
     ),
-  terminarAccesoGoogle: (device_code: string) =>
+  terminarAccesoGoogle: (device_code: string, proveedor = 'google_cuenta') =>
     request<{ ok: boolean; token?: string; usuario?: Usuario; mensaje?: string }>(
       '/cuentas/google/terminar',
-      { method: 'POST', body: JSON.stringify({ device_code }) },
+      { method: 'POST', body: JSON.stringify({ device_code, proveedor }) },
     ),
   entrarGoogleDesdeConexion: () =>
     request<ResultadoSesion>('/cuentas/google/desde-conexion', { method: 'POST' }),

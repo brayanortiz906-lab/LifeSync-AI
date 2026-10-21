@@ -1,6 +1,6 @@
 """Endpoints del centro de conexiones de IA.
 
-Permite conectar LifeSync con "la cuenta de IA que ya tienes" sin exigir
+Permite conectar LifeAgente con "la cuenta de IA que ya tienes" sin exigir
 conocimientos técnicos: el usuario elige un proveedor, el sistema le explica
 en español que hacer, verifica la conexión y la deja activa.
 """
@@ -43,7 +43,7 @@ def catalogo():
 async def detectar_locales(db: Session = Depends(get_db, scope="function")):
     """Busca motores de IA ya levantados en el equipo y conecta el primero.
 
-    Si la persona ya tiene una IA local (Ollama, LM Studio, Jan...), LifeSync
+    Si la persona ya tiene una IA local (Ollama, LM Studio, Jan...), LifeAgente
     se conecta solo: la app funciona sin configurar nada.
     """
     motores = await con.detectar_motores_locales()
@@ -247,7 +247,7 @@ def activar(conexion_id: int, db: Session = Depends(get_db, scope="function")):
 # --------------------------------------------------------------------------- #
 @router.get("/google/estado")
 def google_estado(db: Session = Depends(get_db, scope="function")):
-    """Dice si esta copia de LifeSync ya puede conectar cuentas de Google.
+    """Dice si esta copia de LifeAgente ya puede conectar cuentas de Google.
 
     El "ID de cliente" de OAuth es un identificador PUBLICO (no es una
     contraseña ni un token). Basta con crearlo una vez en la consola de Google
@@ -259,13 +259,13 @@ def google_estado(db: Session = Depends(get_db, scope="function")):
         return {
             "configurado": True,
             "origen": "app",
-            "pista": "LifeSync ya tiene su ID de cliente de Google. Puedes entrar con un clic.",
+            "pista": "LifeAgente ya tiene su ID de cliente de Google. Puedes entrar con un clic.",
         }
     if (settings.google_client_id or "").strip():
         return {
             "configurado": True,
             "origen": "servidor",
-            "pista": "El servidor de LifeSync ya tiene su ID de cliente de Google.",
+            "pista": "El servidor de LifeAgente ya tiene su ID de cliente de Google.",
         }
     return {
         "configurado": False,

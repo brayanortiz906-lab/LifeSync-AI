@@ -66,7 +66,7 @@ export default function ChatBody({
       <div className="min-h-0 flex-1 space-y-3.5 overflow-y-auto px-4 py-4">
         {mensajes.length === 0 && (
           <div className="ls-fade-up rounded-2xl border border-indigo-500/20 bg-indigo-500/8 p-4">
-            <p className="text-sm font-semibold text-indigo-200">Hola, soy tu asistente LifeSync ðŸ‘‹</p>
+            <p className="text-sm font-semibold text-indigo-200">Hola, soy tu asistente LifeAgente ðŸ‘‹</p>
             <p className="mt-1 text-xs leading-relaxed text-slate-400">
               Cuéntame tus compromisos, gastos y tareas en lenguaje natural. Yo los clasifico,
               los registro y reorganizo tu agenda para que nada se solape.

@@ -1,6 +1,6 @@
 /** Centro de conexiones de IA: onboarding guiado paso a paso.
  *
- *  Objetivo: que una persona sin conocimientos tecnicos conecte LifeSync
+ *  Objetivo: que una persona sin conocimientos tecnicos conecte LifeAgente
  *  con "la cuenta de IA que ya tiene" sin saber que es un token o una API key.
  *
  *  Caminos ofrecidos:
@@ -354,7 +354,7 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
             Direccion de la API
           </div>
           <p className="mt-1 text-[10px] leading-relaxed text-slate-400">
-            Si abriste LifeSync desde GitHub Pages, pon aqui la direccion donde vive el
+            Si abriste LifeAgente desde GitHub Pages, pon aqui la direccion donde vive el
             servidor (por ejemplo <code className="text-slate-300">https://lifesync-api.onrender.com/api</code>).
             Se guarda solo en este navegador.
           </p>
@@ -417,7 +417,7 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
                       Entrar con Google
                     </Boton>
                     <span className="self-center text-[10px] text-slate-500">
-                      Tu contrasena nunca pasa por LifeSync
+                      Tu contrasena nunca pasa por LifeAgente
                     </span>
                   </div>
                 </div>
@@ -586,12 +586,12 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
                 Configuracion avanzada (una sola vez)
               </div>
               <p className="mt-2 text-[11px] leading-relaxed text-slate-300">
-                Si solo quieres <strong className="text-slate-200">usar</strong> LifeSync, no
+                Si solo quieres <strong className="text-slate-200">usar</strong> LifeAgente, no
                 necesitas nada de esto: abre el boton <strong className="text-slate-200">Acceder</strong> y
                 entra con tu cuenta de Google con un solo clic.
               </p>
               <p className="mt-1.5 text-[11px] leading-relaxed text-slate-400">
-                Esta pantalla es para quien <strong>instala</strong> LifeSync en un servidor: deja
+                Esta pantalla es para quien <strong>instala</strong> LifeAgente en un servidor: deja
                 preparado el acceso con Google una vez y a partir de ahi todas las personas entran
                 solas. Necesita un identificador publico de aplicacion de Google (no es tu
                 contrasena ni una clave secreta).
@@ -823,7 +823,7 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
                 </div>
                 <p className="mt-2 text-[11px] leading-relaxed text-slate-300">
                   Autorizas desde tu navegador con tu usuario y contrasena. Tu contrasena nunca
-                  pasa por LifeSync.
+                  pasa por LifeAgente.
                 </p>
 
                 {!autorizacion ? (
@@ -854,7 +854,7 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
                     <div className="mt-5">
                       <Campo
                         etiqueta="ID de cliente (opcional)"
-                        ayuda="Caracteres publicos de una aplicación: no es un token ni tu contraseña. Dejalo vacio si esta copia de LifeSync ya trae uno."
+                        ayuda="Caracteres publicos de una aplicación: no es un token ni tu contraseña. Dejalo vacio si esta copia de LifeAgente ya trae uno."
                       >
                         <input
                           value={clientId}

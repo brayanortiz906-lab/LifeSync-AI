@@ -6,14 +6,14 @@ El acceso con Google necesita un **ID de cliente OAuth**. Si ese ID se le pide
 a cada persona que usa la app, la mitad se rinde en el primer paso: "crea un
 proyecto en la consola de Google Cloud", "APIs y servicios > Credenciales",
 "copia el ID"... Eso no lo hace un usuario normal, lo hace **una sola vez
-quien instala LifeSync en su servidor**.
+quien instala LifeAgente en su servidor**.
 
 ## 2. Como queda ahora
 
 | Persona | Que hace | Cuanto le toma |
 |---|---|---|
-| **Quien usa LifeSync** | abre la app, pulsa **Acceder > Continuar con Google**, autoriza en su navegador y entra | 2 clics, 10 segundos |
-| **Quien instala LifeSync** (una vez) | pega su ID de cliente OAuth en la configuracion del despliegue | 1 minuto, una vez |
+| **Quien usa LifeAgente** | abre la app, pulsa **Acceder > Continuar con Google**, autoriza en su navegador y entra | 2 clics, 10 segundos |
+| **Quien instala LifeAgente** (una vez) | pega su ID de cliente OAuth en la configuracion del despliegue | 1 minuto, una vez |
 
 - El **ID de cliente vive en el despliegue** (`GOOGLE_CLIENT_ID` en las
   variables de entorno de Render), nunca se le pide a quien usa la app.
@@ -40,7 +40,7 @@ hace **una sola vez quien despliega**; el usuario final solo hace clic.
 | **Supabase Auth** | si | si (OTP); el correo integrado manda **2 correos/hora** -> hace falta SMTP propio | **50.000 usuarios/mes**, API ilimitada, 500 MB de BD | proyecto -> Authentication -> Providers -> Google -> `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` |
 | **Clerk / Auth0 / WorkOS** | si | si | de pago tras la prueba | cuenta y dominio, mas configuracion |
 
-**Recomendacion para LifeSync**: mantener el sistema propio que ya existe
+**Recomendacion para LifeAgente**: mantener el sistema propio que ya existe
 (`backend/app/cuentas.py`: codigo de verificacion, token de sesion, aislamiento
 por `usuario_id`, respaldo) y usar el ID de cliente de OAuth del despliegue.
 Es gratis, no depende de terceros y no obliga a migrar el modelo de datos. Si
@@ -51,4 +51,4 @@ quien verifica el token, no reescribir la app.
 
 > El paso tecnico es de **quien instala**, una vez. El usuario final solo
 > pone su cuenta y entra. Asi se hace en todas las apps serioas, y es
-> exactamente lo que LifeSync ya hace.
+> exactamente lo que LifeAgente ya hace.

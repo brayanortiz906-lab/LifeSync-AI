@@ -30,6 +30,7 @@ from sqlalchemy import Boolean, Column, DateTime, Integer, String, event, select
 from sqlalchemy.orm import Session as SASession
 
 from .config import settings
+from .connections import normalizar_proveedor
 from .database import Base, get_db
 from .models import (
     AppSettings,
@@ -149,10 +150,10 @@ def generar_codigo() -> str:
 
 def enviar_codigo(correo: str, codigo: str, nombre: str = "") -> str:
     """Envía el código por correo. Devuelve 'smtp', 'consola' o 'ninguno'."""
-    asunto = "Tu código de acceso a LifeSync AI"
+    asunto = "Tu código de acceso a LifeAgente AI"
     cuerpo = (
         f"{(nombre or '').strip()} hola:\n\n"
-        f"Tu código para entrar a LifeSync AI es:  {codigo}\n\n"
+        f"Tu código para entrar a LifeAgente AI es:  {codigo}\n\n"
         "El código vale por 15 minutos. Si no fuiste tú, ignora este mensaje."
     )
     if settings.smtp_host:
@@ -236,38 +237,109 @@ def verificar_codigo(db: SASession, correo: str, codigo: str) -> Usuario:
     return usuario
 
 
-def entrar_con_google(db: SASession, access_token: str) -> Usuario:
-    """Inicia sesión con el permiso que Google entregó (id_token o access_token)."""
+def entrar_con_cuenta(
+    db: SASession, access_token: str, proveedor: str = "google_cuenta"
+) -> Usuario:
+    """Inicia sesion con el permiso que entrego el proveedor (Google, Outlook, GitHub)."""
     if not access_token:
-        raise HTTPException(status_code=400, detail="Falta el permiso de Google.")
+        raise HTTPException(status_code=400, detail="Falta el permiso de la cuenta.")
     import httpx
+
+    prov = obtener_proveedor(proveedor)
+    urls: list[str] = []
+    if prov and prov.userinfo_url:
+        urls.append(prov.userinfo_url)
+    if proveedor in ("google_cuenta", "chatgpt_cuenta"):
+        urls += [
+            "https://openidconnect.googleapis.com/v1/userinfo",
+            "https://www.googleapis.com/oauth2/v3/userinfo",
+        ]
+    if proveedor == "github_cuenta":
+        urls.append("https://api.github.com/user/emails")
 
     correo = ""
     nombre = ""
     with httpx.Client(timeout=20) as client:
-        for url in (
-            "https://openidconnect.googleapis.com/v1/userinfo",
-            "https://www.googleapis.com/oauth2/v3/userinfo",
-        ):
+        for url in urls:
             try:
                 resp = client.get(url, headers={"Authorization": f"Bearer {access_token}"})
             except Exception:
                 continue
-            if resp.status_code == 200:
+            if resp.status_code != 200:
+                continue
+            try:
                 datos = resp.json()
-                correo = str(datos.get("email") or "")
-                nombre = str(datos.get("name") or datos.get("given_name") or "")
+            except Exception:
+                continue
+            if isinstance(datos, list):  # /user/emails de GitHub
+                for item in datos:
+                    if item.get("primary") and item.get("email"):
+                        correo = str(item["email"])
+                        break
+                if correo:
+                    break
+                continue
+            correo = str(datos.get("email") or "")
+            nombre = str(
+                datos.get("name") or datos.get("given_name") or datos.get("login") or ""
+            )
+            if correo:
                 break
     if not correo:
         raise HTTPException(
             status_code=400,
-            detail="Google no devolvió tu correo. Vuelve a autorizar y asegúrate de incluirlo.",
+            detail=(
+                "No pudimos leer tu correo. Vuelve a autorizar y comprueba que "
+                "compartes el correo con la aplicacion."
+            ),
         )
-    usuario = _buscar_o_crear(db, correo, nombre, "google")
+    metodo = "google" if proveedor == "google_cuenta" else proveedor.replace("_cuenta", "")
+    usuario = _buscar_o_crear(db, correo, nombre, metodo)
     usuario.verificado = True
     usuario.ultimo_acceso = datetime.now()
     db.flush()
     return usuario
+
+
+def client_id_de(db: SASession, proveedor: str = "google_cuenta") -> str:
+    """Client id del despliegue (nunca se le pide al usuario final).
+
+    1) variable de entorno (GOOGLE_CLIENT_ID / OUTLOOK_CLIENT_ID / GITHUB_CLIENT_ID)
+    2) el client id guardado (cifrado) en la conexion de ese proveedor
+    """
+    from . import connections as con
+
+    pid = normalizar_proveedor(proveedor)
+    entorno = {
+        "google_cuenta": settings.google_client_id,
+        "outlook_cuenta": settings.outlook_client_id,
+        "github_cuenta": settings.github_client_id,
+    }.get(pid, "")
+    if entorno.strip():
+        return entorno.strip()
+    from .models import ConexionIA
+
+    conexion = db.scalars(
+        select(ConexionIA)
+        .where(ConexionIA.proveedor == pid)
+        .order_by(ConexionIA.activa.desc(), ConexionIA.id.desc())
+    ).first()
+    if conexion is not None:
+        cred = con.credenciales_desde_json(conexion.credenciales_cifradas)
+        guardado = str(cred.get("client_id") or "").strip()
+        if guardado:
+            return guardado
+    raise HTTPException(
+        status_code=400,
+        detail=(
+            "Esta copia todavia no tiene el acceso con esa cuenta configurado. "
+            "Lo activa una sola vez quien la instala (ayuda en 'Conectar IA > "
+            "Configuracion avanzada'). Mientras tanto puedes entrar con tu correo "
+            "o seguir en este equipo."
+        ),
+    )
+
+
 
 
 def crear_sesion(db: SASession, usuario: Usuario, agente: str = "") -> str:

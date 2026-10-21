@@ -18,7 +18,7 @@ class Settings(BaseSettings):
         env_file=(BASE_DIR / ".env"), env_file_encoding="utf-8", extra="ignore"
     )
 
-    app_name: str = "LifeSync AI"
+    app_name: str = "LifeAgente AI"
     app_secret_key: str = "dev-secret-change-me"
     database_url: str = f"sqlite:///{(BASE_DIR / 'lifesync.db').as_posix()}"
 
@@ -34,6 +34,11 @@ class Settings(BaseSettings):
     # --- Envio del codigo de verificacion (v11) ------------------------- #
     # Sin SMTP configurado el codigo se muestra en la respuesta (modo
     # desarrollo) y queda registrado en la consola del servidor.
+    # --- Acceso con cuenta: un client id por proveedor ---------------- #
+    # Lo configura UNA vez quien instala la app (env vars del despliegue).
+    google_client_id: str = ""
+    outlook_client_id: str = ""
+    github_client_id: str = ""
     smtp_host: str = ""
     smtp_port: int = 587
     smtp_user: str = ""
@@ -56,7 +61,7 @@ class Settings(BaseSettings):
         """System Prompt maestro (fuente de verdad en /shared/system_prompt.txt)."""
         if SYSTEM_PROMPT_PATH.exists():
             return SYSTEM_PROMPT_PATH.read_text(encoding="utf-8")
-        return "Eres LifeSync, un asistente de vida y productividad. Responde en JSON."
+        return "Eres LifeAgente, un asistente de vida y productividad. Responde en JSON."
 
 
 @lru_cache

@@ -20,7 +20,7 @@ export default function AccesoPanel({
   abierto: boolean
   onCerrar: () => void
   onSesionCambiada: (usuario: Usuario | null) => void
-  /** Abre el Centro de Conexiones (para quien instala LifeSync). */
+  /** Abre el Centro de Conexiones (para quien instala LifeAgente). */
   onAbrirConexiones?: () => void
 }) {
   const [usuario, setUsuario] = useState<Usuario | null>(null)
@@ -57,7 +57,8 @@ export default function AccesoPanel({
     }
   }, [abierto])
 
-  const entrar = (token: string, u: Usuario) => {
+  const entrar = (token: string | undefined, u: Usuario | undefined) => {
+    if (!token || !u) return
     guardarToken(token)
     setUsuario(u)
     onSesionCambiada(u)
@@ -178,7 +179,7 @@ export default function AccesoPanel({
     <Modal
       abierto={abierto}
       onCerrar={onCerrar}
-      titulo="Tu cuenta de LifeSync AI"
+      titulo="Tu cuenta de LifeAgente AI"
       descripcion="Elige como quieres entrar. Puedes seguir usandolo en este equipo sin crear nada."
     >
       <div className="space-y-4">
@@ -256,7 +257,7 @@ export default function AccesoPanel({
             <div className="rounded-2xl border border-indigo-500/25 bg-indigo-500/8 p-4">
               <div className="text-xs font-bold text-indigo-200">Autoriza en tu navegador</div>
               <p className="mt-1.5 text-[11px] leading-relaxed text-slate-300">
-                Elige tu cuenta de Google y pulsa "Permitir". Tu contrasena nunca pasa por LifeSync.
+                Elige tu cuenta de Google y pulsa "Permitir". Tu contrasena nunca pasa por LifeAgente.
               </p>
               <div className="mt-3 select-all rounded-xl border border-indigo-500/30 bg-black/30 px-3 py-2 text-center font-mono text-lg font-bold tracking-widest text-indigo-100">
                 {googleAuth.user_code}
@@ -363,7 +364,7 @@ export default function AccesoPanel({
 
         {estado && !estado.ok && estado.texto.toLowerCase().includes('google') && onAbrirConexiones && (
           <div className="rounded-2xl border border-white/10 bg-white/4 p-4">
-            <div className="text-[11px] font-bold text-slate-200">¿Eres quien instala LifeSync?</div>
+            <div className="text-[11px] font-bold text-slate-200">¿Eres quien instala LifeAgente?</div>
             <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
               El acceso con Google se activa una sola vez, en el servidor. Si esta es tu maquina,
               puedes dejarlo listo aqui (tarda un minuto) y a partir de ahora todo el mundo entra
