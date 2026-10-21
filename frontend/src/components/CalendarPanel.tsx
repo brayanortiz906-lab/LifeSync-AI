@@ -23,6 +23,7 @@ import {
 } from '../lib/format'
 import { COLOR_EVENTO } from '../types'
 import type { Evento, OrdenEventos } from '../types'
+import { PLANTILLAS } from '../lib/plantillas'
 import { Boton, Chip, Vacio } from './ui'
 
 type Vista = 'dia' | 'semana' | 'mes'
@@ -241,6 +242,7 @@ function VistaDia({
 }) {
   const ahora = new Date()
   const esHoy = ahora.toDateString() === fecha.toDateString()
+  const cargarPlantilla = useLifeAgente((s) => s.cargarPlantilla)
 
   const grupos = useMemo(() => {
     const positivos = eventos.filter((e) => aFecha(e.fin).getTime() > aFecha(e.inicio).getTime())
@@ -250,12 +252,32 @@ function VistaDia({
 
   if (eventos.length === 0) {
     return (
-      <div className="flex h-full min-h-[300px] items-center justify-center p-6">
+      <div className="flex h-full min-h-[300px] flex-col items-center justify-center gap-3 p-6">
         <Vacio
           icono={<CalendarRange size={26} />}
           texto="No hay nada agendado para este día"
           sub='Dile al agente "tengo una cita hoy a las 3 PM" y el bloque aparecera aquí, ya acomodado.'
         />
+        {/* Atajo a lo local: plantillas y motor de reglas, sin salir de la vista. */}
+        <div className="w-full max-w-md rounded-2xl border border-white/8 bg-white/3 p-3">
+          <div className="ls-label mb-1.5">O empieza con algo listo</div>
+          <div className="flex flex-wrap gap-1.5">
+            {PLANTILLAS.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => cargarPlantilla(p.id)}
+                title={p.para}
+                className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-semibold text-slate-300 transition hover:bg-white/12"
+              >
+                {p.icono} {p.nombre}
+              </button>
+            ))}
+          </div>
+          <p className="ls-hint mt-2">
+            Se guardan en este navegador (modo local). Si prefieres la nube, entra con tu cuenta
+            desde el boton «Acceder».
+          </p>
+        </div>
       </div>
     )
   }

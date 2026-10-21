@@ -29,6 +29,7 @@ import AjustesPanel, { AsistenteBienvenida } from './components/AjustesPanel'
 import PermisosPanel from './components/PermisosPanel'
 import PanelesPanel from './components/PanelesPanel'
 import ContextoLateral from './components/ContextoLateral'
+import PanelLocal from './components/PanelLocal'
 import ChatFlotante from './components/ChatFlotante'
 import ResumenMovil from './components/ResumenMovil'
 import MenuMovil from './components/MenuMovil'
@@ -218,6 +219,11 @@ export default function App() {
                 </Panel>
 
                 <ContextoLateral fecha={fecha} />
+
+                {/* Lo local, a mano en la pagina normal: motor de reglas, IA
+                    del computador, plantillas y pegar texto de otro chat. */}
+                <PanelLocal onAbrirConexiones={() => setConexionesAbiertas(true)} />
+
                 <AcademicPanel />
               </div>
 
@@ -230,6 +236,7 @@ export default function App() {
             <div className="mx-auto flex w-full max-w-[1900px] flex-col gap-4">
               <CalendarPanel fecha={fecha} onCambiarFecha={setFecha} />
               <ResumenMovil onAbrirMas={() => setMenuMovilAbierto(true)} />
+              <PanelLocal onAbrirConexiones={() => setConexionesAbiertas(true)} />
             </div>
           )}
         </main>
@@ -289,13 +296,25 @@ export default function App() {
         usuario={usuario}
       />
     {mostrarAvisoPrueba && (
-      <div className="fixed left-1/2 top-3 z-30 -translate-x-1/2 rounded-full border border-amber-500/30 bg-amber-500/15 px-4 py-1.5 text-[11px] font-semibold text-amber-100 backdrop-blur">
-        Modo de prueba · los datos desaparecen al recargar la pagina (maximo 6 bloques, 4 tareas y 6 gastos)
+      <div className="fixed left-1/2 top-3 z-30 flex -translate-x-1/2 items-center gap-3 rounded-full border border-amber-500/30 bg-amber-500/15 px-4 py-1.5 text-[11px] font-semibold text-amber-100 backdrop-blur">
+        <span>Modo de prueba · los datos desaparecen al recargar la pagina (maximo 6 bloques, 4 tareas y 6 gastos)</span>
+        <button
+          onClick={() => setConexionesAbiertas(true)}
+          className="shrink-0 rounded-full border border-amber-400/40 px-2 py-0.5 text-[10px] font-bold text-amber-50 transition hover:bg-amber-400/20"
+        >
+          Usar mi cuenta o mi IA local
+        </button>
       </div>
     )}
     {modoLocal && !mostrarAvisoPrueba && (
-      <div className="fixed left-1/2 top-3 z-30 -translate-x-1/2 rounded-full border border-sky-500/30 bg-sky-500/15 px-4 py-1.5 text-[11px] font-semibold text-sky-100 backdrop-blur">
-        Modo local · LifeAgente funciona con su motor de reglas y guarda todo en este navegador
+      <div className="fixed left-1/2 top-3 z-30 flex -translate-x-1/2 items-center gap-3 rounded-full border border-sky-500/30 bg-sky-500/15 px-4 py-1.5 text-[11px] font-semibold text-sky-100 backdrop-blur">
+        <span>Modo local · LifeAgente funciona con su motor de reglas y guarda todo en este navegador</span>
+        <button
+          onClick={() => setConexionesAbiertas(true)}
+          className="shrink-0 rounded-full border border-sky-400/40 px-2 py-0.5 text-[10px] font-bold text-sky-50 transition hover:bg-sky-400/20"
+        >
+          Conectar una IA
+        </button>
       </div>
     )}
     {mensajeSesion && (

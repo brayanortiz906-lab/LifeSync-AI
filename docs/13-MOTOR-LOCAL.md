@@ -86,3 +86,33 @@ almuerzo por 25 mil."* -> 1 bloque, 1 tarea, 1 mantenimiento y 1 gasto.
 | `frontend/src/store/useLifeAgente.ts` | modos local/prueba, limites, `importarTexto`, `cargarPlantilla` |
 | `frontend/src/components/Bienvenida.tsx` | plantillas + caja de pegar texto |
 | `frontend/src/App.tsx` | banner de modo local y paso automatico cuando la API no responde |
+
+---
+
+## 6. Las cosas de local, también en la página normal (v31)
+
+Hasta la v31, lo local (motor de reglas, IA del computador, plantillas y
+pegar texto de otro chat) solo se alcanzaba desde la pantalla de bienvenida o
+desde el modal «Conectar IA». Ahora **está a mano dentro de la vista
+principal**, sin salir de lo que estabas mirando.
+
+| Dónde | Qué encuentras | Archivo |
+|---|---|---|
+| **Tarjeta «Cosas de local»** (columna 2 de «Mi agenda», y también en móvil) | el estado de tu IA (3 variantes) + los botones + las 5 plantillas + la caja de pegar texto | `frontend/src/components/PanelLocal.tsx` |
+| **Estado vacío del calendario** | cuando no hay nada agendado, ofrece las 5 plantillas con un clic | `frontend/src/components/CalendarPanel.tsx` |
+| **Banner de modo** (arriba, fijo) | ahora no solo informa: ofrece «Usar mi cuenta o mi IA local» / «Conectar una IA» | `frontend/src/App.tsx` |
+
+### Los 3 estados de la tarjeta
+
+| Estado | Qué dice | Qué ofrece |
+|---|---|---|
+| **IA del computador conectada** (verde) | «Tu IA de este computador esta conectada. Trabaja sin claves y sin internet.» | «Cambiar de IA» |
+| **Modo local** (azul) | «LifeAgente razona con su motor de reglas y guarda todo en este navegador.» | «Conectar la IA de mi computador» + «Usar el motor local sin IA» |
+| **Sin IA local** (gris) | «Usa la IA de tu computador: gratis, sin claves y sin internet.» | «Conectar la IA de mi computador» (abre el Centro de Conexiones) + «Usar el motor local sin IA» |
+
+### Verificación
+- El panel se renderiza con sus 3 bloques (estado, plantillas, pegar texto).
+- El estado vacío del calendario muestra «Empieza con algo listo» con las 5 plantillas.
+- Al pulsar una plantilla, la agenda se llena (probado con «Estudiante»).
+- Build sin errores TS, smoke 119/119, sin CJK ni doble codificación.
+

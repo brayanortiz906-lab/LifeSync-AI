@@ -856,7 +856,13 @@ Detalle tecnico: `docs/16-RESPALDO-Y-NUBE.md`, seccion «Guardado con retardo».
 
 ---
 
-## La app funciona aunque no haya ninguna IA conectada
+## > **Y todo eso esta tambien en la pagina normal**: la tarjeta **«Cosas de local»**
+> (columna 2 de «Mi agenda») te dice si tu IA del computador ya esta conectada,
+> te deja cambiar de IA, trae los **5 organizadores** con un clic y una caja para
+> **pegar la informacion de otro chat**. El calendario vacio tambien te ofrece
+> los organizadores, y el banner de arriba ofrece cambiar de modo.
+
+La app funciona aunque no haya ninguna IA conectada
 
 LifeAgente trae un **motor local de reglas** (`frontend/src/lib/motorLocal.ts`):
 no necesita modelo, ni clave, ni servidor. Reconoce **palabras clave, fechas,
