@@ -41,6 +41,7 @@ from .models import (
     Event,
     LogEntry,
     Maintenance,
+    PermisosCuenta,
     PolicySettings,
     Task,
 )
@@ -54,7 +55,7 @@ _actual: ContextVar[int | None] = ContextVar("lifesync_usuario", default=None)
 #: Modelos cuyos datos se aíslan por usuario.
 MODELOS_AISLADOS = (
     Event, Task, LogEntry, Maintenance, ChatMessage, ConexionIA,
-    AuditLog, ApprovalRequest, AppSettings, PolicySettings,
+    AuditLog, ApprovalRequest, AppSettings, PolicySettings, PermisosCuenta,
 )
 
 
@@ -134,6 +135,15 @@ def registrar_filtro() -> None:
 def usuario_id_actual() -> int:
     """Id del usuario de la petición en curso (local si no hay sesión)."""
     return _actual.get() or USUARIO_LOCAL
+
+
+def establecer_usuario(usuario_id: int | None) -> None:
+    """Fija el usuario en curso (para tareas en segundo plano).
+
+    El filtro de aislamiento usa un contextvar: en el autopilot (una tarea
+    que corre sola) hay que indicar de quién son los datos que se tocan.
+    """
+    _actual.set(usuario_id)
 
 
 # --------------------------------------------------------------------------- #

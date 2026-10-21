@@ -11,6 +11,7 @@ from __future__ import annotations
 import io
 import json
 import sys
+import time
 import urllib.error
 import urllib.request
 
@@ -21,7 +22,26 @@ BASE = "http://127.0.0.1:8000"
 fallos: list[str] = []
 
 
-def pedir(metodo: str, ruta: str, cuerpo: dict | None = None) -> object:
+def pedir(metodo: str, ruta: str, cuerpo: dict | None = None, token: str = "") -> object:
+    datos = json.dumps(cuerpo).encode("utf-8") if cuerpo is not None else None
+    req = urllib.request.Request(
+        f"{BASE}{ruta}",
+        data=datos,
+        method=metodo,
+        headers={"Content-Type": "application/json; charset=utf-8"},
+    )
+    if token:
+        req.add_header("Authorization", f"Bearer {token}")
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r:
+            crudo = r.read()
+            return json.loads(crudo.decode("utf-8")) if crudo else None
+    except urllib.error.HTTPError as exc:
+        raise RuntimeError(f"{metodo} {ruta} -> {exc.code}: {exc.read().decode('utf-8')}") from exc
+
+
+def pedir_suave(metodo: str, ruta: str, cuerpo: dict | None = None) -> tuple[int, object]:
+    """Igual que `pedir`, pero sin lanzar error: devuelve (codigo, cuerpo)."""
     datos = json.dumps(cuerpo).encode("utf-8") if cuerpo is not None else None
     req = urllib.request.Request(
         f"{BASE}{ruta}",
@@ -32,9 +52,13 @@ def pedir(metodo: str, ruta: str, cuerpo: dict | None = None) -> object:
     try:
         with urllib.request.urlopen(req, timeout=60) as r:
             crudo = r.read()
-            return json.loads(crudo.decode("utf-8")) if crudo else None
+            return r.status, (json.loads(crudo.decode("utf-8")) if crudo else None)
     except urllib.error.HTTPError as exc:
-        raise RuntimeError(f"{metodo} {ruta} -> {exc.code}: {exc.read().decode('utf-8')}") from exc
+        crudo = exc.read()
+        try:
+            return exc.code, json.loads(crudo.decode("utf-8"))
+        except Exception:
+            return exc.code, {"detail": crudo.decode("utf-8", "ignore")}
 
 
 def chat(mensaje: str) -> dict:
@@ -467,6 +491,77 @@ def main() -> int:
         isinstance(pedido_olvidar, dict) and pedido_olvidar.get("ok") is True,
         f"origen={(pedido_olvidar or {}).get('origen') if isinstance(pedido_olvidar, dict) else '-'}",
     )
+
+    # --------------------------------------------------------------------------- #
+    # PERMISOS Y AUTOPILOTO (v16): la persona autoriza una vez y el sistema solo
+    # --------------------------------------------------------------------------- #
+    print("-" * 70)
+    print("PERMISOS DE LA CUENTA")
+    perm = pedir("GET", "/api/permisos")
+    lista_permisos = (perm or {}).get("permisos", []) if isinstance(perm, dict) else []
+    check(
+        "[PERMISOS] el estado de permisos responde",
+        isinstance(lista_permisos, list) and len(lista_permisos) >= 4,
+        f"n={len(lista_permisos)}",
+    )
+    check(
+        "[PERMISOS] cada permiso explica para que sirve",
+        all(p.get("por_que") for p in lista_permisos),
+        f"permisos={[p.get('id') for p in lista_permisos]}",
+    )
+    aut = pedir(
+        "POST",
+        "/api/permisos/autopiloto",
+        {"activo": True, "respaldo_auto": True, "importar_calendario": True},
+    )
+    check(
+        "[PERMISOS] se puede encender el autopilot",
+        isinstance(aut, dict) and (aut.get("autopiloto") or {}).get("activo") is True,
+        f"activo={(aut or {}).get('autopiloto', {}).get('activo') if isinstance(aut, dict) else '-'}",
+    )
+    ejec = pedir("POST", "/api/permisos/autopiloto/ejecutar")
+    resumen = (ejec or {}).get("resumen", {}) if isinstance(ejec, dict) else {}
+    check(
+        "[PERMISOS] el autopilot explica que falta el permiso",
+        isinstance(resumen, dict) and isinstance(resumen.get("respaldo"), dict),
+        f"respaldo={(resumen.get('respaldo') or {}).get('mensaje', '-') if isinstance(resumen, dict) else '-'}",
+    )
+    codigo_perm, cuerpo_perm = pedir_suave("POST", "/api/permisos/autorizar", {"proveedor": "google_cuenta"})
+    detalle_perm = ""
+    if isinstance(cuerpo_perm, dict):
+        detalle_perm = str(cuerpo_perm.get("detail") or "")
+    check(
+        "[PERMISOS] sin configuracion avisa en palabras claras",
+        codigo_perm in (200, 400) and ("configurado" in detalle_perm or codigo_perm == 200),
+        f"codigo={codigo_perm}",
+    )
+
+    # Regresion: cada persona tiene su propia politica (v11) y la suya no choca.
+    correo_v16 = f"smoke.v16+{int(time.time())}@example.com"
+    alta = pedir("POST", "/api/cuentas/codigo", {"correo": correo_v16, "nombre": "Prueba v16"})
+    codigo_v16 = ""
+    if isinstance(alta, dict):
+        codigo_v16 = str(alta.get("codigo_dev") or alta.get("codigo") or "")
+    verif = pedir("POST", "/api/cuentas/verificar", {"correo": correo_v16, "codigo": codigo_v16})
+    token_v16 = str((verif or {}).get("token") or "") if isinstance(verif, dict) else ""
+    if token_v16:
+        try:
+            cumpl = pedir("GET", "/api/responsabilidad/cumplimiento", token=token_v16)
+            check(
+                "[CUENTA] cada persona tiene su propia politica (sin colision)",
+                isinstance(cumpl, dict) and "puntaje" in cumpl,
+                f"puntaje={(cumpl or {}).get('puntaje') if isinstance(cumpl, dict) else '-'}",
+            )
+        except RuntimeError as exc:
+            check("[CUENTA] cada persona tiene su propia politica (sin colision)", False, str(exc)[:90])
+        perm_nuevo = pedir("GET", "/api/permisos", token=token_v16)
+        check(
+            "[CUENTA] los permisos son de cada persona",
+            isinstance(perm_nuevo, dict) and perm_nuevo.get("conectado") is False,
+            f"conectado={(perm_nuevo or {}).get('conectado') if isinstance(perm_nuevo, dict) else '-'}",
+        )
+    else:
+        check("[CUENTA] cada persona tiene su propia politica (sin colision)", False, "no se pudo crear la cuenta")
 
     print("=" * 70)
     if fallos:

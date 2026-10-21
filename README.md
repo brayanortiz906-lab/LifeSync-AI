@@ -127,9 +127,10 @@ Detalle completo en [`docs/06-CONE-XIONES.md`](docs/06-CONE-XIONES.md).
 
 ### Verificación automática
 
-Con el backend corriendo, `backend/smoke.py` comprueba los 67 casos de uso contra la
+Con el backend corriendo, `backend/smoke.py` comprueba los 85 casos de uso contra la
 base de datos real (calendario, bitácora, tareas, mantenimiento, multi-intención,
-cascadas de registro automático, el sistema de IA responsable y el centro de conexiones):
+cascadas de registro automático, el sistema de IA responsable, el centro de conexiones
+y los permisos con piloto automático):
 
 ```powershell
 cd backend
@@ -320,10 +321,10 @@ imagen de Python 3.12 que corre la API. La base SQLite vive en el volumen `/data
 
 ### 1-bis.4 Automatización (CI)
 
-`.github/workflows/ci.yml` corre en cada push: levanta la API, ejecuta los **67 casos** de
-`backend/smoke.py` (que incluyen el chat multi-intención, las cascadas, el sistema responsable
-y el centro de conexiones) y compila el frontend con `tsc -b && vite build`. La insignia de
-arriba refleja el estado real del último push.
+`.github/workflows/ci.yml` corre en cada push: levanta la API, ejecuta los **85 casos** de
+`backend/smoke.py` (que incluyen el chat multi-intención, las cascadas, el sistema responsable,
+el centro de conexiones y los permisos con piloto automático) y compila el frontend con
+`tsc -b && vite build`. La insignia de arriba refleja el estado real del último push.
 
 ---
 
@@ -332,7 +333,7 @@ arriba refleja el estado real del último push.
 ```
 .
 ├── .github/workflows/
-│   ├── ci.yml                   ← CI: 67 casos del smoke test + build del frontend
+│   ├── ci.yml                   ← CI: 85 casos del smoke test + build del frontend
 │   └── deploy-pages.yml         ← Publica la interfaz en GitHub Pages
 ├── .devcontainer/               ← Codespaces: Python 3.12 + Node 20 preinstalados
 ├── Dockerfile                   ← Multi-stage: Node 20 compila, Python 3.12 sirve
@@ -346,13 +347,15 @@ arriba refleja el estado real del último push.
 │   │   ├── config.py            ← Settings (pydantic-settings)
 │   │   ├── database.py          ← SQLAlchemy 2.0 + SQLite (+ migración de esquema)
 │   │   ├── models.py            ← Event, Task, LogEntry, Maintenance, ChatMessage,
-│   │   │                           AppSettings, PolicySettings, AuditLog, ApprovalRequest
+│   │   │                           AppSettings, PolicySettings, AuditLog, ApprovalRequest,
+│   │   │                           PermisosCuenta (permisos de la cuenta)
 │   │   ├── schemas.py           ← Pydantic v2 (API + contrato del agente)
 │   │   ├── providers.py         ← Adaptadores OpenAI / Gemini / Anthropic / Ollama /
 │   │   │                           OpenAI-compatible + motor por reglas (demo)
 │   │   ├── planner.py           ← Planificador determinista (sin solapes)
 │   │   ├── agent.py             ← Orquestador: contexto → LLM → política → acciones
 │   │   ├── policy.py            ← Motor de gobierno: reglas, riesgo, PII, auditoría
+│   │   ├── permisos.py           ← Permisos de la cuenta + piloto automático
 │   │   ├── connections.py       ← Catálogo de proveedores, motores locales, verificación
 │   │   ├── security.py          ← Cifrado Fernet de las credenciales
 │   │   ├── seed.py              ← Datos de demostración
@@ -360,15 +363,17 @@ arriba refleja el estado real del último push.
 │   │       ├── crud.py          ← /api/events, /tasks, /logbook, /maintenance, /dashboard
 │   │       ├── agent.py         ← /api/agent/chat, /ingest, /settings
 │   │       ├── conexiones.py    ← /api/conexiones/* (catálogo, locales, activar, verificar)
+│   │       ├── permisos.py      ← /api/permisos/* (autorizar, piloto, respaldo, calendario)
 │   │       └── responsabilidad.py ← /api/responsabilidad/* (política, auditoría,
 │   │                                 aprobaciones, redacción, cumplimiento)
 │   ├── requirements.txt
 │   ├── run.py
-│   └── smoke.py                 ← 67 verificaciones end-to-end contra la BD real
+│   └── smoke.py                 ← 85 verificaciones end-to-end contra la BD real
 ├── frontend/
 │   └── src/
-│       ├── App.tsx              ← Layout: agenda (vista inicial) + responsabilidad + ajustes
-│       ├── store/useLifeAgente.ts ← Estado global (Zustand) + tema y ajustes
+│       ├── App.tsx              ← Layout: agenda (vista inicial) + responsabilidad +
+│       │                           permisos + ajustes
+│       ├── store/useLifeSync.ts ← Estado global (Zustand) + tema y ajustes
 │       ├── lib/api.ts           ← Cliente HTTP + manejo de la API Key local
 │       ├── lib/format.ts        ← Fechas, moneda, duraciones (es-CO)
 │       └── components/
@@ -381,6 +386,7 @@ arriba refleja el estado real del último push.
 │           ├── AcademicPanel.tsx← Tareas y resúmenes (derecha, ordenable)
 │           ├── LogbookPanel.tsx ← Gastos y mantenimiento (derecha, ordenable)
 │           ├── AjustesPanel.tsx  ← Ajustes (temas, órdenes, etiquetas) + bienvenida inicial
+│           ├── PermisosPanel.tsx ← Permisos de la cuenta + piloto automático
 │           ├── ResponsibilityPanel.tsx ← Aprobaciones, auditoría, política, cumplimiento
 │           └── ui.tsx           ← Atomos visuales (Modal con portal)
 └── docs/
@@ -389,7 +395,12 @@ arriba refleja el estado real del último push.
     ├── 03-INTEGRACION-API-KEY.md
     ├── 05-RESPONSABILIDAD.md
     ├── 06-CONE-XIONES.md
-    └── 07-AJUSTES.md
+    ├── 07-AJUSTES.md
+    ├── 08-SISTEMA-VISUAL.md
+    ├── 09-CUENTAS.md
+    ├── 10-DESPLIEGUE.md
+    ├── 11-AUTENTICACION.md
+    └── 12-PERMISOS-Y-NUBE.md
 ```
 
 ---
@@ -405,6 +416,10 @@ arriba refleja el estado real del último push.
 | [docs/06-CONE-XIONES.md](docs/06-CONE-XIONES.md) | Centro de Conexiones: cualquier IA, sin claves, con IA local |
 | [docs/07-AJUSTES.md](docs/07-AJUSTES.md) | Formulario inicial, temas, órdenes de cada bloque y etiquetas |
 | [docs/08-SISTEMA-VISUAL.md](docs/08-SISTEMA-VISUAL.md) | Sistema visual: separación, tarjetas, formularios, modales y reglas de espaciado |
+| [docs/09-CUENTAS.md](docs/09-CUENTAS.md) | Cuentas de usuario: alta con código, aislamiento de datos y respaldo |
+| [docs/10-DESPLIEGUE.md](docs/10-DESPLIEGUE.md) | Publicar la app (Codespaces, Pages + Render, Docker) y quién hace qué |
+| [docs/11-AUTENTICACION.md](docs/11-AUTENTICACION.md) | Acceso con un clic: Google/Outlook/GitHub y sistemas alojados (Firebase, Supabase) |
+| [docs/12-PERMISOS-Y-NUBE.md](docs/12-PERMISOS-Y-NUBE.md) | Permisos de la cuenta, piloto automático y cómo trabaja sin que abras la app |
 
 ---
 
@@ -531,3 +546,31 @@ con tu correo (codigo de 6 digitos) o seguir en el equipo (modo local).
 Comparativa de servicios de autenticacion ya existentes (Firebase, Supabase,
 Clerk) y por que el sistema propio sigue siendo la mejor opcion aqui:
 `docs/11-AUTENTICACION.md`.
+
+### Tu cuenta, tus datos y el sistema que trabaja solo
+
+En la pestaña **Permisos** la persona concede, **una sola vez**, todo lo que
+LifeAgente necesita para trabajar sin que nadie tenga que abrir la app:
+
+| Permiso | Que le deja hacer al sistema | Por que lo pide |
+|---|---|---|
+| `perfil` | saber quien eres | sin esto no hay forma de saber que datos son tuyos |
+| `drive` | guardar un respaldo de tu vida en tu Drive | si se borra el equipo, tus datos siguen intactos |
+| `calendario` | leer tu Google Calendar | tu agenda real entra al agente y se reorganiza sola |
+| `correo` | avisarte por correo | no dependes de tener la app abierta para enterarte |
+
+Con el **piloto automatico** encendido, el servidor hace el trabajo cada 30
+minutos: respaldo en tu Drive e importacion de tu agenda. Puedes ejecutarlo
+tambien a mano (`Ejecutar ahora`). Los tokens van cifrados y se renuevan
+solos, asi que no hay que volver a autorizar nada.
+
+Donde vive cada cosa:
+
+| Como lo usas | Donde estan tus datos | Quien trabaja |
+|---|---|---|
+| En tu equipo (sin descargar nada, con la IA local) | en tu computador (SQLite) | tu equipo |
+| En la nube (Render) | en el servidor, aislados por `usuario_id` | el servidor, con tu cuenta |
+| Con una cuenta de Google | en el servidor + copia en tu Drive | el servidor, con tus permisos |
+
+Detalle tecnico (endpoints, scopes, renovacion del token, tabla
+`permisos_cuenta`): `docs/12-PERMISOS-Y-NUBE.md`.

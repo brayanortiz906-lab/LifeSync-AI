@@ -90,3 +90,27 @@ El permiso se guarda cifrado en el servidor y la persona entra con un clic.
 
 Desde *Acceder* cada persona puede descargar su respaldo en JSON o guardarlo
 en su **Google Drive** (si conecto su cuenta de Google).
+
+## 7. Que el sistema trabaje solo (permisos y piloto automatico)
+
+Con el mismo `GOOGLE_CLIENT_ID` de la seccion 4, la persona concede **todos**
+los permisos de una vez desde la pestana **Permisos**:
+
+| Permiso | Que hace |
+|---|---|
+| `drive.file` | respaldo automatico de su vida en su Drive |
+| `calendar.readonly` | importa su Google Calendar al agente |
+| `gmail.send` | le avisa por correo cuando el agente organiza su dia |
+
+Con el **piloto automatico** encendido, el servidor del Render hace el trabajo
+cada 30 minutos aunque nadie tenga la app abierta. Detalle completo en
+`docs/12-PERMISOS-Y-NUBE.md`.
+
+## 8. Lo que NO puede hacer el despliegue
+
+- Publicar en tu cuenta de Render (eso lo haces tu, con tus clics).
+- Enviar correos reales si no configuras SMTP (`SMTP_HOST`, `SMTP_USER`,
+  `SMTP_PASSWORD`, `SMTP_DESDE`): sin eso, el codigo de verificacion se
+  muestra en pantalla (modo desarrollo).
+- Conceder permisos de Google a nombre de otra persona: cada quien autoriza
+  en su propio navegador, con su propia cuenta.

@@ -901,8 +901,14 @@ def _post_form(url: str, datos: dict[str, Any], timeout: float = 20.0) -> dict[s
     return cuerpo
 
 
-def iniciar_autorizacion_cuenta(proveedor: str, client_id: str) -> dict[str, Any]:
-    """Arranca el flujo de cuenta y devuelve el código que debe escribir el usuario."""
+def iniciar_autorizacion_cuenta(
+    proveedor: str, client_id: str, scope_extra: str = ""
+) -> dict[str, Any]:
+    """Arranca el flujo de cuenta y devuelve el código que debe escribir el usuario.
+
+    ``scope_extra`` sirve para pedir permisos adicionales (Drive, Calendar,
+    correo) en el MISMO clic: asi la persona concede todo de una vez.
+    """
     prov = obtener_proveedor(proveedor)
     if not prov or not prov.device_auth_url:
         raise ErrorConexion("Este proveedor todavia no admite conexión con cuenta.")
@@ -921,7 +927,10 @@ def iniciar_autorizacion_cuenta(proveedor: str, client_id: str) -> dict[str, Any
             raise ErrorConexion(
                 "El ID de cliente parece incompleto. Copialo completo desde el panel del proveedor."
             )
-    datos = _post_form(prov.device_auth_url, {"client_id": client_id, "scope": prov.scope})
+    scope = prov.scope
+    if scope_extra.strip():
+        scope = f"{scope} {scope_extra.strip()}"
+    datos = _post_form(prov.device_auth_url, {"client_id": client_id, "scope": scope})
     return {
         "proveedor": prov.id,
         "user_code": str(datos.get("user_code", "")),

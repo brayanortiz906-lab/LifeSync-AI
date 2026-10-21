@@ -108,9 +108,15 @@ class ChatMessage(Base):
 
 
 class AppSettings(Base):
+    """Ajustes de la persona (uno por usuario, v11).
+
+    La clave primaria la asigna la base de datos: cada persona tiene su propia
+    fila y se busca por `usuario_id` (nunca por id fijo, que colisionaba).
+    """
+
     __tablename__ = "app_settings"
 
-    id: Mapped[int] = mapped_column(primary_key=True, default=1)
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     proveedor: Mapped[str] = mapped_column(String(24), default="mock")
     modelo: Mapped[str] = mapped_column(String(64), default="gpt-4o-mini")
     api_key_cifrada: Mapped[str | None] = mapped_column(Text, default=None)
@@ -164,11 +170,15 @@ class ConexionIA(Base):
 # SISTEMA RESPONSABLE (IA responsable)
 # --------------------------------------------------------------------------- #
 class PolicySettings(Base):
-    """Parámetros de gobierno del agente: umbrales, autonomia y trazabilidad."""
+    """Parámetros de gobierno del agente: umbrales, autonomia y trazabilidad.
+
+    Una fila por persona (v11): la clave primaria la asigna la base de datos
+    y se busca por `usuario_id` (si no, dos personas chocan en la misma fila).
+    """
 
     __tablename__ = "policy_settings"
 
-    id: Mapped[int] = mapped_column(primary_key=True, default=1)
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     # --- Umbrales de decisión -------------------------------------------------
     umbral_confianza: Mapped[float] = mapped_column(Float, default=0.65)
     gasto_max_autonomo: Mapped[float] = mapped_column(Float, default=100000.0)
@@ -231,6 +241,37 @@ class ApprovalRequest(Base):
 
 
 # --------------------------------------------------------------------------- #
+# PERMISOS DE LA CUENTA (v16)
+# --------------------------------------------------------------------------- #
+class PermisosCuenta(Base):
+    """Permisos que la persona autorizó a LifeAgente con su cuenta.
+
+    Con un solo permiso concedido (Drive, Calendar, correo) el sistema puede
+    trabajar solo: respaldar cada noche, importar la agenda de Google y
+    avisar por correo, aunque nadie tenga la app abierta.
+    """
+
+    __tablename__ = "permisos_cuenta"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    proveedor: Mapped[str] = mapped_column(String(48), default="google_cuenta", index=True)
+    correo: Mapped[str] = mapped_column(String(180), default="")
+    scope: Mapped[str] = mapped_column(Text, default="")
+    access_token_cifrado: Mapped[str | None] = mapped_column(Text, default=None)
+    refresh_token_cifrado: Mapped[str | None] = mapped_column(Text, default=None)
+    client_id: Mapped[str] = mapped_column(String(200), default="")
+    autopiloto: Mapped[bool] = mapped_column(Boolean, default=False)
+    respaldo_auto: Mapped[bool] = mapped_column(Boolean, default=True)
+    importar_calendario: Mapped[bool] = mapped_column(Boolean, default=True)
+    ultimo_respaldo: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    proximo_respaldo: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    creado_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    actualizado_en: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+
+# --------------------------------------------------------------------------- #
 # Multiusuario (v11)
 # --------------------------------------------------------------------------- #
 # Cada fila pertenece a una persona. El id 1 es el "usuario local": el que
@@ -241,6 +282,6 @@ from sqlalchemy import Column  # noqa: E402  (import local para no tocar el bloq
 
 for _modelo in (
     Event, Task, LogEntry, Maintenance, ChatMessage, ConexionIA,
-    AuditLog, ApprovalRequest, AppSettings, PolicySettings,
+    AuditLog, ApprovalRequest, AppSettings, PolicySettings, PermisosCuenta,
 ):
     _modelo.usuario_id = Column(Integer, default=1, index=True)

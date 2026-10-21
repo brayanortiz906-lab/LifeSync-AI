@@ -175,9 +175,13 @@ def obtener_politica(db: Session) -> PolicySettings:
     from .cuentas import usuario_id_actual
 
     uid = usuario_id_actual()
-    politica = db.get(PolicySettings, uid)
+    politica = db.scalars(
+        select(PolicySettings).where(PolicySettings.usuario_id == uid)
+    ).first()
     if politica is None:
-        politica = PolicySettings(id=uid, usuario_id=uid)
+        # La clave primaria la asigna la base de datos: si se fija a `uid`
+        # puede chocar con la fila de otra persona (UNIQUE constraint).
+        politica = PolicySettings(usuario_id=uid)
         db.add(politica)
         db.flush()
     return politica

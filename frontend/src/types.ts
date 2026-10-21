@@ -380,6 +380,36 @@ export interface EstadoGoogle {
   pista: string
 }
 
+/** Un permiso que la app pide a la cuenta (Drive, Calendar, correo...). */
+export interface Permiso {
+  id: string
+  titulo: string
+  descripcion: string
+  /** Por que lo pedimos, en palabras simples. */
+  por_que: string
+  icono: string
+  scope: string
+  /** Ya lo concediste? */
+  concedido: boolean
+}
+
+/** Estado de los permisos de la persona y de su autopiloto. */
+export interface EstadoPermisos {
+  /** Hay una cuenta conectada con permisos? */
+  conectado: boolean
+  proveedor: string
+  correo: string
+  permisos: Permiso[]
+  autopiloto: {
+    /** El sistema trabaja solo? */
+    activo: boolean
+    respaldo_auto: boolean
+    importar_calendario: boolean
+    ultimo_respaldo: string
+    proximo_respaldo: string
+  }
+}
+
 /** Resultado de consultar si el usuario ya autorizo en su navegador. */
 export interface ResultadoAutorizacion {
   ok: boolean

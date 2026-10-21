@@ -258,7 +258,14 @@ def respaldo_drive(payload: DriveIn, db: Session = Depends(get_db, scope="functi
 @router.post("/respaldo/drive/desde-conexion")
 def respaldo_drive_desde_conexion(db: Session = Depends(get_db, scope="function")):
     """Guarda el respaldo en el Drive de la cuenta de Google ya conectada."""
-    token = _token_de_google(db)
+    from ..permisos import token_acceso
+
+    token = token_acceso(db)
+    if not token:
+        raise HTTPException(
+            status_code=400,
+            detail="Todavia no autorizaste el acceso a Google Drive.",
+        )
     return respaldo_drive(DriveIn(access_token=token), db)
 
 

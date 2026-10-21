@@ -1097,13 +1097,15 @@ def _categoria_de_accion(tipo: str) -> str | None:
 def _get_app_settings(db: Session):
     from .models import AppSettings
 
-    # Cada persona tiene sus propios ajustes (v11).
+    # Cada persona tiene sus propios ajustes (v11). Se busca por usuario_id:
+    # la clave primaria la pone la base de datos (si no, dos personas
+    # comparten la misma fila y una pisa los ajustes de la otra).
     from .cuentas import usuario_id_actual
 
     uid = usuario_id_actual()
-    app = db.get(AppSettings, uid)
+    app = db.scalars(select(AppSettings).where(AppSettings.usuario_id == uid)).first()
     if app is None:
-        app = AppSettings(id=uid, usuario_id=uid)
+        app = AppSettings(usuario_id=uid)
         db.add(app)
         db.flush()
     return app

@@ -1,6 +1,7 @@
 /** Cliente HTTP de la API de LifeSync AI. */
 import type {
   Ajustes, Aprobacion, AutorizacionCuenta, CatalogoModelos, Conexion, Dashboard, EntradaAuditoria, EstadoGoogle,
+  EstadoPermisos, Permiso,
   PerfilCuenta, Respaldo, ResultadoCodigo, ResultadoSesion, Usuario,
   Evento, HistorialMsg, Mantenimiento, MotorLocal, Politica, ProveedorCatalogo, Registro,
   ReporteCumplimiento, ResumenAuditoria, RespuestaAgente, ResultadoAutorizacion, Tarea,
@@ -300,4 +301,51 @@ export const cuentas = {
       method: 'POST',
       body: JSON.stringify({ access_token, nombre }),
     }),
+}
+
+/** Endpoints de permisos y autopiloto (v16). */
+export const permisos = {
+  /** Que permisos tienes concedidos y como esta el autopiloto. */
+  estado: () => request<EstadoPermisos>('/permisos'),
+
+  /** Paso 1: pide TODOS los permisos de una vez (Drive, Calendar, correo). */
+  autorizar: (proveedor = 'google_cuenta') =>
+    request<{ ok: boolean; user_code: string; verification_uri: string; device_code: string }>(
+      '/permisos/autorizar',
+      { method: 'POST', body: JSON.stringify({ proveedor }) },
+    ),
+
+  /** Paso 2: comprueba si ya autorizaste en el navegador. */
+  terminar: (device_code: string) =>
+    request<{ ok: boolean; mensaje?: string; estado?: EstadoPermisos }>('/permisos/terminar', {
+      method: 'POST',
+      body: JSON.stringify({ device_code }),
+    }),
+
+  /** Enciende o apaga el trabajo automatico. */
+  autopiloto: (datos: { activo: boolean; respaldo_auto: boolean; importar_calendario: boolean }) =>
+    request<EstadoPermisos>('/permisos/autopiloto', {
+      method: 'POST',
+      body: JSON.stringify(datos),
+    }),
+
+  /** Ejecuta ahora lo que el sistema hace solo. */
+  ejecutar: () =>
+    request<{ ok: boolean; mensaje?: string; resumen?: Record<string, { ok: boolean; mensaje?: string; importados?: number; enlace?: string }> }>(
+      '/permisos/autopiloto/ejecutar',
+      { method: 'POST' },
+    ),
+
+  /** Respaldo manual en Google Drive. */
+  respaldar: () =>
+    request<{ ok: boolean; mensaje?: string; archivo?: string; enlace?: string }>('/permisos/respaldo', {
+      method: 'POST',
+    }),
+
+  /** Importa tu agenda de Google Calendar. */
+  importarCalendario: () =>
+    request<{ ok: boolean; mensaje?: string; importados?: number; revisados?: number }>(
+      '/permisos/importar-calendario',
+      { method: 'POST' },
+    ),
 }

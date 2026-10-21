@@ -18,7 +18,7 @@
  *   - dentro del panel hay un boton para ocuparlo toda la pantalla
  */
 import { useEffect, useState } from 'react'
-import { AlertTriangle, CalendarCheck, LayoutGrid, MessageSquare, Plug, RefreshCw, Settings, ShieldCheck, Sparkles } from 'lucide-react'
+import { AlertTriangle, CalendarCheck, KeyRound, LayoutGrid, MessageSquare, Plug, RefreshCw, Settings, ShieldCheck, Sparkles } from 'lucide-react'
 import { useLifeSync } from './store/useLifeSync'
 import TopBar from './components/TopBar'
 import CalendarPanel from './components/CalendarPanel'
@@ -26,6 +26,7 @@ import AcademicPanel from './components/AcademicPanel'
 import LogbookPanel from './components/LogbookPanel'
 import ResponsibilityPanel from './components/ResponsibilityPanel'
 import AjustesPanel, { AsistenteBienvenida } from './components/AjustesPanel'
+import PermisosPanel from './components/PermisosPanel'
 import ContextoLateral from './components/ContextoLateral'
 import ChatFlotante from './components/ChatFlotante'
 import { Boton, Panel } from './components/ui'
@@ -34,7 +35,7 @@ import Bienvenida from './components/Bienvenida'
 import { guardarToken, leerToken } from './lib/api'
 import type { Usuario } from './types'
 
-type Vista = 'agenda' | 'responsabilidad' | 'ajustes'
+type Vista = 'agenda' | 'responsabilidad' | 'permisos' | 'ajustes'
 
 export default function App() {
   const cargarTodo = useLifeSync((s) => s.cargarTodo)
@@ -80,6 +81,7 @@ export default function App() {
   const pestanas: Array<{ id: Vista; texto: string; icono: typeof LayoutGrid; color: string }> = [
     { id: 'agenda', texto: 'Mi agenda', icono: LayoutGrid, color: 'emerald' },
     { id: 'responsabilidad', texto: 'Responsabilidad', icono: ShieldCheck, color: 'rose' },
+    { id: 'permisos', texto: 'Permisos', icono: KeyRound, color: 'amber' },
     { id: 'ajustes', texto: 'Ajustes', icono: Settings, color: 'indigo' },
   ]
 
@@ -114,7 +116,9 @@ export default function App() {
                   ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'
                   : p.color === 'rose'
                     ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/20'
-                    : 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20'
+                    : p.color === 'amber'
+                      ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20'
+                      : 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20'
                 : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-200'
             }`}
           >
@@ -196,6 +200,12 @@ export default function App() {
       {vista === 'responsabilidad' && (
         <main className="min-h-0 flex-1 overflow-y-auto p-4">
           <ResponsibilityPanel />
+        </main>
+      )}
+
+      {vista === 'permisos' && (
+        <main className="min-h-0 flex-1 overflow-y-auto p-4">
+          <PermisosPanel />
         </main>
       )}
 
