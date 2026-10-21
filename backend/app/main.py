@@ -34,6 +34,13 @@ async def lifespan(app: FastAPI):
     registrar_filtro()
     Base.metadata.create_all(bind=engine)
     _migrar_sqlite()
+    # v12: si la persona ya tiene una IA local en su equipo, se conecta sola.
+    try:
+        from .routers.conexiones import autoconectar_al_arrancar
+
+        await autoconectar_al_arrancar()
+    except Exception as exc:  # pragma: no cover - nunca debe impedir arrancar
+        print(f"[conexiones] no se pudo autoconectar: {exc}")
     with SessionLocal() as db:
         if sembrar(db):
             db.commit()

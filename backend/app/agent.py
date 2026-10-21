@@ -788,7 +788,8 @@ async def procesar_mensaje(db: Session, req: ChatRequest) -> ChatResponse:
             .where(ConexionIA.proveedor == conexiones.normalizar_proveedor(req.proveedor))
             .limit(1)
         ).first()
-    if conexion is None:
+    if conexion is None and proveedor_solicitado not in ("mock", "demo", "motor-local"):
+        # Solo se cae a la conexion activa si no se pidio un motor concreto.
         conexion = db.scalars(
             select(ConexionIA).where(ConexionIA.activa.is_(True)).limit(1)
         ).first()

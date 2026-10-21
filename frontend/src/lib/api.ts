@@ -222,8 +222,13 @@ export const api = {
   eliminarConexion: (id: number) =>
     request<{ ok: boolean }>(`/conexiones/${id}`, { method: 'DELETE' }),
 
-  detectarLocales: () =>
-    request<{ motores: MotorLocal[]; total: number }>('/conexiones/locales'),
+  detectarLocales: () => request<{
+    motores: MotorLocal[]
+    total: number
+    autoconectado?: {
+      id: number; proveedor: string; nombre: string; modelo: string; ok: boolean; mensaje: string
+    } | null
+  }>('/conexiones/locales'),
 
   /** Catalogo amplio de modelos para que la persona elija "cualquier IA". */
   modelosDisponibles: (proveedor = 'openrouter') =>

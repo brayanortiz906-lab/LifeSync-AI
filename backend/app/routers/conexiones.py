@@ -40,10 +40,81 @@ def catalogo():
 
 
 @router.get("/locales")
-async def detectar_locales():
-    """Busca motores de IA ya levantados en el equipo del usuario."""
+async def detectar_locales(db: Session = Depends(get_db, scope="function")):
+    """Busca motores de IA ya levantados en el equipo y conecta el primero.
+
+    Si la persona ya tiene una IA local (Ollama, LM Studio, Jan...), LifeSync
+    se conecta solo: la app funciona sin configurar nada.
+    """
     motores = await con.detectar_motores_locales()
-    return {"motores": motores, "total": len(motores)}
+    auto = await _autoconectar(db, motores)
+    return {"motores": motores, "total": len(motores), "autoconectado": auto}
+
+
+async def _autoconectar(db: Session, motores: list[dict]) -> dict | None:
+    """Conecta el motor local detectado si la app todavia no usa uno real."""
+    activa = db.scalars(select(ConexionIA).where(ConexionIA.activa)).first()
+    if activa and activa.proveedor not in ("mock", "demo"):
+        return None
+    if not motores:
+        return None
+    motor = motores[0]
+    prov = con.obtener_proveedor(motor["id"])
+    if prov is None:
+        return None
+    modelo = (motor.get("modelos") or [prov.modelo_defecto])[0]
+    credenciales = {"base_url": motor.get("base_url") or prov.base_url}
+    conexion = db.scalars(
+        select(ConexionIA).where(ConexionIA.proveedor == motor["id"])
+    ).first()
+    if conexion is None:
+        conexion = ConexionIA(proveedor=motor["id"], nombre=f"{motor['nombre']} (detectado)")
+        db.add(conexion)
+    conexion.credenciales_cifradas = con.credenciales_a_json(credenciales)
+    conexion.modo = "local"
+    conexion.modelo = modelo
+    conexion.nombre = conexion.nombre or f"{motor['nombre']} (detectado)"
+    db.flush()
+    ok, mensaje, _extra = await con.verificar_credenciales(
+        motor["id"], credenciales, modelo
+    )
+    conexion.estado = "activa" if ok else "error"
+    conexion.detalle_estado = mensaje
+    conexion.verificada_en = datetime.now()
+    db.flush()
+    if ok:
+        _activar(db, conexion, modelo)
+        db.flush()
+    return {
+        "id": conexion.id,
+        "proveedor": motor["id"],
+        "nombre": motor["nombre"],
+        "modelo": modelo,
+        "ok": ok,
+        "mensaje": mensaje,
+    }
+
+
+@router.post("/autoconectar")
+async def autoconectar(db: Session = Depends(get_db, scope="function")):
+    """Fuerza la conexion automatica con la IA local del equipo."""
+    motores = await con.detectar_motores_locales(forzar=True)
+    auto = await _autoconectar(db, motores)
+    return {
+        "ok": bool(auto and auto.get("ok")),
+        "conexion": auto,
+        "motores": len(motores),
+    }
+
+
+async def autoconectar_al_arrancar() -> None:
+    """Al arrancar la API, conecta la IA local del equipo si la hay."""
+    from ..database import SessionLocal
+
+    with SessionLocal() as db:
+        motores = await con.detectar_motores_locales()
+        await _autoconectar(db, motores)
+        db.commit()
 
 
 @router.get("/modelos")

@@ -57,6 +57,9 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
   const [catalogo, setCatalogo] = useState<ProveedorCatalogo[]>([])
   const [conexiones, setConexiones] = useState<Conexion[]>([])
   const [motores, setMotores] = useState<MotorLocal[]>([])
+  const [autoconectado, setAutoconectado] = useState<{
+    id: number; proveedor: string; nombre: string; modelo: string; ok: boolean; mensaje: string
+  } | null>(null)
   const [paso, setPaso] = useState<'inicio' | 'detalle' | 'elegir' | 'wizard'>('inicio')
   const [googleInfo, setGoogleInfo] = useState<EstadoGoogle | null>(null)
   const [caminos, setCaminos] = useState<string[]>([])
@@ -87,6 +90,7 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
       setCatalogo(cat.proveedores)
       setConexiones(cons)
       setMotores(loc.motores)
+      setAutoconectado(loc.autoconectado ?? null)
       setGoogleInfo(google)
     } catch {
       /* el panel muestra el estado vacio */
@@ -427,6 +431,12 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
                   <Wifi size={13} />
                   Detectamos IA en tu computador
                 </div>
+                {autoconectado && (
+                  <div className="mt-2 flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-2 text-[10px] font-semibold text-emerald-200">
+                    <Check size={12} />
+                    Conectado automaticamente a {autoconectado.nombre} ({autoconectado.modelo})
+                  </div>
+                )}
                 <div className="mt-2 space-y-1.5">
                   {motoresDisponibles.map((m) => (
                     <div key={m.id} className="flex items-center gap-2 rounded-lg bg-black/20 px-2.5 py-2">

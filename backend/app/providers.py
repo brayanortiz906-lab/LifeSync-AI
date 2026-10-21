@@ -116,9 +116,13 @@ async def _call_gemini(
 
 
 async def _call_anthropic(
-    system: str, user: str, api_key: str, model: str, temperature: float
+    system: str, user: str, api_key: str, model: str, temperature: float,
+    base_url: str | None = None,
 ) -> str:
-    """Adaptador Anthropic (Claude). La API exige 'system' fuera de 'messages'."""
+    """Adaptador Anthropic (Claude). La API exige 'system' fuera de 'messages'.
+
+    `base_url` permite apuntar a un proxy local compatible (Claude CLI).
+    """
     model_id = model or "claude-sonnet-4-5"
     payload = {
         "model": model_id,
@@ -133,7 +137,8 @@ async def _call_anthropic(
         "Content-Type": "application/json",
     }
     async with httpx.AsyncClient(timeout=90) as client:
-        resp = await client.post(ANTHROPIC_URL, json=payload, headers=headers)
+        url = f"{base_url.rstrip('/')}/v1/messages" if base_url else ANTHROPIC_URL
+        resp = await client.post(url, json=payload, headers=headers)
     if resp.status_code >= 400:
         raise ProviderError(f"Anthropic error {resp.status_code}: {resp.text[:400]}")
     data = resp.json()
@@ -712,6 +717,17 @@ def _mock_response(mensaje: str, hoy: date) -> dict[str, Any]:
 # --------------------------------------------------------------------------- #
 # Fachada
 # --------------------------------------------------------------------------- #
+#: Motores locales que exponen una API compatible con la de OpenAI.
+LOCALES_COMPATIBLES = {
+    "jan": "http://127.0.0.1:1337/v1",
+    "gpt4all": "http://127.0.0.1:4891/v1",
+    "llamacpp": "http://127.0.0.1:8080/v1",
+    "localai": "http://127.0.0.1:8080/v1",
+    "textgen": "http://127.0.0.1:5000/v1",
+    "kobold": "http://127.0.0.1:5001/v1",
+}
+
+
 async def complete(
     system: str,
     user: str,
@@ -743,6 +759,18 @@ async def complete(
         return await _call_openai_compatible(
             system, user, api_key, modelo or "llama-3.1-8b-instruct",
             temperature, base_url or LMSTUDIO_BASE, "LM Studio",
+        )
+    if proveedor in LOCALES_COMPATIBLES:
+        # Cualquier otro motor local (Jan, llama.cpp, LocalAI, GPT4All...).
+        return await _call_openai_compatible(
+            system, user, api_key, modelo or "local-model",
+            temperature, base_url or LOCALES_COMPATIBLES[proveedor], proveedor,
+        )
+    if proveedor == "claude_local":
+        # Proxy local compatible con la API de Anthropic.
+        return await _call_anthropic(
+            system, user, api_key or "local", modelo or "claude-local",
+            temperature, base_url or "http://127.0.0.1:8787",
         )
 
     # --- Proveedores remotos: requieren credencial ---------------------------

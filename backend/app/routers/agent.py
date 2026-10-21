@@ -23,6 +23,11 @@ from ..schemas import (
 )
 from ..security import cifrar, descifrar
 
+#: Motores locales: funcionan sin clave de API.
+_PROVEEDORES_SIN_CLAVE = {
+    "ollama", "lmstudio", "jan", "gpt4all", "llamacpp", "textgen", "kobold", "claude_local",
+}
+
 router = APIRouter(prefix="/api", tags=["agente"])
 
 
@@ -147,7 +152,11 @@ def leer_settings(db: Session = Depends(get_db, scope="function")):
         inicio_jornada=app.inicio_jornada,
         fin_jornada=app.fin_jornada,
         tiene_api_key=bool(app.api_key_cifrada),
-        proveedor_efectivo=app.proveedor if app.api_key_cifrada else "mock",
+        proveedor_efectivo=(
+            app.proveedor
+            if (app.api_key_cifrada or app.proveedor in _PROVEEDORES_SIN_CLAVE)
+            else "mock"
+        ),
         nombre_usuario=app.nombre_usuario or "",
         tema=app.tema or "medianoche",
         orden_tareas=app.orden_tareas or "fecha",

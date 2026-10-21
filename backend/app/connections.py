@@ -21,6 +21,7 @@ La ejecución real de los modelos vive en `providers.py`.
 from __future__ import annotations
 
 import json
+import os
 import time
 from dataclasses import dataclass, field
 from typing import Any
@@ -219,6 +220,109 @@ CATALOGO: dict[str, Proveedor] = {
         url_registro="https://lmstudio.ai/download",
         base_url="http://127.0.0.1:1234/v1",
     ),
+    "jan": Proveedor(
+        id="jan",
+        nombre="Jan (IA en tu computador)",
+        modo="local",
+        resumen="Si tienes Jan abierto, LifeSync lo usa solo: gratis, sin clave y sin internet.",
+        icono="🟣",
+        gratis=True,
+        instrucciones=[
+            "Abre Jan y deja el servidor de la API encendido (Settings > Local Server).",
+            "LifeSync lo detecta solo y se conecta al instante.",
+        ],
+        pasos_ayuda=["Todo se queda en tu equipo: nada sale a internet."],
+        modelos=["jan-llama-3.1-8b"],
+        modelo_defecto="jan-llama-3.1-8b",
+        url_registro="https://jan.ai/download",
+        base_url="http://127.0.0.1:1337/v1",
+    ),
+    "gpt4all": Proveedor(
+        id="gpt4all",
+        nombre="GPT4All (IA en tu computador)",
+        modo="local",
+        resumen="GPT4All abierto: LifeSync lo encuentra y lo usa sin configuracion.",
+        icono="🟤",
+        gratis=True,
+        instrucciones=[
+            "Abre GPT4All y activa su servidor local (API Server).",
+            "LifeSync detecta los modelos que tienes cargados.",
+        ],
+        pasos_ayuda=["Nada sale de tu equipo."],
+        modelos=["gpt4all-webui"],
+        modelo_defecto="gpt4all-webui",
+        url_registro="https://gpt4all.io",
+        base_url="http://127.0.0.1:4891/v1",
+    ),
+    "llamacpp": Proveedor(
+        id="llamacpp",
+        nombre="llama.cpp / LocalAI (IA en tu computador)",
+        modo="local",
+        resumen="Servidor local compatible con la API de OpenAI: LifeSync se conecta solo.",
+        icono="🦙",
+        gratis=True,
+        instrucciones=[
+            "Levanta el servidor (por ejemplo: llama-server -m modelo).",
+            "LifeSync lo detecta y usa el primer modelo disponible.",
+        ],
+        pasos_ayuda=["Compatible con la API de OpenAI, asi que sirve casi cualquier motor."],
+        modelos=["local-model"],
+        modelo_defecto="local-model",
+        url_registro="https://github.com/ggml-org/llama.cpp",
+        base_url="http://127.0.0.1:8080/v1",
+    ),
+    "textgen": Proveedor(
+        id="textgen",
+        nombre="text-generation-webui (IA en tu computador)",
+        modo="local",
+        resumen="El servidor de la interfaz web de generations: se detecta automaticamente.",
+        icono="🟡",
+        gratis=True,
+        instrucciones=[
+            "Arranca text-generation-webui con la opcion de API activada.",
+            "LifeSync lo encuentra en el puerto 5000.",
+        ],
+        pasos_ayuda=["Nada sale de tu equipo."],
+        modelos=["local-model"],
+        modelo_defecto="local-model",
+        url_registro="https://github.com/oobabooga/text-generation-webui",
+        base_url="http://127.0.0.1:5000/v1",
+    ),
+    "kobold": Proveedor(
+        id="kobold",
+        nombre="KoboldCpp (IA en tu computador)",
+        modo="local",
+        resumen="KoboldCpp con la API activada: LifeSync lo detecta y lo usa.",
+        icono="🐉",
+        gratis=True,
+        instrucciones=[
+            "Arranca KoboldCpp con --api.",
+            "LifeSync lo encuentra en el puerto 5001.",
+        ],
+        pasos_ayuda=["Nada sale de tu equipo."],
+        modelos=["local-model"],
+        modelo_defecto="local-model",
+        url_registro="https://github.com/LostRuins/koboldcpp",
+        base_url="http://127.0.0.1:5001/v1",
+    ),
+    "claude_local": Proveedor(
+        id="claude_local",
+        nombre="Claude en tu computador (proxy local)",
+        modo="local",
+        resumen="Si tienes Claude CLI con un servidor local (ANTHROPIC_BASE_URL), LifeSync lo usa.",
+        icono="🟠",
+        gratis=True,
+        instrucciones=[
+            "Abre Claude CLI con un proxy local (ANTHROPIC_BASE_URL).",
+            "LifeSync lo detecta y usa la API compatible con Anthropic.",
+        ],
+        pasos_ayuda=["No hace falta pegar claves: el permiso lo tiene tu Claude local."],
+        modelos=["claude-local"],
+        modelo_defecto="claude-local",
+        url_registro="https://docs.anthropic.com/en/docs/claude-code",
+        base_url="http://127.0.0.1:8787",
+    ),
+
     "demo": Proveedor(
         id="demo",
         nombre="Asistente demo (integrado)",
@@ -322,9 +426,15 @@ CATALOGO: dict[str, Proveedor] = {
     ),
 }
 
+#: Motores locales que hablan la API de OpenAI (o una compatible).
+PROVEEDOR_LOCAL_GENERICO = {
+    "jan", "gpt4all", "llamacpp", "textgen", "kobold", "localai", "claude_local",
+}
+
 #: Proveedores que la app sabe ejecutar de verdad.
 PROVEEDORES_SOPORTADOS = {
     "openai", "anthropic", "gemini", "openrouter", "ollama", "lmstudio", "mock",
+    "jan", "gpt4all", "llamacpp", "textgen", "kobold", "claude_local",
     "google_cuenta", "chatgpt_cuenta", "claude_cuenta",
 }
 
@@ -447,12 +557,23 @@ def detectar_motores_locales_sync(forzar: bool = False) -> list[dict[str, Any]]:
     if not forzar and ahora - float(_CACHE_MOTORES["ts"]) < _CACHE_TTL:
         return list(_CACHE_MOTORES["valor"])
     candidatos = [
-        ("ollama", "http://127.0.0.1:11434/api/tags", "Ollama"),
-        ("lmstudio", "http://127.0.0.1:1234/v1/models", "LM Studio"),
+        {"id": "ollama", "url": "http://127.0.0.1:11434/api/tags", "nombre": "Ollama", "estilo": "ollama"},
+        {"id": "ollama", "url": "http://127.0.0.1:11435/api/tags", "nombre": "Ollama (puerto 11435)", "estilo": "ollama"},
+        {"id": "lmstudio", "url": "http://127.0.0.1:1234/v1/models", "nombre": "LM Studio", "estilo": "openai"},
+        {"id": "jan", "url": "http://127.0.0.1:1337/v1/models", "nombre": "Jan", "estilo": "openai"},
+        {"id": "gpt4all", "url": "http://127.0.0.1:4891/v1/models", "nombre": "GPT4All", "estilo": "openai"},
+        {"id": "llamacpp", "url": "http://127.0.0.1:8080/v1/models", "nombre": "llama.cpp / LocalAI", "estilo": "openai"},
+        {"id": "textgen", "url": "http://127.0.0.1:5000/v1/models", "nombre": "text-generation-webui", "estilo": "openai"},
+        {"id": "kobold", "url": "http://127.0.0.1:5001/v1/models", "nombre": "KoboldCpp", "estilo": "openai"},
     ]
     encontrados: list[dict[str, Any]] = []
+    vistos: set[str] = set()
     with httpx.Client(timeout=2.5) as client:
-        for pid, url, nombre in candidatos:
+        for candidato in candidatos:
+            pid = candidato["id"]
+            url = candidato["url"]
+            if pid in vistos:
+                continue
             try:
                 resp = client.get(url)
             except Exception:
@@ -462,19 +583,41 @@ def detectar_motores_locales_sync(forzar: bool = False) -> list[dict[str, Any]]:
             modelos: list[str] = []
             try:
                 data = resp.json()
-                if pid == "ollama":
+                if candidato["estilo"] == "ollama":
                     modelos = [m.get("name", "") for m in data.get("models", []) if m.get("name")]
                 else:
                     modelos = [m.get("id", "") for m in data.get("data", []) if m.get("id")]
             except Exception:
                 pass
+            base = url.rsplit("/api/tags", 1)[0].rsplit("/v1/models", 1)[0]
+            vistos.add(pid)
             encontrados.append(
                 {
                     "id": pid,
-                    "nombre": nombre,
+                    "nombre": candidato["nombre"],
                     "url": url,
+                    "base_url": base,
                     "modelos": modelos[:12],
                     "modelos_disponibles": len(modelos),
+                }
+            )
+    # Claude local: si hay un proxy de Anthropic en este equipo.
+    proxy = (os.environ.get("ANTHROPIC_BASE_URL") or "").strip().rstrip("/")
+    if proxy and "claude_local" not in vistos:
+        with httpx.Client(timeout=2.5) as client:
+            try:
+                resp = client.get(f"{proxy}/v1/models")
+            except Exception:
+                resp = None
+        if resp is not None and resp.status_code < 400:
+            encontrados.append(
+                {
+                    "id": "claude_local",
+                    "nombre": "Claude en tu computador (proxy local)",
+                    "url": f"{proxy}/v1/models",
+                    "base_url": proxy,
+                    "modelos": [],
+                    "modelos_disponibles": 0,
                 }
             )
     _CACHE_MOTORES["ts"] = ahora
@@ -482,9 +625,9 @@ def detectar_motores_locales_sync(forzar: bool = False) -> list[dict[str, Any]]:
     return list(encontrados)
 
 
-async def detectar_motores_locales() -> list[dict[str, Any]]:
-    """Busca servidores de IA locales (Ollama, LM Studio) ya levantados."""
-    return detectar_motores_locales_sync()
+async def detectar_motores_locales(forzar: bool = False) -> list[dict[str, Any]]:
+    """Busca servidores de IA locales (Ollama, LM Studio, Jan...) ya levantados."""
+    return detectar_motores_locales_sync(forzar=forzar)
 
 
 # --------------------------------------------------------------------------- #
@@ -518,6 +661,24 @@ async def verificar_credenciales(
             return True, f"Ollama detectada con {len(nombres)} modelo(s).", extra
         except Exception:
             return False, "No se encontro Ollama. Instalalo y dejalo abierto.", extra
+
+    if pid in PROVEEDOR_LOCAL_GENERICO:
+        prov_local = CATALOGO.get(pid)
+        base = (cred.get("base_url") or (prov_local.base_url if prov_local else "")).rstrip("/")
+        if not base:
+            return False, "No sabemos donde esta ese motor local.", extra
+        async with httpx.AsyncClient(timeout=4) as client:
+            resp = await client.get(f"{base}/v1/models")
+        if resp.status_code >= 400:
+            return False, f"{pid} respondio con error {resp.status_code}.", extra
+        try:
+            nombres = [m.get("id", "") for m in resp.json().get("data", []) if m.get("id")]
+        except Exception:
+            nombres = []
+        extra["modelos"] = nombres[:20]
+        if not nombres:
+            return False, f"{pid} responde pero no tiene modelos cargados.", extra
+        return True, f"{pid} detectado con {len(nombres)} modelo(s).", extra
 
     if pid == "lmstudio":
         base = (cred.get("base_url") or "http://127.0.0.1:1234/v1").rstrip("/")
