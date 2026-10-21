@@ -254,6 +254,76 @@ export interface Ajustes {
   proveedor_efectivo: string
 }
 
+// --------------------------------------------------------------------------- //
+// Centro de conexiones de IA
+// --------------------------------------------------------------------------- //
+export type ModoConexion = 'api_key' | 'cuenta' | 'local' | 'demo'
+
+export interface ProveedorCatalogo {
+  id: string
+  nombre: string
+  modo: ModoConexion
+  resumen: string
+  icono: string
+  requiere_pago: boolean
+  gratis: boolean
+  instrucciones: string[]
+  modelos: string[]
+  modelo_defecto: string
+  url_registro: string
+  pasos_ayuda: string[]
+  notas: string
+  acepta_cuenta: boolean
+  url_client_id: string
+}
+
+/** Datos que devuelve el inicio del flujo OAuth "device authorization". */
+export interface AutorizacionCuenta {
+  proveedor: string
+  user_code: string
+  verification_uri: string
+  verification_uri_simple: string
+  intervalo: number
+  expira_en: number
+  device_code: string
+  client_id: string
+}
+
+/** Resultado de consultar si el usuario ya autorizo en su navegador. */
+export interface ResultadoAutorizacion {
+  ok: boolean
+  mensaje: string
+  detalle?: string
+  conexion?: Conexion
+}
+
+export interface Conexion {
+  id: number
+  proveedor: string
+  nombre: string
+  modo: ModoConexion | string
+  modelo: string
+  activa: boolean
+  estado: string
+  detalle_estado: string | null
+  creada_en: string | null
+  verificada_en: string | null
+  tiene_credencial: boolean
+  base_url: string
+  icono: string
+  resumen: string
+  instrucciones: string[]
+  modelos_disponibles: string[]
+}
+
+export interface MotorLocal {
+  id: string
+  nombre: string
+  url: string
+  modelos: string[]
+  modelos_disponibles: number
+}
+
 /** Colores por categoría de evento (Tailwind-safe: clases estáticas). */
 export const COLOR_EVENTO: Record<string, { chip: string; bloque: string; punto: string }> = {
   trabajo: {

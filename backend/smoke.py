@@ -293,6 +293,32 @@ def main() -> int:
     inv = pedir("GET", "/api/responsabilidad/inventario")
     check("[RESP] el inventario de datos responde", bool(inv) and "derechos" in inv, f"claves={list(inv.keys()) if isinstance(inv, dict) else '-'}")  # type: ignore[union-attr]
 
+    # ---------------------------------------------------------- CONEXIONES DE IA
+    cat = pedir("GET", "/api/conexiones/catalogo")
+    proveedores = (cat or {}).get("proveedores", []) if isinstance(cat, dict) else []
+    check("[CONEX] el catalogo tiene proveedores", len(proveedores) >= 5, f"n={len(proveedores)}")
+    modos = {p.get("modo") for p in proveedores}
+    check("[CONEX] hay caminos sin clave (cuenta/local/demo)", {"cuenta", "local", "demo"} & modos == {"cuenta", "local", "demo"}, f"modos={sorted(modos)}")  # type: ignore[union-attr]
+    locales = pedir("GET", "/api/conexiones/locales")
+    motores = (locales or {}).get("motores", []) if isinstance(locales, dict) else []
+    check("[CONEX] la deteccion de motores locales responde", isinstance(motores, list), f"motores={[m.get('id') for m in motores]}")  # type: ignore[union-attr]
+
+    # Conectar el proveedor "demo" (nunca falla) y verificar que queda activo.
+    demo = pedir("POST", "/api/conexiones", {"proveedor": "demo", "nombre": "Asistente demo", "modelo": "motor-local"})
+    check("[CONEX] se puede guardar una conexion", bool(demo) and demo.get("id") is not None, f"id={demo.get('id') if isinstance(demo, dict) else '-'}")  # type: ignore[union-attr]
+    cid = demo.get("id") if isinstance(demo, dict) else None
+    if cid is not None:
+        ver = pedir("POST", f"/api/conexiones/{cid}/verificar")
+        check("[CONEX] la verificacion responde", bool(ver) and ver.get("estado") in {"activa", "error"}, f"estado={ver.get('estado') if isinstance(ver, dict) else '-'}")  # type: ignore[union-attr]
+        act = pedir("POST", f"/api/conexiones/{cid}/activar")
+        check("[CONEX] se puede activar la conexion", bool(act) and act.get("activa") is True, f"activa={act.get('activa') if isinstance(act, dict) else '-'}")  # type: ignore[union-attr]
+        lista = pedir("GET", "/api/conexiones")
+        check("[CONEX] la conexion aparece en la lista", any(c.get("id") == cid for c in (lista or [])), f"n={len(lista) if isinstance(lista, list) else 0}")  # type: ignore[union-attr]
+        # La credencial nunca debe salir por la API.
+        check("[CONEX] la API no expone la credencial", all("api_key" not in (c or {}) and not (c or {}).get("credenciales_cifradas") for c in (lista or [])), "sin secretos en la respuesta")  # type: ignore[union-attr]
+        # Se devuelve al motor demo para no alterar el resto del test.
+        pedir("DELETE", f"/api/conexiones/{cid}")
+
     print("=" * 70)
     if fallos:
         print(f"RESULTADO: {len(fallos)} CASO(S) FALLIDO(S): {fallos}")

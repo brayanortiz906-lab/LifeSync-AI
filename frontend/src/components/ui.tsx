@@ -112,12 +112,14 @@ export function Stat({
 }
 
 export function Modal({
-  abierto, onCerrar, titulo, children,
+  abierto, onCerrar, titulo, children, ancho = 'max-w-lg',
 }: {
   abierto: boolean
   onCerrar: () => void
   titulo: string
   children: ReactNode
+  /** Clase de ancho maximo (Tailwind estatico). */
+  ancho?: string
 }) {
   if (!abierto) return null
   return (
@@ -126,7 +128,7 @@ export function Modal({
       onClick={onCerrar}
     >
       <div
-        className="ls-fade-up w-full max-w-lg rounded-2xl border border-white/10 bg-slate-900 shadow-2xl"
+        className={`ls-fade-up w-full ${ancho} rounded-2xl border border-white/10 bg-slate-900 shadow-2xl`}
         onClick={(e) => e.stopPropagation()}
       >
         <header className="flex items-center justify-between border-b border-white/8 px-5 py-4">

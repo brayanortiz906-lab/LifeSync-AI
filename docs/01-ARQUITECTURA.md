@@ -32,8 +32,10 @@
 │                          NAVEGADOR (React)                          │
 │                                                                      │
 │  TopBar ── ChatPanel ──────────► api.ts (fetch + BYOK)              │
-│            CalendarPanel                                                 │
+│            ContextoLateral (resumen del día, al lado del chat)        │
+│            CalendarPanel ("Mi agenda", línea de tiempo por franjas)   │
 │            AcademicPanel / LogbookPanel                               │
+│            ConexionesPanel (Centro de Conexiones: 4 caminos)          │
 │            ResponsibilityPanel (política, auditoría, aprobaciones)   │
 │            Zustand (useLifeSync) ← fuente única de verdad             │
 └───────────────────────────────┬──────────────────────────────────────┘
@@ -42,18 +44,20 @@
 │                        FASTAPI (backend/app)                         │
 │                                                                      │
 │  routers/crud.py    routers/agent.py   routers/responsabilidad.py     │
-│        │                  │                       │                   │
+│        │                  │                       │  routers/        │
+│        │                  │                       │  conexiones.py   │
 │        │            ┌─────▼──────┐  ┌──────────────┐                │
 │        │            │ agent.py   │─►│ providers.py │                │
 │        │            │ contexto   │  │ OpenAI       │                │
-│        │            │ → LLM      │  │ Gemini       │                │
-│        │            │ → validar  │  │ mock (rules) │                │
-│        │            │ → aplicar  │  └──────────────┘                │
-│        │            └─────┬──────┘        ▲                          │
-│        │                  │               │ system_prompt.txt         │
-│        │            ┌─────▼──────┐        │ (shared/)                 │
-│        │            │ policy.py  │  GOBIERNO: reglas, riesgo, PII,   │
-│        │            │ ¿puede     │  auditoría, aprobación humana    │
+│        │            │ → LLM      │  │ Anthropic    │                │
+│        │            │ → validar  │  │ Gemini       │                │
+│        │            │ → aplicar  │  │ OpenRouter   │                │
+│        │            └─────┬──────┘  │ Ollama/local │                │
+│        │                  │         │ mock (rules) │                │
+│        │                  │         └──────────────┘                │
+│        │            ┌─────▼──────┐        ▲                          │
+│        │            │ policy.py  │        │ system_prompt.txt         │
+│        │            │ ¿puede     │        │ (shared/)                 │
 │        │            │  ejecutar? │                                   │
 │        │            └─────┬──────┘                                  │
 │        │            ┌─────▼──────┐                                  │
@@ -65,6 +69,8 @@
 │            SQLAlchemy 2.0 ─────────►  SQLite / Postgres              │
 │                   │                                                   │
 │            security.py (Fernet)  ◄──── AppSettings.api_key_cifrada    │
+│                                   ◄──── ConexionIA.credenciales_    │
+│                                        cifradas (varias, 1 activa)  │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -235,12 +241,65 @@ Detalle completo en [05-RESPONSABILIDAD.md](05-RESPONSABILIDAD.md).
 
 ---
 
+## 8ter. La capa de conexiones (cualquier IA, sin jerga)
+
+Antes de invocar al modelo hay que **decidir con quién se habla**. Esa decisión no se le
+pide al usuario con jerga técnica ("¿qué token usas?"), sino con cuatro caminos:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                 CENTRO DE CONEXIONES (ConexionesPanel)          │
+│                                                                 │
+│  1. Ya tengo mi cuenta de IA   →  modo "cuenta"                │
+│  2. Usar la IA de mi computador →  modo "local" (detección)     │
+│  3. Tengo una clave de API       →  modo "api_key"               │
+│  4. Solo quiero ver cómo funciona → modo "demo" (motor local)   │
+└───────────────────────────────┬─────────────────────────────────┘
+                                │ POST /api/conexiones
+                ┌───────────────▼───────────────┐
+                │  connections.py (catálogo)     │
+                │  conexiones.py (credenciales)  │
+                │  connections.py (verificación) │
+                └───────────────┬───────────────┘
+                                │  cifrado Fernet
+                        ┌───────▼────────┐
+                        │  ConexionIA    │  (varias, una activa)
+                        └───────┬────────┘
+                                │  agente usa la conexión activa
+                                ▼
+                        providers.complete(...)
+```
+
+| Módulo | Responsabilidad |
+|---|---|
+| `connections.py` | Catálogo de 7 proveedores, detección de motores locales, verificación de credenciales |
+| `routers/conexiones.py` | Guardar, verificar, activar y eliminar conexiones (nunca expone la credencial) |
+| `providers.py` | Adaptadores: OpenAI, Anthropic, Gemini, OpenRouter, Ollama, LM Studio, motor de reglas |
+| `ConexionesPanel.tsx` | Los 4 caminos explicados en lenguaje llano, con pasos numerados |
+
+**Red de seguridad**: si el modelo no devuelve un JSON que respete el contrato, el agente
+cae al motor de reglas (`respuesta_reglas`) y registra igual, en vez de perder la frase.
+
+Detalle completo en [06-CONE-XIONES.md](06-CONE-XIONES.md).
+
+### 8ter-bis. Interfaz y calendario
+
+| Decisión | Motivo |
+|---|---|
+| El **chat es la vista inicial** (`Vista = 'chat'`), centrado y con un panel lateral de contexto | Es la forma natural de pedirle algo a un asistente; la agenda es la consecuencia |
+| La agenda se llama **"Mi agenda"** y se dibuja por **franjas** (mañana / tarde / noche) en tarjetas | Una rejilla de horas en píxeles obliga a interpretar; una tarjeta con hora grande y duración explícita no |
+| Cada bloque muestra **"se cruza con X"** en rojo y un **resumen del día** (nº bloques, tiempo ocupado, cruces) | Los cruces se ven sin tener que comparar mentalmente dos columnas |
+| Leyenda de colores y marca **"fijo"** (inamovible) siempre visible | El usuario sabe qué puede moverse y qué no |
+
+---
+
 ## 9. Roadmap técnico
 
 | Fase | Entregable |
 |---|---|
 | **v1 (este repo)** | Chat + calendario + tareas + bitácora + planner + BYOK |
 | **v1.05 (este repo)** | IA responsable: gobierno, auditoría, aprobación humana, PII, cumplimiento |
+| **v1.10 (este repo)** | Centro de Conexiones (cualquier IA sin jerga), chat al centro, agenda rediseñada por franjas |
 | v1.1 | Login multiusuario, Postgres, Alembic, tests unitarios del planner |
 | v1.2 | OAuth Google Classroom (tareas/entregas) y Notion (bases de datos) |
 | v1.3 | Worker asíncrono para PDFs largos + vectorización para el chat de.material |

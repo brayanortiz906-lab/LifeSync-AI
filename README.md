@@ -41,16 +41,56 @@ en desarrollo.
 
 ### Probar sin API Key
 
-Por defecto el backend arranca en **modo `mock`**: un clasificador local por reglas que
+Por defecto el backend arranca en **modo `demo`**: un clasificador local por reglas que
 responde con el mismo contrato JSON. Sirve para demostrar el flujo completo (incluida la
-reorganización de agenda) sin gastar tokens. Para activar OpenAI o Gemini, ve a
-**Conectar IA** en la barra superior y pega tu clave.
+reorganización de agenda) sin gastar tokens. Para conectar una IA real, ve a
+**Conectar IA** en la barra superior.
+
+### El Centro de Conexiones (conecta **cualquier** IA, sin jerga)
+
+LifeSync no te obliga a saber qué es un token o una API key. El botón **Conectar IA**
+abre un asistente con cuatro caminos, explicados en lenguaje llano:
+
+| Camino | Qué necesitas | Costo |
+|---|---|---|
+| **Ya tengo mi cuenta de IA** | Iniciar sesión con tu cuenta (Google, ChatGPT, Claude) — sin escribir tokens | El de tu plan |
+| **Usar la IA de mi computador** | Nada: detecta el motor local solo (Ollama o LM Studio) | **Gratis, sin internet** |
+| **Tengo una clave de API** | Una clave, con el link a la consola y los pasos numerados | Según el uso |
+| **Solo quiero ver cómo funciona** | Nada | Gratis |
+
+El camino de **cuenta** usa **OAuth 2.0 Device Authorization**, el estándar de "inicia
+sesión con tu cuenta": LifeSync te da un **código corto**, abres el sitio del proveedor
+en tu navegador, lo pegas y la autorización vuelve sola. **Nunca ves ni escribes tu
+contraseña**, y los errores del proveedor se traducen a lenguaje llano antes de
+mostrarse ("Ese ID de cliente no existe. Cópialo de nuevo desde el panel del
+proveedor…").
+
+LifeSync **detecta automáticamente** los motores locales y muestra los modelos que ya
+tienes instalados:
+
+```
+GET /api/conexiones/locales
+{"motores":[{"id":"ollama","nombre":"Ollama","modelos":["qwen2.5:latest","gemma4:26b", ...],
+  "modelos_disponibles":5}],"total":1}
+```
+
+Ventajas que ya trae:
+
+- **Los modelos locales no pierden tu frase**: si el modelo no devuelve el JSON del
+  contrato, LifeSync cae al motor por reglas y registra lo que corresponde igual.
+- **Credenciales cifradas** (Fernet) y nunca enviadas al navegador: la API solo dice
+  `tiene_credencial: true/false`.
+- **Conectores compatibles con OpenAI** (`lmstudio`, `openrouter`) reutilizan un mismo
+  adaptador HTTP.
+- Un solo proveedor activo a la vez; cambiar es un clic y desconectar limpia la clave.
+
+Detalle completo en [`docs/06-CONE-XIONES.md`](docs/06-CONE-XIONES.md).
 
 ### Verificación automática
 
-Con el backend corriendo, `backend/smoke.py` comprueba los 50 casos de uso contra la
+Con el backend corriendo, `backend/smoke.py` comprueba los 59 casos de uso contra la
 base de datos real (calendario, bitácora, tareas, mantenimiento, multi-intención,
-cascadas de registro automático y el sistema de IA responsable):
+cascadas de registro automático, el sistema de IA responsable y el centro de conexiones):
 
 ```powershell
 cd backend
@@ -149,41 +189,46 @@ O arranca sin recarga: `.\.venv\Scripts\python.exe -m uvicorn app.main:app --por
 │   │   ├── models.py            ← Event, Task, LogEntry, Maintenance, ChatMessage,
 │   │   │                           AppSettings, PolicySettings, AuditLog, ApprovalRequest
 │   │   ├── schemas.py           ← Pydantic v2 (API + contrato del agente)
-│   │   ├── providers.py         ← Adaptadores OpenAI / Gemini / mock + extract_json
+│   │   ├── providers.py         ← Adaptadores OpenAI / Gemini / Anthropic / Ollama /
+│   │   │                           OpenAI-compatible + motor por reglas (demo)
 │   │   ├── planner.py           ← Planificador determinista (sin solapes)
 │   │   ├── agent.py             ← Orquestador: contexto → LLM → política → acciones
 │   │   ├── policy.py            ← Motor de gobierno: reglas, riesgo, PII, auditoría
-│   │   ├── security.py          ← Cifrado Fernet de la API Key
+│   │   ├── connections.py       ← Catálogo de proveedores, motores locales, verificación
+│   │   ├── security.py          ← Cifrado Fernet de las credenciales
 │   │   ├── seed.py              ← Datos de demostración
 │   │   └── routers/
 │   │       ├── crud.py          ← /api/events, /tasks, /logbook, /maintenance, /dashboard
 │   │       ├── agent.py         ← /api/agent/chat, /ingest, /settings
+│   │       ├── conexiones.py    ← /api/conexiones/* (catálogo, locales, activar, verificar)
 │   │       └── responsabilidad.py ← /api/responsabilidad/* (política, auditoría,
 │   │                                 aprobaciones, redacción, cumplimiento)
 │   ├── requirements.txt
 │   ├── run.py
-│   └── smoke.py                 ← 50 verificaciones end-to-end contra la BD real
+│   └── smoke.py                 ← 59 verificaciones end-to-end contra la BD real
 ├── frontend/
 │   └── src/
-│       ├── App.tsx              ← Layout de 3 paneles + vista "Responsabilidad"
+│       ├── App.tsx              ← Layout: chat al centro + agenda + responsabilidad
 │       ├── store/useLifeSync.ts ← Estado global (Zustand)
 │       ├── lib/api.ts           ← Cliente HTTP + manejo de la API Key local
 │       ├── lib/format.ts        ← Fechas, moneda, duraciones (es-CO)
 │       └── components/
-│           ├── TopBar.tsx       ← Marca, navegación de fecha, KPIs, ajustes
+│           ├── TopBar.tsx       ← Marca, navegación de fecha, KPIs, conexiones
 │           ├── ChatPanel.tsx    ← Contenedor del chat (panel o pantalla completa)
 │           ├── ChatBody.tsx    ← Burbujas, ficha del agente, input, sugerencias
-│           ├── CalendarPanel.tsx← Calendario día/semana/mes (centro)
+│           ├── ContextoLateral.tsx ← Resumen lateral del chat (hoy, entregas, mes)
+│           ├── CalendarPanel.tsx← Agenda día/semana/mes por franjas (sin ambigüedad)
+│           ├── ConexionesPanel.tsx ← Centro de Conexiones (4 caminos, sin jerga)
 │           ├── AcademicPanel.tsx← Tareas y resúmenes (derecha)
 │           ├── LogbookPanel.tsx ← Gastos y mantenimiento (derecha)
 │           ├── ResponsibilityPanel.tsx ← Aprobaciones, auditoría, política, cumplimiento
-│           ├── SettingsModal.tsx← Configuración de proveedor y clave
 │           └── ui.tsx           ← Atomos visuales
 └── docs/
     ├── 01-ARQUITECTURA.md
     ├── 02-SYSTEM-PROMPT.md
     ├── 03-INTEGRACION-API-KEY.md
-    └── 05-RESPONSABILIDAD.md
+    ├── 05-RESPONSABILIDAD.md
+    └── 06-CONE-XIONES.md
 ```
 
 ---
@@ -196,6 +241,7 @@ O arranca sin recarga: `.\.venv\Scripts\python.exe -m uvicorn app.main:app --por
 | [docs/02-SYSTEM-PROMPT.md](docs/02-SYSTEM-PROMPT.md) | El System Prompt completo, el contrato JSON y cómo extenderlo |
 | [docs/03-INTEGRACION-API-KEY.md](docs/03-INTEGRACION-API-KEY.md) | Paso a paso para conectar OpenAI / Gemini, seguridad, costos |
 | [docs/05-RESPONSABILIDAD.md](docs/05-RESPONSABILIDAD.md) | Motor de política, reglas, PII, auditoría, aprobaciones y marco normativo |
+| [docs/06-CONE-XIONES.md](docs/06-CONE-XIONES.md) | Centro de Conexiones: cualquier IA, sin claves, con IA local |
 
 ---
 

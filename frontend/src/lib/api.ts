@@ -1,7 +1,8 @@
 /** Cliente HTTP de la API de LifeSync AI. */
 import type {
-  Ajustes, Aprobacion, Dashboard, EntradaAuditoria, Evento, HistorialMsg, Mantenimiento,
-  Politica, Registro, ReporteCumplimiento, ResumenAuditoria, RespuestaAgente, Tarea,
+  Ajustes, Aprobacion, AutorizacionCuenta, Conexion, Dashboard, EntradaAuditoria, Evento,
+  HistorialMsg, Mantenimiento, MotorLocal, Politica, ProveedorCatalogo, Registro,
+  ReporteCumplimiento, ResumenAuditoria, RespuestaAgente, ResultadoAutorizacion, Tarea,
 } from '../types'
 
 const BASE = import.meta.env.VITE_API_URL ?? '/api'
@@ -156,4 +157,45 @@ export const api = {
     medidas: Record<string, unknown>
     derechos: Record<string, string>
   }>('/responsabilidad/inventario'),
+
+  // ------------------------------------------------------------ conexiones IA
+  catalogoConexiones: () =>
+    request<{ proveedores: ProveedorCatalogo[] }>('/conexiones/catalogo'),
+
+  conexiones: () => request<Conexion[]>('/conexiones'),
+
+  guardarConexion: (datos: {
+    proveedor: string
+    api_key?: string
+    base_url?: string
+    modelo?: string
+    nombre?: string
+    modo?: string
+  }) => request<Conexion>('/conexiones', { method: 'POST', body: JSON.stringify(datos) }),
+
+  verificarConexion: (id: number) =>
+    request<Conexion>(`/conexiones/${id}/verificar`, { method: 'POST' }),
+
+  activarConexion: (id: number) =>
+    request<Conexion>(`/conexiones/${id}/activar`, { method: 'POST' }),
+
+  eliminarConexion: (id: number) =>
+    request<{ ok: boolean }>(`/conexiones/${id}`, { method: 'DELETE' }),
+
+  detectarLocales: () =>
+    request<{ motores: MotorLocal[]; total: number }>('/conexiones/locales'),
+
+  /** Paso 1 del flujo "conectar mi cuenta": pide un codigo de autorizacion. */
+  iniciarCuenta: (datos: { proveedor: string; client_id: string }) =>
+    request<AutorizacionCuenta>('/conexiones/cuenta/iniciar', {
+      method: 'POST',
+      body: JSON.stringify(datos),
+    }),
+
+  /** Paso 2: consulta si el usuario ya autorizo en su navegador. */
+  terminarCuenta: (datos: { proveedor: string; client_id: string; device_code: string }) =>
+    request<ResultadoAutorizacion>('/conexiones/cuenta/terminar', {
+      method: 'POST',
+      body: JSON.stringify(datos),
+    }),
 }

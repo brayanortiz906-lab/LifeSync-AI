@@ -1,29 +1,32 @@
-/** Barra superior: marca, navegación de fecha, KPIs y ajustes. */
+/** Barra superior: marca, navegación de fecha, KPIs y conexiones de IA. */
 import { useState } from 'react'
-import { CalendarDays, ChevronLeft, ChevronRight, KeyRound, MessageSquare, Sparkles, Trash2 } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, MessageSquare, Plug, Sparkles, Trash2 } from 'lucide-react'
 import { useLifeSync } from '../store/useLifeSync'
 import { duracionLegible, etiquetaDia, monto } from '../lib/format'
 import { Boton, Chip } from './ui'
-import SettingsModal from './SettingsModal'
+import ConexionesPanel from './ConexionesPanel'
 
 export default function TopBar({
-  fecha, onCambiarFecha, onAbrirChat,
+  fecha, onCambiarFecha, onAbrirChat, onIrAAgenda,
 }: {
   fecha: Date
   onCambiarFecha: (d: Date) => void
   onAbrirChat?: () => void
+  onIrAAgenda?: () => void
 }) {
   const dashboard = useLifeSync((s) => s.dashboard)
   const proveedor = useLifeSync((s) => s.proveedor)
   const apiKey = useLifeSync((s) => s.apiKey)
   const limpiarChat = useLifeSync((s) => s.limpiarChat)
-  const [ajustes, setAjustes] = useState(false)
+  const [conexiones, setConexiones] = useState(false)
 
   const dia = (offset: number) => {
     const d = new Date(fecha)
     d.setDate(d.getDate() + offset)
     onCambiarFecha(d)
   }
+
+  const conectado = proveedor !== 'mock' && proveedor !== 'demo' && (apiKey || proveedor === 'ollama' || proveedor === 'lmstudio')
 
   return (
     <header className="z-20 flex shrink-0 flex-wrap items-center gap-3 border-b border-white/8 bg-slate-950/70 px-4 py-3 backdrop-blur">
@@ -70,31 +73,35 @@ export default function TopBar({
         )}
         <Chip
           className={
-            proveedor !== 'mock' && apiKey
+            conectado
               ? 'bg-emerald-500/15 text-emerald-300 ring-emerald-500/30'
               : 'bg-slate-500/15 text-slate-300 ring-slate-500/30'
           }
           title="Proveedor de IA activo"
         >
           <span className="ls-dot h-1.5 w-1.5 rounded-full bg-current" />
-          {proveedor !== 'mock' && apiKey ? proveedor : 'modo local (mock)'}
+          {conectado ? proveedor : 'asistente demo'}
         </Chip>
         <Boton variante="fantasma" onClick={limpiarChat} titulo="Limpiar el historial del chat">
           <Trash2 size={14} />
         </Boton>
         {onAbrirChat && (
-          <Boton variante="secundario" onClick={onAbrirChat} titulo="Abrir el chat a pantalla completa (Ctrl+K)">
+          <Boton variante="fantasma" onClick={onAbrirChat} titulo="Abrir el chat a pantalla completa (Ctrl+K)">
             <MessageSquare size={14} />
-            <span className="hidden xl:inline">Chat</span>
           </Boton>
         )}
-        <Boton variante={apiKey ? 'secundario' : 'primario'} onClick={() => setAjustes(true)}>
-          <KeyRound size={14} />
-          {apiKey ? 'API Key' : 'Conectar IA'}
+        {onIrAAgenda && (
+          <Boton variante="fantasma" onClick={onIrAAgenda} titulo="Ver la agenda completa">
+            <CalendarDays size={14} />
+          </Boton>
+        )}
+        <Boton variante={conectado ? 'secundario' : 'primario'} onClick={() => setConexiones(true)}>
+          <Plug size={14} />
+          {conectado ? 'Conexiones' : 'Conectar IA'}
         </Boton>
       </div>
 
-      <SettingsModal abierto={ajustes} onCerrar={() => setAjustes(false)} />
+      <ConexionesPanel abierto={conexiones} onCerrar={() => setConexiones(false)} />
     </header>
   )
 }

@@ -120,6 +120,34 @@ class AppSettings(Base):
 
 
 # --------------------------------------------------------------------------- #
+# CONEXIONES DE IA (cuentas y proveedores)
+# --------------------------------------------------------------------------- #
+class ConexionIA(Base):
+    """Conexion a un proveedor de IA.
+
+    `modo` define como se autentica el usuario:
+      - "api_key"  -> pega una clave (OpenAI, Anthropic, Gemini, OpenRouter...)
+      - "cuenta"   -> OAuth / sesion de cuenta (ChatGPT, Claude.ai, Google...)
+      - "local"    -> motor local (Ollama, LM Studio) sin clave
+      - "mock"     -> asistente integrado sin conexion
+    """
+
+    __tablename__ = "ai_connections"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    proveedor: Mapped[str] = mapped_column(String(48), index=True)
+    nombre: Mapped[str] = mapped_column(String(80), default="")
+    modo: Mapped[str] = mapped_column(String(16), default="api_key", index=True)
+    credenciales_cifradas: Mapped[str | None] = mapped_column(Text, default=None)
+    modelo: Mapped[str] = mapped_column(String(96), default="")
+    activa: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    estado: Mapped[str] = mapped_column(String(24), default="sin_probar", index=True)
+    detalle_estado: Mapped[str | None] = mapped_column(Text, default=None)
+    creada_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    verificada_en: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+
+
+# --------------------------------------------------------------------------- #
 # SISTEMA RESPONSABLE (IA responsable)
 # --------------------------------------------------------------------------- #
 class PolicySettings(Base):

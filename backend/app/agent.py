@@ -20,10 +20,11 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from . import connections as conexiones
 from . import policy as gober
 from . import providers
 from .config import settings
-from .models import ChatMessage, Event, LogEntry, Maintenance, Task
+from .models import ChatMessage, ConexionIA, Event, LogEntry, Maintenance, Task
 from .planner import Bloque, Interval, calcular_carga, replanificar
 from .schemas import AgentAction, AgentAlert, AgentResponse, ChatRequest, ChatResponse
 from .security import descifrar
@@ -467,14 +468,29 @@ def aplicar_acciones(
             hora = str(d.get("hora") or "09:00")
             hh, mm = (hora.split(":") + ["0"])[:2]
             inicio = datetime.combine(fecha, datetime.min.time()).replace(hour=int(hh), minute=int(mm))
-            ev = Event(
-                titulo=f"{d.get('activo', 'otro')}: {d.get('tarea', 'Mantenimiento')}"[:160],
-                categoria="mantenimiento",
-                inicio=inicio, fin=inicio + timedelta(minutes=60), inamovible=False, fuente="chat",
-            )
-            db.add(ev)
-            db.flush()
-            resumen["eventos_creados"].append(ev.id)
+            titulo_evento = f"{d.get('activo', 'otro')}: {d.get('tarea', 'Mantenimiento')}"[:160]
+            # Anti-duplicado: si ya existe ese mantenimiento agendado ese dia, se actualiza.
+            existente = db.scalars(
+                select(Event).where(
+                    Event.titulo.ilike(titulo_evento),
+                    Event.inicio >= inicio - timedelta(minutes=1),
+                    Event.inicio <= inicio + timedelta(minutes=1),
+                )
+            ).first()
+            if existente is not None:
+                existente.fin = inicio + timedelta(minutes=60)
+                db.flush()
+                resumen["eventos_actualizados"].append(existente.id)
+                anotar("evento", existente.titulo, "Actualizado · mantenimiento ya agendado")
+            else:
+                ev = Event(
+                    titulo=titulo_evento,
+                    categoria="mantenimiento",
+                    inicio=inicio, fin=inicio + timedelta(minutes=60), inamovible=False, fuente="chat",
+                )
+                db.add(ev)
+                db.flush()
+                resumen["eventos_creados"].append(ev.id)
 
         elif tipo == "marcar_realizado":
             mant = db.get(Maintenance, d.get("id"))
@@ -761,7 +777,38 @@ async def procesar_mensaje(db: Session, req: ChatRequest) -> ChatResponse:
     # La API Key puede venir en la peticion (el usuario la pega en el chat) o
     # estar cifrada en el servidor ("recordar en el servidor").
     api_key = req.api_key or descifrar(app.api_key_cifrada)
-    if proveedor != "mock" and not api_key:
+    base_url: str | None = None
+
+    # Conexion activa del "Centro de conexiones": trae credencial cifrada y la
+    # URL del motor local cuando aplica (Ollama / LM Studio).
+    conexion = None
+    if req.proveedor:
+        conexion = db.scalars(
+            select(ConexionIA)
+            .where(ConexionIA.proveedor == conexiones.normalizar_proveedor(req.proveedor))
+            .limit(1)
+        ).first()
+    if conexion is None:
+        conexion = db.scalars(
+            select(ConexionIA).where(ConexionIA.activa.is_(True)).limit(1)
+        ).first()
+    if conexion is not None:
+        cred = conexiones.credenciales_desde_json(conexion.credenciales_cifradas)
+        if not api_key and cred.get("api_key"):
+            api_key = cred["api_key"]
+        if cred.get("base_url"):
+            base_url = cred["base_url"]
+        else:
+            # Los motores locales (Ollama, LM Studio) usan su direccion por
+            # defecto si el usuario no	configuro otra.
+            prov = conexiones.obtener_proveedor(conexion.proveedor)
+            base_url = prov.base_url if prov else None
+        if not req.modelo and conexion.modelo:
+            modelo = conexion.modelo
+        if not req.proveedor:
+            proveedor = conexion.proveedor
+
+    if proveedor != "mock" and not api_key and not base_url:
         # Sin credenciales no se puede llamar al proveedor: se usa el motor
         # local en vez de romper el chat, y se avisa en la respuesta.
         proveedor = "mock"
@@ -797,9 +844,17 @@ async def procesar_mensaje(db: Session, req: ChatRequest) -> ChatResponse:
 
     texto = await providers.complete(
         system_prompt, user_prompt, proveedor=proveedor, api_key=api_key, modelo=modelo,
-        mensaje_original=mensaje,
+        mensaje_original=mensaje, base_url=base_url,
     )
     crudo = providers.extract_json(texto)
+
+    # Salvaguarda: algunos modelos (sobre todo los locales y small) no
+    # respetan el contrato JSON y devuelven texto libre o un JSON vacio.
+    # En ese caso se cae al clasificador por reglas, que SI entiende el
+    # lenguaje natural. Nunca se responde con una conversacion vacia.
+    if not _respeta_contrato(crudo):
+        crudo = providers.respuesta_reglas(mensaje)
+
     agente = AgentResponse.model_validate(_normalizar(crudo))
 
     # Persistir el mensaje del usuario (el original, sin redactar: es su dato)
@@ -918,6 +973,27 @@ async def procesar_mensaje(db: Session, req: ChatRequest) -> ChatResponse:
         proveedor=proveedor,
         modelo=modelo,
     )
+
+
+def _respeta_contrato(crudo: Any) -> bool:
+    """Indica si la respuesta del modelo cumple el contrato JSON.
+
+    Se considera valida cuando trae una categoria conocida y al menos un campo
+    con contenido real (mensaje_usuario o acciones). Si el modelo devuelve un
+    objeto vacio, texto libre o un JSON con otra forma, se usa el clasificador
+    por reglas como red de seguridad.
+    """
+    if not isinstance(crudo, dict) or not crudo:
+        return False
+    cat = str(crudo.get("categoria") or crudo.get("categoría") or "").upper()
+    categorias_validas = {
+        "CALENDARIO", "TAREA_ACADEMICA", "BITACORA_GASTO", "MANTENIMIENTO", "CONVERSACION",
+    }
+    if cat not in categorias_validas:
+        return False
+    mensaje = str(crudo.get("mensaje_usuario") or "").strip()
+    acciones = crudo.get("acciones") or crudo.get("actions") or []
+    return bool(mensaje) or bool(acciones)
 
 
 def _normalizar(crudo: dict[str, Any]) -> dict[str, Any]:

@@ -238,6 +238,63 @@ class SettingsOut(BaseModel):
 
 
 # --------------------------------------------------------------------------- #
+# Centro de conexiones de IA
+# --------------------------------------------------------------------------- #
+class ConexionCreate(BaseModel):
+    proveedor: str
+    nombre: str | None = None
+    modo: Literal["api_key", "cuenta", "local", "demo"] | None = None
+    api_key: str | None = None
+    base_url: str | None = None
+    token: str | None = None
+    email: str | None = None
+    modelo: str | None = None
+    reemplazar_credenciales: bool = False
+
+
+class ConexionOut(BaseModel):
+    id: int
+    proveedor: str
+    nombre: str
+    modo: str
+    modelo: str
+    activa: bool
+    estado: str
+    detalle_estado: str | None = None
+    creada_en: str | None = None
+    verificada_en: str | None = None
+    tiene_credencial: bool = False
+    base_url: str = ""
+    icono: str = "🔌"
+    resumen: str = ""
+    instrucciones: list[str] = []
+    modelos_disponibles: list[str] = []
+
+
+class ConexionTest(BaseModel):
+    proveedor: str
+    api_key: str | None = None
+    base_url: str | None = None
+    modelo: str | None = None
+    # Camino "con mi cuenta" (OAuth Device Authorization)
+    client_id: str | None = None
+    device_code: str | None = None
+
+
+class MotorLocal(BaseModel):
+    id: str
+    nombre: str
+    url: str
+    modelos: list[str] = []
+    modelos_disponibles: int = 0
+
+
+class DetectarMotores(BaseModel):
+    motores: list[MotorLocal] = []
+    total: int = 0
+
+
+# --------------------------------------------------------------------------- #
 # Sistema responsable (IA responsable)
 # --------------------------------------------------------------------------- #
 class PolicyOut(ORMBase):

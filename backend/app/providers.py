@@ -23,6 +23,10 @@ from .config import settings
 
 OPENAI_URL = "https://api.openai.com/v1/chat/completions"
 GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
+ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
+OPENROUTER_BASE = "https://openrouter.ai/api/v1"
+LMSTUDIO_BASE = "http://127.0.0.1:1234/v1"
+OLLAMA_BASE = "http://127.0.0.1:11434"
 
 
 class ProviderError(RuntimeError):
@@ -85,7 +89,10 @@ async def _call_openai(system: str, user: str, api_key: str, model: str, tempera
     return data["choices"][0]["message"]["content"]
 
 
-async def _call_gemini(system: str, user: str, api_key: str, model: str, temperature: float) -> str:
+async def _call_gemini(
+    system: str, user: str, api_key: str, model: str, temperature: float,
+    es_token_cuenta: bool = False,
+) -> str:
     model_id = model or settings.default_gemini_model
     url = f"{GEMINI_BASE}/{model_id}:generateContent"
     payload = {
@@ -96,14 +103,142 @@ async def _call_gemini(system: str, user: str, api_key: str, model: str, tempera
             "responseMimeType": "application/json",
         },
     }
-    params = {"key": api_key}
+    # El camino "cuenta" trae un access token OAuth: va en la cabecera, no en ?key=
+    params = {} if es_token_cuenta else {"key": api_key}
+    headers = {"Authorization": f"Bearer {api_key}"} if es_token_cuenta else {}
     async with httpx.AsyncClient(timeout=60) as client:
-        resp = await client.post(url, json=payload, params=params)
+        resp = await client.post(url, json=payload, params=params, headers=headers)
     if resp.status_code >= 400:
         raise ProviderError(f"Gemini error {resp.status_code}: {resp.text[:400]}")
     data = resp.json()
     partes = data.get("candidates", [{}])[0].get("content", {}).get("parts", [])
     return "".join(p.get("text", "") for p in partes)
+
+
+async def _call_anthropic(
+    system: str, user: str, api_key: str, model: str, temperature: float
+) -> str:
+    """Adaptador Anthropic (Claude). La API exige 'system' fuera de 'messages'."""
+    model_id = model or "claude-sonnet-4-5"
+    payload = {
+        "model": model_id,
+        "max_tokens": 2048,
+        "temperature": temperature,
+        "system": system,
+        "messages": [{"role": "user", "content": user}],
+    }
+    headers = {
+        "x-api-key": api_key,
+        "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json",
+    }
+    async with httpx.AsyncClient(timeout=90) as client:
+        resp = await client.post(ANTHROPIC_URL, json=payload, headers=headers)
+    if resp.status_code >= 400:
+        raise ProviderError(f"Anthropic error {resp.status_code}: {resp.text[:400]}")
+    data = resp.json()
+    bloques = data.get("content", [])
+    return "".join(b.get("text", "") for b in bloques if b.get("type") == "text")
+
+
+async def _call_openai_compatible(
+    system: str, user: str, api_key: str | None, model: str, temperature: float,
+    base_url: str, nombre: str,
+) -> str:
+    """OpenRouter, LM Studio y cualquier servidor compatible con la API de OpenAI."""
+    model_id = model or "gpt-4o-mini"
+    payload = {
+        "model": model_id,
+        "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ],
+        "temperature": temperature,
+        "response_format": {"type": "json_object"},
+    }
+    headers = {"Content-Type": "application/json"}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+    async with httpx.AsyncClient(timeout=90) as client:
+        resp = await client.post(f"{base_url.rstrip('/')}/chat/completions", json=payload, headers=headers)
+    if resp.status_code >= 400:
+        raise ProviderError(f"{nombre} error {resp.status_code}: {resp.text[:400]}")
+    data = resp.json()
+    try:
+        return data["choices"][0]["message"]["content"]
+    except (KeyError, IndexError) as exc:
+        raise ProviderError(f"{nombre} devolvio una respuesta inesperada.") from exc
+
+
+async def _call_ollama(system: str, user: str, model: str, temperature: float, base_url: str) -> str:
+    """Ollama expone su propia API; usa /api/chat con formato JSON.
+
+    Los modelos locales suelen correr con ventanas de contexto pequeñas (por
+    defecto 4096-8192 tokens). El System Prompt completo + el contexto de la
+    agenda no entran, y Ollama corta la conexion. Por eso se pide explicitamente
+    una ventana mayor y, si aun asi falla, se recorta el prompt.
+    """
+    model_id = model or "llama3.1"
+
+    async def _enviar(sys_prompt: str, num_ctx: int) -> str:
+        payload = {
+            "model": model_id,
+            "messages": [
+                {"role": "system", "content": sys_prompt},
+                {"role": "user", "content": user},
+            ],
+            "stream": False,
+            "format": "json",
+            "options": {"temperature": temperature, "num_ctx": num_ctx},
+        }
+        async with httpx.AsyncClient(timeout=300) as client:
+            resp = await client.post(f"{base_url.rstrip('/')}/api/chat", json=payload)
+        if resp.status_code >= 400:
+            raise ProviderError(f"Ollama error {resp.status_code}: {resp.text[:400]}")
+        data = resp.json()
+        contenido = data.get("message", {}).get("content", "")
+        if not contenido:
+            raise ProviderError("Ollama no devolvio contenido. Prueba con otro modelo.")
+        return contenido
+
+    try:
+        return await _enviar(system, 16384)
+    except (httpx.RemoteProtocolError, httpx.ReadError, httpx.ConnectError) as exc:
+        # Conexion cortada: casi siempre es el tamano del prompt. Se reintenta
+        # con una version recortada antes de rendirse.
+        try:
+            return await _enviar(_recortar_prompt(system), 8192)
+        except Exception:
+            raise ProviderError(
+                "No se pudo hablar con el modelo local. Es probable que el prompt "
+                "sea muy grande para este modelo: prueba uno mas potente o revisa "
+                "que Ollama tenga memoria suficiente."
+            ) from exc
+    except httpx.ReadTimeout as exc:
+        raise ProviderError(
+            "El modelo local tardo demasiado en responder. Prueba un modelo mas "
+            "pequeno o con mas velocidad en tu computador."
+        ) from exc
+
+
+def _recortar_prompt(system: str, max_chars: int = 6000) -> str:
+    """Version corta del System Prompt para motores con poca memoria.
+
+    Conserva el contrato JSON (lo indispensable para parsear la respuesta) y
+    descarta los ejemplos y las explicaciones largas.
+    """
+    if len(system) <= max_chars:
+        return system
+    marcador = "## 3. CONTRATO JSON"
+    corte = system.find(marcador)
+    if corte > 0:
+        cabecera = system[:corte]
+        resto = system[corte:]
+        # Se conserva el contrato y se recortan las secciones finales.
+        if len(resto) > max_chars - len(cabecera):
+            resto = resto[: max_chars - len(cabecera)]
+        return cabecera + resto
+    return system[:max_chars]
 
 
 # --------------------------------------------------------------------------- #
@@ -494,6 +629,16 @@ def _acciones_mantenimiento(fragmento: str, hoy: date, contexto: str = "") -> tu
     respuesta = f"Programé \"{tarea}\" del {activo} para el {fecha.isoformat()} a las 09:00."
     return acciones, alertas, respuesta
 
+def respuesta_reglas(mensaje: str) -> dict[str, Any]:
+    """Clasificador por reglas expuesto como API publica.
+
+    Se usa como red de seguridad cuando el modelo elegido (sobre todo los
+    locales o los "small") no devuelve el JSON del contrato: el mensaje del
+    usuario se registra igual, en lugar de perderse en una conversacion vacia.
+    """
+    return _mock_response(mensaje, date.today())
+
+
 def _mock_response(mensaje: str, hoy: date) -> dict[str, Any]:
     """Clasificador local multi-intención.
 
@@ -575,16 +720,32 @@ async def complete(
     modelo: str | None = None,
     temperature: float = 0.2,
     mensaje_original: str | None = None,
+    base_url: str | None = None,
 ) -> str:
     """Llama al proveedor seleccionado y devuelve el texto de respuesta.
 
     `mensaje_original` es el texto crudo del usuario: el proveedor "mock" lo usa
     (en vez del prompt con contexto) para clasificar correctamente.
+
+    `base_url` permite apuntar a motores locales (Ollama, LM Studio) o a
+    cualquier servidor compatible con la API de OpenAI.
     """
     proveedor = (proveedor or "mock").lower()
-    if proveedor == "mock":
+    if proveedor in {"mock", "demo", "motor-local", "motorlocal"}:
         return json.dumps(_mock_response(mensaje_original or user, date.today()), ensure_ascii=False)
 
+    # --- Motores locales: no requieren credenciales -------------------------
+    if proveedor == "ollama":
+        return await _call_ollama(
+            system, user, modelo or "llama3.1", temperature, base_url or OLLAMA_BASE
+        )
+    if proveedor == "lmstudio":
+        return await _call_openai_compatible(
+            system, user, api_key, modelo or "llama-3.1-8b-instruct",
+            temperature, base_url or LMSTUDIO_BASE, "LM Studio",
+        )
+
+    # --- Proveedores remotos: requieren credencial ---------------------------
     if not api_key:
         raise ProviderError(
             f"El proveedor '{proveedor}' requiere una API Key. Configúrala en Ajustes o pega la tuya."
@@ -592,7 +753,21 @@ async def complete(
 
     if proveedor == "openai":
         return await _call_openai(system, user, api_key, modelo or settings.default_openai_model, temperature)
-    if proveedor in {"gemini", "google"}:
-        return await _call_gemini(system, user, api_key, modelo or settings.default_gemini_model, temperature)
+    if proveedor in {"gemini", "google", "google_cuenta"}:
+        # El camino "cuenta" usa un access token OAuth (cabecera Bearer).
+        es_cuenta = proveedor == "google_cuenta" or api_key.startswith("ya29.") or api_key.startswith("sk-sid:")
+        return await _call_gemini(
+            system, user, api_key, modelo or settings.default_gemini_model, temperature,
+            es_token_cuenta=es_cuenta,
+        )
+    if proveedor in {"anthropic", "claude_cuenta"}:
+        return await _call_anthropic(system, user, api_key, modelo or "claude-sonnet-4-5", temperature)
+    if proveedor in {"chatgpt_cuenta"}:
+        return await _call_openai(system, user, api_key, modelo or settings.default_openai_model, temperature)
+    if proveedor == "openrouter":
+        return await _call_openai_compatible(
+            system, user, api_key, modelo or "openai/gpt-4o-mini",
+            temperature, base_url or OPENROUTER_BASE, "OpenRouter",
+        )
 
     raise ProviderError(f"Proveedor desconocido: '{proveedor}'")
