@@ -77,6 +77,8 @@ def _migrar_sqlite() -> None:
                 "etiquetas": "TEXT DEFAULT ''",
                 "onboarding_completo": "BOOLEAN DEFAULT 0",
                 "google_client_id": "VARCHAR(200) DEFAULT ''",
+                "outlook_client_id": "VARCHAR(200) DEFAULT ''",
+                "github_client_id": "VARCHAR(200) DEFAULT ''",
             },
         )
         # Multiusuario (v11): cada tabla de datos recibe la columna de dueño.

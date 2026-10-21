@@ -145,6 +145,10 @@ class AppSettings(Base):
     #: ID de cliente OAuth de Google (identificador PUBLICO, no es un secreto).
     #: Permite que cualquier persona conecte su cuenta de Google con un clic.
     google_client_id: Mapped[str] = mapped_column(String(200), default="")
+    #: Lo mismo para Outlook/Hotmail y GitHub (v24): asi cada via de acceso
+    #: se puede activar desde la propia app, sin tocar el despliegue.
+    outlook_client_id: Mapped[str] = mapped_column(String(200), default="")
+    github_client_id: Mapped[str] = mapped_column(String(200), default="")
     actualizado_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
 

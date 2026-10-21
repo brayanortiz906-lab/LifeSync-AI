@@ -303,6 +303,8 @@ class GoogleClienteIn(BaseModel):
     """
 
     client_id: str = ""
+    #: A que cuenta se aplica: google_cuenta, outlook_cuenta o github_cuenta.
+    proveedor: str = "google_cuenta"
 
 
 class MotorLocal(BaseModel):

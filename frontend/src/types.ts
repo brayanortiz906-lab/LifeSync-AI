@@ -424,6 +424,8 @@ export interface EstadoGoogle {
   origen: string
   /** Explicacion en lenguaje llano de lo que hay que hacer. */
   pista: string
+  /** A que cuenta se refiere (google_cuenta, outlook_cuenta, github_cuenta). */
+  proveedor?: string
 }
 
 /** Una cuenta con la que se puede entrar (Google, Outlook, GitHub). */

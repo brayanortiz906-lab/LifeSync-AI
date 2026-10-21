@@ -431,6 +431,21 @@ def client_id_de(db: SASession, proveedor: str = "google_cuenta") -> str:
     }.get(pid, "")
     if entorno.strip():
         return entorno.strip()
+    # Lo que la persona guardo desde la propia app (Conectar IA > configuracion
+    # avanzada). Antes no se miraba aqui y el ID guardado no se usaba nunca.
+    from .models import AppSettings
+
+    app = db.scalars(
+        select(AppSettings).where(AppSettings.usuario_id == usuario_id_actual())
+    ).first()
+    if app is not None:
+        guardado_app = {
+            "google_cuenta": app.google_client_id,
+            "outlook_cuenta": app.outlook_client_id,
+            "github_cuenta": app.github_client_id,
+        }.get(pid, "")
+        if (guardado_app or "").strip():
+            return str(guardado_app).strip()
     from .models import ConexionIA
 
     conexion = db.scalars(

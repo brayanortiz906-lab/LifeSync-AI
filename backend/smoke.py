@@ -777,6 +777,46 @@ def main() -> int:
         f"-> correo={(r or {}).get('correo', {}).get('disponible')} local={(r or {}).get('local', {}).get('disponible')}",
     )
 
+    # ------------------------------------------------------------------ #
+    # El ID de cliente que se pega en la app DEBE usarse (v25)
+    # ------------------------------------------------------------------ #
+    print("\n" + "=" * 70)
+    print("ID DE CLIENTE DE LA CUENTA (v25)")
+    print("=" * 70)
+    id_prueba_v25 = "9876543210-abc.apps.googleusercontent.com"
+    cod_save, r_save = pedir_suave(
+        "PUT", "/api/conexiones/google/estado", {"client_id": id_prueba_v25, "proveedor": "google_cuenta"}
+    )
+    check(
+        "[CUENTA] se puede activar el acceso con una cuenta desde la app",
+        cod_save == 200 and isinstance(r_save, dict) and r_save.get("configurado") is True,
+        f"-> cod={cod_save} {r_save}",
+    )
+    cod_prov, r_prov = pedir_suave("GET", "/api/cuentas/proveedores")
+    google_v25 = next(
+        (p for p in ((r_prov or {}).get("proveedores") or []) if p.get("id") == "google_cuenta"),
+        {},
+    )
+    check(
+        "[CUENTA] el ID guardado activa el boton de esa cuenta",
+        google_v25.get("disponible") is True,
+        f"-> disponible={google_v25.get('disponible')} ({google_v25.get('mensaje', '')})",
+    )
+    cod_flow, _ = pedir_suave("POST", "/api/cuentas/google/iniciar", {"proveedor": "google_cuenta"})
+    check(
+        "[CUENTA] al iniciar, la peticion sale al proveedor (no se queda muerta)",
+        cod_flow in (200, 400),
+        f"-> cod={cod_flow} (400 = el proveedor rechazo el ID de prueba, o sea si llego)",
+    )
+    cod_forget, r_forget = pedir_suave(
+        "PUT", "/api/conexiones/google/estado", {"client_id": "", "proveedor": "google_cuenta"}
+    )
+    check(
+        "[CUENTA] se puede olvidar el ID de cliente",
+        cod_forget == 200 and isinstance(r_forget, dict) and r_forget.get("configurado") is False,
+        f"-> cod={cod_forget} {r_forget}",
+    )
+
     print("=" * 70)
     if fallos:
         print(f"RESULTADO: {len(fallos)} CASO(S) FALLIDO(S): {fallos}")

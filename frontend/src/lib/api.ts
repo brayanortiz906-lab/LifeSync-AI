@@ -250,15 +250,19 @@ export const api = {
       body: JSON.stringify(datos),
     }),
 
-  /** Estado del acceso con Google: dice si ya hay un ID de cliente configurado. */
-  estadoGoogle: () => request<EstadoGoogle>('/conexiones/google/estado'),
+  /** Estado del acceso con una cuenta: dice si ya hay un ID de cliente configurado. */
+  estadoGoogle: (proveedor = 'google_cuenta') =>
+    request<EstadoGoogle>(`/conexiones/google/estado?proveedor=${proveedor}`),
 
-  /** Guarda el ID de cliente de Google (es publico) para conectar en un clic. */
-  guardarGoogleClientId: (client_id: string) =>
-    request<{ ok: boolean; configurado: boolean; origen: string }>('/conexiones/google/estado', {
-      method: 'PUT',
-      body: JSON.stringify({ client_id }),
-    }),
+  /** Guarda el ID de cliente de una cuenta (es publico) para conectar en un clic. */
+  guardarGoogleClientId: (client_id: string, proveedor = 'google_cuenta') =>
+    request<{ ok: boolean; configurado: boolean; origen: string; proveedor?: string }>(
+      '/conexiones/google/estado',
+      {
+        method: 'PUT',
+        body: JSON.stringify({ client_id, proveedor }),
+      },
+    ),
 }
 
 /** Endpoints de acceso y respaldo (v11). */
