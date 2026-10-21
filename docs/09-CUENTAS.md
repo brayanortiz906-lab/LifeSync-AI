@@ -145,3 +145,25 @@ El correo dice de que es el codigo, que vale 15 minutos y que **si no fuiste tu,
 | Cuenta bloqueada | `bloqueado = true` -> no puede entrar ni usar la seccion de administracion |
 
 La seccion de administracion (`GET /api/cuentas/admin/usuarios` y `PATCH /api/cuentas/admin/usuarios/{id}`) exige `usuario_admin` y **todo cambio queda auditado** en `audit_log` (actor, tipo, reversible). La lista **nunca** devuelve codigos ni contrasenas.
+
+---
+
+## Entrar o crear con un solo boton (v33)
+
+Antes: dos pestanas ("Ya tengo cuenta" / "Crear cuenta"), un formulario y un
+paso aparte de codigo. Ahora hay **un solo boton**: el sistema decide que hacer.
+
+| Que escribes | Que hace el boton "Entrar o crear mi cuenta" |
+|---|---|
+| correo + contrasena de una cuenta **nueva** | crea la cuenta, **envia el codigo solo** y te lleva al paso del codigo |
+| correo + contrasena de una cuenta **existente** | entra: sesion iniciada al instante |
+| correo + contrasena **equivocada** | 401 con aviso claro. **Nunca** crea una cuenta nueva ni revela si el correo existe |
+| cuenta **sin confirmar** | te pide el codigo de 6 digitos (sin volver a enviarlo si el que tienes sigue vigente) |
+
+Endpoint: `POST /api/cuentas/entrar-o-crear` con `{correo, password, nombre?}`.
+Respuestas: `{accion: "entrar" | "crear" | "verificar", token?, usuario?, mensaje?, modo?, codigo?}`.
+
+Ademas:
+- El **nombre** es un campo opcional (si lo dejas vacio se usa la parte del correo antes de la arroba).
+- El codigo **no se reenvia** si el anterior sigue vigente: el throttle (60 s) y el buzon se respetan.
+- La sesion se **recuerda** 30 dias en el navegador y la barra superior muestra con que cuenta estas dentro.

@@ -378,6 +378,18 @@ export const cuentas = {
       method: 'POST',
       body: JSON.stringify({ correo, password }),
     }),
+  /**
+   * Un solo boton: si la cuenta existe entra, si no la crea (v33).
+   * Devuelve `accion`: 'entrar' | 'crear' | 'verificar'.
+   */
+  entrarOCrear: (correo: string, password: string, nombre = '') =>
+    request<ResultadoSesion & { accion?: string; modo?: string; codigo?: string }>(
+      '/cuentas/entrar-o-crear',
+      {
+        method: 'POST',
+        body: JSON.stringify({ correo, password, nombre }),
+      },
+    ),
   /** ¿El servidor tiene el acceso con Google activado? (v19) */
   googleDisponible: () =>
     request<{ ok: boolean; disponible: boolean; mensaje: string }>('/cuentas/google/disponible'),

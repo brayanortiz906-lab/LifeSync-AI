@@ -197,6 +197,35 @@ export default function AccesoPanel({
     }
   }
 
+  /**
+   * Entra o crea la cuenta con un solo boton (v33).
+   * El servidor decide: si la cuenta existe entra, si no la crea y manda el
+   * codigo de verificacion.
+   */
+  const entrarOCrear = async () => {
+    setOcupado(true)
+    setEstado(null)
+    try {
+      const r = await cuentas.entrarOCrear(correo, password, nombre)
+      if (r.accion === 'entrar' && r.token) {
+        entrar(r.token, r.usuario)
+        return
+      }
+      // La cuenta es nueva o falta confirmar: seguimos al paso del codigo.
+      if (r.codigo) setCodigo(r.codigo)
+      setEstado({ ok: true, texto: r.mensaje ?? 'Revisa tu correo.' })
+      setPaso('codigo')
+    } catch (e) {
+      const texto = (e as Error).message
+      setEstado({ ok: false, texto })
+      if (texto.toLowerCase().includes('codigo') || texto.toLowerCase().includes('confirma')) {
+        setPaso('codigo')
+      }
+    } finally {
+      setOcupado(false)
+    }
+  }
+
   /** Pide TODOS los permisos de una vez (Drive, Calendar, correo) (v19). */
   const pedirTodosLosPermisos = async () => {
     setOcupado(true)
@@ -410,21 +439,9 @@ export default function AccesoPanel({
             <button onClick={() => setPaso('inicio')} className="text-[11px] font-semibold text-slate-400 hover:text-white">
               &larr; Volver
             </button>
-            <div className="flex gap-2">
-              <Boton
-                variante={modoCorreo === 'entrar' ? 'primario' : 'secundario'}
-                onClick={() => setModoCorreo('entrar')}
-                className="flex-1"
-              >
-                Ya tengo cuenta
-              </Boton>
-              <Boton
-                variante={modoCorreo === 'crear' ? 'primario' : 'secundario'}
-                onClick={() => setModoCorreo('crear')}
-                className="flex-1"
-              >
-                Crear cuenta
-              </Boton>
+            <div className="rounded-xl border border-white/8 bg-white/3 px-3 py-2 text-[10px] leading-relaxed text-slate-400">
+              <strong className="text-slate-300">Un solo boton</strong>: si la cuenta ya existe
+              entras, y si no, la creamos aqui mismo. Tu contrasena siempre va cifrada.
             </div>
             <Campo etiqueta="Tu correo" ayuda="Con el que te registraste o te quieres registrar.">
               <input
@@ -436,16 +453,14 @@ export default function AccesoPanel({
                 className="ls-input"
               />
             </Campo>
-            {modoCorreo === 'crear' && (
-              <Campo etiqueta="Tu nombre (opcional)">
-                <input
-                  value={nombre}
-                  onChange={(e) => setNombre(e.target.value)}
-                  placeholder="Como te llamamos"
-                  className="ls-input"
-                />
-              </Campo>
-            )}
+            <Campo etiqueta="Tu nombre (opcional)" ayuda="Solo si quieres que te llamemos por otro nombre.">
+              <input
+                value={nombre}
+                onChange={(e) => setNombre(e.target.value)}
+                placeholder="Como te llamamos"
+                className="ls-input"
+              />
+            </Campo>
             <Campo
               etiqueta="Tu contrasena"
               ayuda="Seis caracteres o mas. Solo la guardamos cifrada."
@@ -460,14 +475,10 @@ export default function AccesoPanel({
               />
             </Campo>
             <Boton
-              onClick={() => void (modoCorreo === 'crear' ? crearCuenta() : entrarConPassword())}
+              onClick={() => void entrarOCrear()}
               disabled={ocupado || !correo.includes('@') || password.length < 6}
             >
-              {ocupado
-                ? 'Un momento…'
-                : modoCorreo === 'crear'
-                  ? 'Crear mi cuenta'
-                  : 'Entrar'}
+              {ocupado ? 'Un momento…' : 'Entrar o crear mi cuenta'}
             </Boton>
           </div>
         )}

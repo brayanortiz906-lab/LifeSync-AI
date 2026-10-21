@@ -237,12 +237,20 @@ def entrar_con_password(
     if not verificar_password(password, usuario.password_hash or ""):
         return None, "mal_password"
     if not usuario.verificado:
-        codigo = generar_codigo()
-        usuario.codigo_hash = _hash(codigo)
-        usuario.codigo_expira = datetime.now() + timedelta(minutes=15)
-        usuario.intentos = 0
-        db.flush()
-        enviar_codigo(correo, codigo, usuario.nombre)
+        # Si ya hay un codigo vigente NO generamos otro: la persona escribe
+        # el que ya tiene y no le inundamos el buzon ni el log.
+        codigo_vigente = bool(
+            usuario.codigo_hash
+            and usuario.codigo_expira
+            and usuario.codigo_expira > datetime.now()
+        )
+        if not codigo_vigente:
+            codigo = generar_codigo()
+            usuario.codigo_hash = _hash(codigo)
+            usuario.codigo_expira = datetime.now() + timedelta(minutes=15)
+            usuario.intentos = 0
+            db.flush()
+            enviar_codigo(correo, codigo, usuario.nombre)
         return usuario, "sin_verificar"
     usuario.ultimo_acceso = datetime.now()
     db.flush()

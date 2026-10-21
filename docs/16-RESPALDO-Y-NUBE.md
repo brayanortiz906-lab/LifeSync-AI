@@ -130,7 +130,7 @@ Servidor (guarda el token cifrado)
 
 ## 4. Verificación automática
 
-`backend/smoke.py` → **123 casos** (104 de antes + 7 nuevos):
+`backend/smoke.py` → **127 casos** (104 de antes + 7 nuevos):
 
 ```
 [OK] [CUENTA] la cuenta se verifica con el codigo y da token

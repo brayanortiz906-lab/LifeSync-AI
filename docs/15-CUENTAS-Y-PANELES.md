@@ -110,7 +110,7 @@ SQLAlchemy se apoya en esa misma regla.
 
 | Prueba | Resultado |
 |---|---|
-| Smoke test | 123 casos, todos en verde |
+| Smoke test | 127 casos, todos en verde |
 | Script manual de cuentas y paneles | 14/14 |
 | `GET /api/cuentas/google/disponible` | responde sin error |
 | Persona **sin** permiso sobre un panel ajeno | **403** |
@@ -155,3 +155,13 @@ Lo que protege el acceso a LifeAgente:
 | Que alguien este bloqueado entre | campo `bloqueado` que impide entrar y administrar |
 
 Detalle completo en [`09-CUENTAS.md`](09-CUENTAS.md).
+
+---
+
+## Entrar o crear con un solo boton (v33)
+
+El acceso con correo ya no tiene pestanas: un boton, "Entrar o crear mi cuenta",
+que crea la cuenta si no existe, entra si existe y pide el codigo si falta
+confirmar. La contrasena incorrecta nunca crea una cuenta nueva.
+
+Detalle: [`09-CUENTAS.md`](09-CUENTAS.md).

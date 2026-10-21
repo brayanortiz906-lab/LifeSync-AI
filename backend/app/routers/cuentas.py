@@ -93,6 +93,8 @@ class RegistroIn(BaseModel):
 class EntrarIn(BaseModel):
     correo: str = ""
     password: str = ""
+    #: Nombre opcional: solo se usa si la cuenta todavia no existe.
+    nombre: str = ""
 
 
 def _perfil(usuario) -> dict:
@@ -292,6 +294,77 @@ def entrar(payload: EntrarIn, db: Session = Depends(get_db, scope="function")):
         )
     token = crear_sesion(db, usuario, "correo")
     return {"ok": True, "token": token, "usuario": _perfil(usuario)}
+
+
+@router.post("/entrar-o-crear")
+def entrar_o_crear(payload: EntrarIn, db: Session = Depends(get_db, scope="function")):
+    """Un solo boton: si la cuenta existe entra, si no, la crea.
+
+    Asi la persona no tiene que decidir "entrar" o "crear cuenta": escribe su
+    correo y su contrasena, y el servidor hace lo que corresponda.
+    """
+    correo = payload.correo.strip().lower()
+    usuario, situacion = entrar_con_password(db, correo, payload.password)
+    if situacion == "ok":
+        token = crear_sesion(db, usuario, "correo")
+        return {
+            "ok": True,
+            "accion": "entrar",
+            "token": token,
+            "usuario": _perfil(usuario),
+            "mensaje": f"Hola de nuevo, {usuario.nombre or 'bienvenido'}.",
+        }
+    if situacion == "mal_password":
+        raise HTTPException(
+            status_code=401, detail="La contrasena no es correcta. Intentalo otra vez."
+        )
+    if situacion == "sin_verificar":
+        # La cuenta existe pero falta confirmar el correo. Si todavia hay un
+        # codigo vigente no enviamos otro (para no inundar el buzon): le
+        # decimos a la persona que escriba el que ya tiene.
+        if usuario.codigo_hash and usuario.codigo_expira and usuario.codigo_expira > datetime.now():
+            return {
+                "ok": True,
+                "accion": "verificar",
+                "modo": "pendiente",
+                "correo": usuario.correo,
+                "mensaje": (
+                    "Tu cuenta esta creada pero falta confirmar el correo. "
+                    "Escribe el codigo de 6 digitos que te enviamos."
+                ),
+            }
+        usuario, codigo, modo = solicitar_codigo(db, correo, usuario.nombre)
+        respuesta = {
+            "ok": True,
+            "accion": "verificar",
+            "modo": modo,
+            "correo": usuario.correo,
+            "mensaje": (
+                "Te reenviamos el codigo a tu correo. Escribelo para entrar."
+                if modo == "smtp"
+                else "Este servidor todavia no envia correos: te mostramos el codigo aqui."
+            ),
+        }
+        if modo == "consola" and not settings.es_produccion:
+            respuesta["codigo"] = codigo
+        return respuesta
+    # no_existe: creamos la cuenta con la contrasena que eligio.
+    nombre = (payload.nombre or correo.split("@")[0]).strip()
+    usuario, codigo, modo = registrar_con_password(db, correo, nombre, payload.password)
+    respuesta = {
+        "ok": True,
+        "accion": "crear",
+        "modo": modo,
+        "correo": usuario.correo,
+        "mensaje": (
+            "Cuenta creada. Te enviamos un codigo de 6 digitos para confirmar tu correo."
+            if modo == "smtp"
+            else "Cuenta creada. Este servidor todavia no envia correos: te mostramos el codigo aqui."
+        ),
+    }
+    if modo == "consola" and not settings.es_produccion:
+        respuesta["codigo"] = codigo
+    return respuesta
 
 
 @router.get("/proveedores")

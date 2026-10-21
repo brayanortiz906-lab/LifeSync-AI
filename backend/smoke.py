@@ -926,6 +926,67 @@ def main() -> int:
         f"-> cod={cod_thr} {(r_thr or {}).get('detail')}",
     )
 
+    # ------------------------------------------------------------------ #
+    # Entrar o crear con un solo boton (v33)
+    # ------------------------------------------------------------------ #
+    print("\n" + "=" * 70)
+    print("ENTRAR O CREAR CON UN SOLO BOTON (v33)")
+    print("=" * 70)
+    correo_v33 = f"smoke.v33+{int(time.time())}@example.com"
+    clave_v33 = "ClaveSegura123"
+    cod_v33, r_v33 = pedir_suave(
+        "POST",
+        "/api/cuentas/entrar-o-crear",
+        {"correo": correo_v33, "password": clave_v33, "nombre": "Prueba"},
+    )
+    check(
+        "[CUENTA] con un solo boton se crea la cuenta si no existe",
+        cod_v33 == 200
+        and isinstance(r_v33, dict)
+        and r_v33.get("accion") in ("crear", "verificar"),
+        f"-> cod={cod_v33} accion={(r_v33 or {}).get('accion')}",
+    )
+    cod_v33b, r_v33b = pedir_suave(
+        "POST",
+        "/api/cuentas/entrar-o-crear",
+        {"correo": correo_v33, "password": clave_v33},
+    )
+    check(
+        "[CUENTA] si la cuenta aun no esta confirmada, te pide el codigo (no otro boton)",
+        cod_v33b == 200
+        and isinstance(r_v33b, dict)
+        and r_v33b.get("accion") == "verificar",
+        f"-> cod={cod_v33b} accion={(r_v33b or {}).get('accion')}",
+    )
+    # Confirmamos el correo con el codigo que se devolvio y reintentamos:
+    # ahora la cuenta debe existir de verdad y entrar de un solo boton.
+    codigo_v33 = (r_v33 or {}).get("codigo")
+    if codigo_v33:
+        pedir("POST", "/api/cuentas/verificar", {"correo": correo_v33, "codigo": codigo_v33})
+    cod_v33d, r_v33d = pedir_suave(
+        "POST",
+        "/api/cuentas/entrar-o-crear",
+        {"correo": correo_v33, "password": clave_v33},
+    )
+    check(
+        "[CUENTA] con un solo boton tambien entra si la cuenta ya existe",
+        cod_v33d == 200
+        and isinstance(r_v33d, dict)
+        and r_v33d.get("accion") == "entrar"
+        and bool(r_v33d.get("token")),
+        f"-> cod={cod_v33d} accion={(r_v33d or {}).get('accion')}",
+    )
+    cod_v33c, r_v33c = pedir_suave(
+        "POST",
+        "/api/cuentas/entrar-o-crear",
+        {"correo": correo_v33, "password": "ClaveEquivocada9"},
+    )
+    check(
+        "[CUENTA] una contrasena equivocada no crea una cuenta nueva",
+        cod_v33c == 401,
+        f"-> cod={cod_v33c} {(r_v33c or {}).get('detail')}",
+    )
+
     print("=" * 70)
     if fallos:
         print(f"RESULTADO: {len(fallos)} CASO(S) FALLIDO(S): {fallos}")
