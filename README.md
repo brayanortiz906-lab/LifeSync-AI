@@ -17,6 +17,20 @@ reorganiza tu agenda ante imprevistos y registra lo que te pasa en lenguaje natu
 | API | `https://lifesync-ai-qs5t.onrender.com/api` · salud: `/api/health` |
 | Código | https://github.com/brayanortiz906-lab/LifeSync-AI |
 
+> **Cómo está desplegado**: un solo servicio de Render (plan **gratis, sin
+> tarjeta**) sirve la interfaz compilada **y** la API en el mismo dominio
+> (`backend/app/main.py` monta `frontend/dist` con fallback SPA). GitHub
+> Pages publica la interfaz con `VITE_API_URL` apuntando a ese servicio.
+>
+> Ojo: en el plan gratis Render **se duerme a los 15 minutos** y su disco es
+> **efímero**, por eso el almacén real de cada persona es su **Google Drive**
+> (respaldo con retardo + recuperación al entrar).
+>
+> **Si la web de Pages no llama a la API**: revisa en Render → *Environment* →
+> `CORS_ORIGINS` y asegúrate de que incluya `https://brayanortiz906-lab.github.io`
+> (separado por comas). Sin ese origen el navegador bloquea la llamada y la app
+> cae en modo local.
+
 ```
 ┌───────────────────────────────────────────┬──────────────────────┐
 │  MI AGENDA (vista inicial)                │  ACADÉMICO + BITÁCORA│

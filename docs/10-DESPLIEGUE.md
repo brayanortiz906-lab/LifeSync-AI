@@ -15,16 +15,47 @@ datos no se mezclen con los de los demas.
 | `frontend/src/components/AccesoPanel.tsx` | modal de acceso (Google / correo / local) |
 | `.github/workflows/deploy-pages.yml` | publica la interfaz en la rama `gh-pages` |
 
+## 0-bis. Estado real del despliegue (verificado)
+
+| Pieza | Estado |
+|---|---|
+| Servicio de Render | **https://lifesync-ai-qs5t.onrender.com** (Live) |
+| API | `.../api/health` responde `{"ok":true,"app":"LifeAgente AI",...}` |
+| Interfaz | la misma URL sirve la SPA (interfaz + API en un dominio) |
+| GitHub Pages | **https://brayanortiz906-lab.github.io/LifeSync-AI/** |
+| Variable del repo | `VITE_API_URL=https://lifesync-ai-qs5t.onrender.com/api` |
+| Cuentas | registro + codigo de verificacion + token, todo funcionando en la nube |
+
+### Tres sorpresas que costaron tiempo (guardadas para que no se repitan)
+
+| Sorpresa | Que pasó | Como se arregla |
+|---|---|---|
+| **El nombre `lifesync-ai` ya estaba ocupado** | `lifesync-ai.onrender.com` es **otro proyecto de otra persona** (por eso Render le puso el sufijo `-qs5t` a nuestro) | el `render.yaml` ya usa `name: lifeagente-ai` (un nombre libre) |
+| **CORS** | el navegador bloquea la llamada de Pages a la API de Render: el preflight responde **400** y sin `access-control-allow-origin` | en Render → *Environment* → `CORS_ORIGINS` debe incluir `https://brayanortiz906-lab.github.io` (separado por comas) |
+| **`HEAD /` daba 405** | el chequeo de salud de Render pide `HEAD`, y la ruta de la SPA solo aceptaba `GET` | `main.py` ahora responde `HEAD` en `/` y en `/api/health` |
+
+### Comprobacion rapida (sin mirar logs)
+
+```bash
+curl https://<tu-servicio>.onrender.com/api/health
+curl https://<tu-servicio>.onrender.com/api/diagnostico
+```
+
+`/api/diagnostico` dice que tablas hay, si falta alguna, si hay SMTP, si Google
+esta configurado y cuantos usuarios hay. Si `problemas` esta vacio, el esquema
+de la base esta bien.
+
 ## 1. Desplegar la API (Render, gratis) - 5 clics
 
 1. Entra en **https://render.com** y crea una cuenta (o entra con GitHub).
 2. En el menu **New > Blueprint**.
 3. Conecta el repositorio **brayanortiz906-lab/LifeSync-AI**.
-4. Render lee el `render.yaml` y propone un servicio llamado `lifesync-ai`.
-   Pulsa **Apply**.
+4. Render lee el `render.yaml` y propone un servicio llamado `lifeagente-ai`.
+   Pulsa **Apply**. (Si el nombre ya esta ocupado, Render le anade un sufijo:
+   el servicio quedara en `https://lifeagente-ai-xxxx.onrender.com`).
 5. Cuando termine (2-4 minutos) tienes:
-   - App completa: **https://lifesync-ai.onrender.com**
-   - API: **https://lifesync-ai.onrender.com/api/health**
+   - App completa: **https://<tu-servicio>.onrender.com**
+   - API: **https://<tu-servicio>.onrender.com/api/health**
 
 > El servicio gratuito se duerme tras unos minutos sin uso: la primera carga
 > tardara un poco. Los datos viven en el contenedor, asi que se reinician si
