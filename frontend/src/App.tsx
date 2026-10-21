@@ -141,7 +141,7 @@ export default function App() {
         </span>
       </nav>
 
-      {error && (
+      {error && !modoLocal && (
         <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-rose-500/25 bg-rose-500/10 px-4 py-2 text-xs text-rose-200">
           <AlertTriangle size={13} />
           <span className="flex-1">

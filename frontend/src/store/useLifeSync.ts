@@ -541,7 +541,13 @@ export const useLifeSync = create<Estado>((set, get) => ({
       ])
       set({ politica, aprobaciones, auditoria, resumenAuditoria, cumplimiento, cargandoResponsable: false })
     } catch (e) {
-      set({ cargandoResponsable: false, error: (e as Error).message })
+      const mensaje = (e as Error).message || ''
+      // Sin API (Pages sin servidor): no es un error de la persona, es el modo local.
+      if (/404|405|fetch|network|failed to fetch|load failed/i.test(mensaje)) {
+        set({ cargandoResponsable: false, modoLocal: true })
+        return
+      }
+      set({ cargandoResponsable: false, error: mensaje })
     }
   },
 
