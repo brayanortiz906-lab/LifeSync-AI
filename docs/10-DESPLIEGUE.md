@@ -154,6 +154,44 @@ Con el **piloto automatico** encendido, el servidor del Render hace el trabajo
 cada 30 minutos aunque nadie tenga la app abierta. Detalle completo en
 `docs/12-PERMISOS-Y-NUBE.md`.
 
+## 7-bis. El guardado con retardo y la tarea diaria
+
+El respaldo **no** dispara mientras escribes: el servidor marca que cambiaste
+algo y espera **45 segundos** a que pares. Asi Drive nunca guarda un estado a
+medio escribir y no se crean respaldos repetidos.
+
+| Pieza | Donde se configura |
+|---|---|
+| `SEGUNDOS_ESPERA = 45` | `backend/app/permisos.py` (se puede cambiar) |
+| Cada cuanto revisa | `backend/app/main.py` (`_tarea_guardado`, 20 s) |
+| `CRON_TOKEN` (secreto) | Render o el entorno: es el candado de la tarea diaria |
+| `API_URL` (variable del repo) | GitHub -> Settings -> Secrets and variables -> Actions -> Variables |
+
+La **tarea diaria** es un workflow de GitHub Actions (`.github/workflows/daily.yml`),
+gratis en repos publicos. A las **06:00 (hora Colombia)** despierta la API,
+respalda las cuentas que toca y manda el resumen del dia siguiente por correo:
+
+```bash
+# en Render (Environment) o en el entorno de la API
+CRON_TOKEN=una-clave-larga-y-aleatoria
+
+# en GitHub (variable del repositorio)
+gh variable set API_URL --body "https://lifesync-ai.onrender.com" --repo brayanortiz906-lab/LifeSync-AI
+
+# y el secreto
+gh secret set CRON_TOKEN --body "la-misma-clave" --repo brayanortiz906-lab/LifeSync-AI
+```
+
+La llamada va protegida por la cabecera `X-Cron-Token`: si el token no esta
+configurado o no coincide, el endpoint responde **403** y nadie mas puede
+disparar la tarea.
+
+> **Ten en cuenta**: en el plan gratis de Render el servicio **se duerme a los
+> 15 minutos** y su disco es **efimero** (el SQLite se borra al reiniciar).
+> Por eso el Drive es el almacen real y la tarea diaria existe justamente para
+> despertar el servicio. Si necesitas que este siempre prendido, el plan
+> Starter (512 MB) cuesta USD 7 al mes.
+
 ## 8. Lo que NO puede hacer el despliegue
 
 - Publicar en tu cuenta de Render (eso lo haces tu, con tus clics).

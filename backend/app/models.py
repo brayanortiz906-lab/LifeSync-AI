@@ -275,6 +275,12 @@ class PermisosCuenta(Base):
     importar_calendario: Mapped[bool] = mapped_column(Boolean, default=True)
     ultimo_respaldo: Mapped[datetime | None] = mapped_column(DateTime, default=None)
     proximo_respaldo: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    #: v21: hay cambios sin respaldar. El sistema espera a que la persona
+    #: deje de poner informacion y entonces guarda (guardado con retardo).
+    cambios_pendientes: Mapped[bool] = mapped_column(Boolean, default=False)
+    ultimo_cambio: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    #: v21: enviar el resumen del dia siguiente por correo.
+    resumen_diario: Mapped[bool] = mapped_column(Boolean, default=False)
     creado_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     actualizado_en: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()

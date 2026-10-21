@@ -13,6 +13,7 @@ abierta (nube) y no vuelva a pedir permisos.
 """
 from __future__ import annotations
 
+import base64
 import json
 import urllib.parse
 from datetime import datetime, timedelta
@@ -22,7 +23,7 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .models import Event, PermisosCuenta
+from .models import AppSettings, Event, LogEntry, PermisosCuenta, Task
 from .security import cifrar, descifrar
 
 #: Catalogo de permisos. ``scope`` es lo que se pide al proveedor.
@@ -67,6 +68,10 @@ SCOPE_COMPLETO = " ".join(p["scope"] for p in PERMISOS)
 #: Cada cuanto se hace el respaldo automatico (horas).
 HORAS_RESPALDO = 12
 
+#: Espera antes de guardar (v21). El sistema NO guarda mientras la persona
+#: escribe: espera a que deje de poner informacion y entonces respalda.
+SEGUNDOS_ESPERA = 45
+
 
 # --------------------------------------------------------------------------- #
 # Estado
@@ -110,10 +115,67 @@ def estado(db: Session) -> dict[str, Any]:
             "activo": bool(fila.autopiloto) if fila is not None else False,
             "respaldo_auto": bool(fila.respaldo_auto) if fila is not None else True,
             "importar_calendario": bool(fila.importar_calendario) if fila is not None else True,
+            "resumen_diario": bool(fila.resumen_diario) if fila is not None else False,
             "ultimo_respaldo": fila.ultimo_respaldo.isoformat() if fila is not None and fila.ultimo_respaldo else "",
             "proximo_respaldo": fila.proximo_respaldo.isoformat() if fila is not None and fila.proximo_respaldo else "",
+            "cambios_pendientes": bool(fila.cambios_pendientes) if fila is not None else False,
+            "ultimo_cambio": fila.ultimo_cambio.isoformat() if fila is not None and fila.ultimo_cambio else "",
+            "guarda_en_segundos": _faltan_para_guardar(fila),
         },
     }
+
+
+def _faltan_para_guardar(fila: PermisosCuenta | None) -> int:
+    """Segundos que faltan para que el sistema guarde (0 si ya puede)."""
+    if fila is None or not fila.cambios_pendientes:
+        return 0
+    if not fila.ultimo_cambio:
+        return 0
+    faltan = SEGUNDOS_ESPERA - int((datetime.now() - fila.ultimo_cambio).total_seconds())
+    return max(0, faltan)
+
+
+def ultimo_cambio_servidor(db: Session) -> datetime | None:
+    """Cuando fue el ultimo cambio de esta persona en el servidor."""
+    fila = _fila(db)
+    if fila is not None and fila.ultimo_cambio:
+        return fila.ultimo_cambio
+    return None
+
+
+def marcar_cambios(db: Session) -> bool:
+    """La persona acaba de cambiar algo: hay que guardarlo, pero con retardo.
+
+    Se llama desde `get_db` cada vez que una peticion escribe contenido. El
+    sistema espera ``SEGUNDOS_ESPERA`` segundos (sin nuevos cambios) y entonces
+    sube el respaldo a Drive: asi no se guarda a mitad de escritura.
+    """
+    fila = _fila(db)
+    if fila is None:
+        fila = PermisosCuenta(proveedor="google_cuenta")
+        db.add(fila)
+    fila.cambios_pendientes = True
+    fila.ultimo_cambio = datetime.now()
+    db.flush()
+    return True
+
+
+def pendiente_de_respaldo(db: Session) -> bool:
+    """True si hay cambios y la persona ya dejo de escribir."""
+    fila = _fila(db)
+    if fila is None or not fila.cambios_pendientes:
+        return False
+    if not fila.ultimo_cambio:
+        return True
+    return (datetime.now() - fila.ultimo_cambio).total_seconds() >= SEGUNDOS_ESPERA
+
+
+def guardar_si_toca(db: Session) -> dict[str, Any]:
+    """Guarda en Drive si la persona ya dejo de escribir (v21)."""
+    if not pendiente_de_respaldo(db):
+        return {"ok": True, "guardado": False, "mensaje": "Todavia estas escribiendo; guardo cuando pares."}
+    resultado = respaldar_drive(db)
+    return {"ok": bool(resultado.get("ok")), "guardado": bool(resultado.get("ok")), **resultado}
 
 
 # --------------------------------------------------------------------------- #
@@ -218,6 +280,7 @@ def activar_autopiloto(
     activo: bool = True,
     respaldo_auto: bool = True,
     importar_calendario: bool = True,
+    resumen_diario: bool = False,
 ) -> dict[str, Any]:
     """Enciende o apaga el trabajo automatico de esta persona."""
     fila = _fila(db)
@@ -227,6 +290,7 @@ def activar_autopiloto(
     fila.autopiloto = bool(activo)
     fila.respaldo_auto = bool(respaldo_auto)
     fila.importar_calendario = bool(importar_calendario)
+    fila.resumen_diario = bool(resumen_diario)
     if fila.autopiloto and fila.proximo_respaldo is None:
         fila.proximo_respaldo = datetime.now() + timedelta(hours=1)
     db.flush()
@@ -271,6 +335,9 @@ def respaldar_drive(db: Session) -> dict[str, Any]:
     if fila is not None:
         fila.ultimo_respaldo = datetime.now()
         fila.proximo_respaldo = datetime.now() + timedelta(hours=HORAS_RESPALDO)
+        # v21: ya esta guardado, no queda nada pendiente.
+        fila.cambios_pendientes = False
+        fila.ultimo_cambio = None
         db.flush()
     return {
         "ok": True,
@@ -313,7 +380,12 @@ def listar_respaldos_drive(db: Session) -> list[dict[str, Any]]:
 
 
 def restaurar_drive(db: Session) -> dict[str, Any] | None:
-    """Descarga el ultimo respaldo de Drive y devuelve su contenido (JSON)."""
+    """Descarga el ultimo respaldo de Drive.
+
+    Devuelve ``{"datos": <snapshot>, "fecha": <datetime del archivo>}`` para que
+    el llamador pueda comparar con lo que hay en el servidor (v21: el respaldo
+    solo se aplica si es MAS NUEVO que el contenido del servidor).
+    """
     token = token_acceso(db)
     if not token:
         return None
@@ -332,9 +404,14 @@ def restaurar_drive(db: Session) -> dict[str, Any] | None:
     if resp.status_code >= 400:
         return None
     try:
-        return json.loads(resp.text)
+        datos = json.loads(resp.text)
     except Exception:
         return None
+    return {
+        "datos": datos,
+        "fecha": _momento(str(ultimo.get("modificado") or "")),
+        "archivo": ultimo.get("nombre", ""),
+    }
 
 
 def _momento(texto: str) -> datetime | None:
@@ -418,9 +495,154 @@ def ejecutar_autopiloto(db: Session) -> dict[str, Any]:
     fila = _fila(db)
     if fila is None or not fila.autopiloto:
         return {"ok": False, "mensaje": "El autopiloto esta apagado."}
-    resumen: dict[str, Any] = {"respaldo": None, "calendario": None}
-    if fila.respaldo_auto:
-        resumen["respaldo"] = respaldar_drive(db)
-    if fila.importar_calendario:
-        resumen["calendario"] = importar_calendario(db)
+    resumen: dict[str, Any] = {"respaldo": None, "calendario": None, "correo": None}
+    ahora = datetime.now()
+    # v21: si la persona dejo de escribir, se guarda YA (no esperamos 12 horas).
+    toca_por_cambio = pendiente_de_respaldo(db)
+    # Cada 12 horas se hace ademas el respaldo de seguridad y la importacion.
+    toca_por_hora = fila.proximo_respaldo is None or fila.proximo_respaldo <= ahora
+    if toca_por_cambio or toca_por_hora:
+        if fila.respaldo_auto:
+            resumen["respaldo"] = respaldar_drive(db)
+        if fila.importar_calendario:
+            resumen["calendario"] = importar_calendario(db)
+        fila.proximo_respaldo = ahora + timedelta(hours=HORAS_RESPALDO)
+        db.flush()
+    else:
+        # No tocaba todavia: se explica igual para que la persona sepa que
+        # todo esta al dia (y no piense que fallo).
+        resumen["respaldo"] = {
+            "ok": True,
+            "mensaje": "No tocaba: tus datos ya estan guardados de hace poco.",
+        }
+        resumen["calendario"] = {"ok": True, "mensaje": "No tocaba todavia.", "importados": 0}
+    if fila.resumen_diario:
+        resumen["correo"] = enviar_resumen_diario(db)
     return {"ok": True, "resumen": resumen}
+
+
+# --------------------------------------------------------------------------- #
+# Resumen del dia por correo (Gmail API: funciona aunque el servidor no pueda
+# usar SMTP, como es el caso de los hosting gratuitos).
+# --------------------------------------------------------------------------- #
+_DIAS_ES = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"]
+
+
+def _texto_resumen_diario(db: Session) -> str:
+    """Arma el texto del resumen: agenda de manana, tareas y gasto de ayer."""
+    from .models import AppSettings, LogEntry, Task
+
+    ahora = datetime.now()
+    manana = (ahora + timedelta(days=1)).date()
+    ayer = ahora.date()
+    titulo_dia = f"{_DIAS_ES[manana.weekday()]} {manana.day:02d}"
+
+    ajustes = db.scalars(select(AppSettings).order_by(AppSettings.id.desc())).first()
+    nombre = (ajustes.nombre_usuario if ajustes is not None else "") or ""
+    saludo = f"Hola {nombre}," if nombre else "Hola,"
+
+    desde = datetime.combine(manana, datetime.min.time())
+    hasta = datetime.combine(manana + timedelta(days=1), datetime.min.time())
+    eventos = db.scalars(
+        select(Event).where(Event.inicio >= desde, Event.inicio < hasta).order_by(Event.inicio)
+    ).all()
+
+    pendientes = db.scalars(
+        select(Task).where(Task.estado != "completada").order_by(Task.fecha_entrega)
+    ).all()
+
+    gastos = db.scalars(select(LogEntry).where(LogEntry.fecha == ayer)).all()
+    total_gastos = sum(float(g.monto or 0) for g in gastos)
+
+    lineas = [saludo, "", f"Este es tu resumen de manana ({titulo_dia}).", ""]
+
+    lineas.append("AGENDA")
+    if eventos:
+        for e in eventos:
+            marca = " (fijo)" if e.inamovible else ""
+            lineas.append(f"- {e.inicio.strftime('%H:%M')} {e.titulo}{marca}")
+    else:
+        lineas.append("- No tienes nada agendado. Dia libre.")
+    lineas.append("")
+
+    lineas.append(f"TAREAS PENDIENTES ({len(pendientes)})")
+    if pendientes:
+        for t in pendientes[:10]:
+            vence = f" - vence {t.fecha_entrega.isoformat()}" if t.fecha_entrega else ""
+            lineas.append(f"- {t.titulo} ({t.prioridad}){vence}")
+    else:
+        lineas.append("- Ninguna. Todo al dia.")
+    lineas.append("")
+
+    lineas.append("GASTOS DE AYER")
+    if gastos:
+        for g in gastos:
+            lineas.append(f"- {g.descripcion}: {g.monto:,.0f} {g.moneda}")
+        lineas.append(f"Total: {total_gastos:,.0f}")
+    else:
+        lineas.append("- Sin gastos registrados.")
+    lineas.append("")
+    lineas.append("Tu asistente LifeAgente AI.")
+    return "\n".join(lineas)
+
+
+def enviar_resumen_diario(db: Session) -> dict[str, Any]:
+    """Envia por Gmail el resumen del dia siguiente."""
+    fila = _fila(db)
+    if fila is None or not fila.access_token_cifrado:
+        return {"ok": False, "mensaje": "Todavia no autorizaste el acceso a Google."}
+    if "gmail.send" not in (fila.scope or ""):
+        return {
+            "ok": False,
+            "mensaje": "Falta el permiso de correo. Autoriza 'Avisarte por correo'.",
+        }
+    destinatario = (fila.correo or "").strip()
+    if not destinatario:
+        return {"ok": False, "mensaje": "No tenemos tu correo para enviarte el resumen."}
+    token = token_acceso(db)
+    if not token:
+        return {"ok": False, "mensaje": "Tu permiso de Google caduco. Vuelve a autorizar."}
+    cuerpo = _texto_resumen_diario(db)
+    asunto = "Tu resumen de manana - LifeAgente AI"
+    crudo = (
+        f"To: {destinatario}\r\nSubject: {asunto}\r\n"
+        f"Content-Type: text/plain; charset=utf-8\r\n\r\n{cuerpo}"
+    )
+    try:
+        r = httpx.post(
+            "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"raw": base64.urlsafe_b64encode(crudo.encode("utf-8")).decode("ascii")},
+            timeout=30.0,
+        )
+    except Exception as exc:  # pragma: no cover - depende de la red
+        return {"ok": False, "mensaje": f"No se pudo enviar el correo: {exc}"}
+    if r.status_code >= 400:
+        return {
+            "ok": False,
+            "mensaje": "Gmail no acepto el correo. Revisa el permiso 'Avisarte por correo'.",
+        }
+    return {"ok": True, "mensaje": f"Resumen enviado a {destinatario}.", "cuerpo": cuerpo}
+
+
+def ejecutar_autopiloto_para_todos() -> dict[str, Any]:
+    """Ejecuta el trabajo automatico de todas las personas (tarea diaria)."""
+    from .cuentas import Usuario, establecer_usuario
+    from .database import SessionLocal
+
+    resultados: list[dict[str, Any]] = []
+    with SessionLocal() as db:
+        personas = db.query(Usuario).filter(Usuario.id != 1).all()
+        for persona in personas:
+            establecer_usuario(persona.id)
+            try:
+                r = ejecutar_autopiloto(db)
+                db.commit()
+                if r.get("ok"):
+                    resultados.append({"correo": persona.correo, "ok": True})
+            except Exception as exc:  # pragma: no cover
+                db.rollback()
+                resultados.append({"correo": persona.correo, "ok": False, "error": str(exc)})
+            finally:
+                establecer_usuario(None)
+    return {"ok": True, "total": len(resultados), "personas": resultados}

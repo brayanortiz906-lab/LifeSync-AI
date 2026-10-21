@@ -451,8 +451,16 @@ export interface EstadoPermisos {
     activo: boolean
     respaldo_auto: boolean
     importar_calendario: boolean
+    /** Mandar el resumen del dia siguiente por correo? */
+    resumen_diario: boolean
     ultimo_respaldo: string
     proximo_respaldo: string
+    /** v21: hay cambios que todavia no se han guardado en Drive. */
+    cambios_pendientes: boolean
+    /** v21: cuando fue el ultimo cambio. */
+    ultimo_cambio: string
+    /** v21: segundos que faltan para que el sistema guarde. */
+    guarda_en_segundos: number
   }
 }
 

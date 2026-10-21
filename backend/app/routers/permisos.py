@@ -12,11 +12,12 @@ Rutas
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from .. import connections as con
+from ..config import settings
 from ..cuentas import client_id_de, usuario_actual
 from ..database import get_db
 from ..permisos import (
@@ -26,8 +27,11 @@ from ..permisos import (
     ejecutar_autopiloto,
     estado,
     guardar_credenciales,
+    guardar_si_toca,
     importar_calendario,
     respaldar_drive,
+    enviar_resumen_diario,
+    ejecutar_autopiloto_para_todos,
 )
 
 router = APIRouter(prefix="/api/permisos", tags=["permisos"])
@@ -45,6 +49,7 @@ class AutopilotoIn(BaseModel):
     activo: bool = True
     respaldo_auto: bool = True
     importar_calendario: bool = True
+    resumen_diario: bool = True
 
 
 @router.get("")
@@ -114,7 +119,45 @@ def autopiloto(
         activo=payload.activo,
         respaldo_auto=payload.respaldo_auto,
         importar_calendario=payload.importar_calendario,
+        resumen_diario=payload.resumen_diario,
     )
+
+
+@router.post("/guardar")
+def guardar(
+    db: Session = Depends(get_db, scope="function"),
+    usuario=Depends(usuario_actual),
+):
+    """Guarda en Drive si la persona ya dejo de escribir (guardado con retardo)."""
+    return guardar_si_toca(db)
+
+
+@router.post("/correo/resumen")
+def correo_resumen(
+    db: Session = Depends(get_db, scope="function"),
+    usuario=Depends(usuario_actual),
+):
+    """Manda ahora el resumen del dia siguiente por correo."""
+    return enviar_resumen_diario(db)
+
+
+@router.post("/ejecutar-todos")
+def ejecutar_todos(
+    x_cron_token: str = Header(default="", alias="X-Cron-Token"),
+):
+    """Trabajo automatico de TODAS las personas (lo llama la tarea diaria).
+
+    Se protege con `CRON_TOKEN` (variable de entorno del despliegue) para que
+    solo quien administra el servidor pueda dispararlo.
+    """
+    if not settings.cron_token:
+        raise HTTPException(
+            status_code=403,
+            detail="Este servidor no tiene configurado CRON_TOKEN. Configuralo en el despliegue.",
+        )
+    if x_cron_token != settings.cron_token:
+        raise HTTPException(status_code=403, detail="Token de la tarea diaria incorrecto.")
+    return ejecutar_autopiloto_para_todos()
 
 
 @router.post("/autopiloto/ejecutar")

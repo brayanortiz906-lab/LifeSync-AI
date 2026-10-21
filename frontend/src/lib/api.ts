@@ -356,10 +356,27 @@ export const permisos = {
     }),
 
   /** Enciende o apaga el trabajo automatico. */
-  autopiloto: (datos: { activo: boolean; respaldo_auto: boolean; importar_calendario: boolean }) =>
+  autopiloto: (datos: {
+    activo: boolean
+    respaldo_auto: boolean
+    importar_calendario: boolean
+    resumen_diario?: boolean
+  }) =>
     request<EstadoPermisos>('/permisos/autopiloto', {
       method: 'POST',
       body: JSON.stringify(datos),
+    }),
+
+  /** v21: guarda en Drive si la persona ya dejo de escribir. */
+  guardar: () =>
+    request<{ ok: boolean; guardado: boolean; mensaje?: string }>('/permisos/guardar', {
+      method: 'POST',
+    }),
+
+  /** v21: manda ahora el resumen del dia siguiente por correo. */
+  correoResumen: () =>
+    request<{ ok: boolean; mensaje?: string; cuerpo?: string }>('/permisos/correo/resumen', {
+      method: 'POST',
     }),
 
   /** Ejecuta ahora lo que el sistema hace solo. */

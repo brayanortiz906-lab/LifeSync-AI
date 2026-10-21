@@ -44,6 +44,12 @@ export default function PermisosPanel() {
 
   useEffect(() => {
     void cargar()
+    // v21: el estado del guardado cambia solo (el servidor guarda con
+    // retardo), asi que lo consultamos cada 15 segundos.
+    const t = setInterval(() => {
+      void cargar()
+    }, 15000)
+    return () => clearInterval(t)
   }, [])
 
   const autorizar = async () => {
@@ -86,11 +92,49 @@ export default function PermisosPanel() {
     activo: boolean
     respaldo_auto: boolean
     importar_calendario: boolean
+    resumen_diario: boolean
   }) => {
     setOcupado(true)
     try {
       setEstado(await apiPermisos.autopiloto(datos))
       setAviso({ ok: true, texto: datos.activo ? 'Piloto automatico encendido.' : 'Piloto automatico apagado.' })
+    } catch (e) {
+      setAviso({ ok: false, texto: (e as Error).message })
+    } finally {
+      setOcupado(false)
+    }
+  }
+
+  /** v21: guarda ya, sin esperar al retardo. */
+  const guardarAhora = async () => {
+    setOcupado(true)
+    setAviso(null)
+    try {
+      const r = await apiPermisos.guardar()
+      setAviso(
+        r.guardado
+          ? { ok: true, texto: 'Guardado en tu Drive.' }
+          : { ok: false, texto: r.mensaje || 'Todavia no tocaba guardar.' },
+      )
+      await cargar()
+    } catch (e) {
+      setAviso({ ok: false, texto: (e as Error).message })
+    } finally {
+      setOcupado(false)
+    }
+  }
+
+  /** v21: manda el resumen de manana por correo ahora mismo. */
+  const mandarResumen = async () => {
+    setOcupado(true)
+    setAviso(null)
+    try {
+      const r = await apiPermisos.correoResumen()
+      setAviso(
+        r.ok
+          ? { ok: true, texto: r.mensaje || 'Resumen enviado.' }
+          : { ok: false, texto: r.mensaje || 'No se pudo enviar el correo.' },
+      )
     } catch (e) {
       setAviso({ ok: false, texto: (e as Error).message })
     } finally {
@@ -296,7 +340,7 @@ export default function PermisosPanel() {
             app abierta: guarda el respaldo, importa tu agenda y avisa por correo.
           </p>
 
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-4">
             <Stat
               etiqueta="Conectado como"
               valor={estado?.correo || 'tu cuenta'}
@@ -312,7 +356,24 @@ export default function PermisosPanel() {
               valor={pilot?.proximo_respaldo ? pilot.proximo_respaldo.slice(0, 16).replace('T', ' ') : '—'}
               tono="amber"
             />
+            <Stat
+              etiqueta="Estado del guardado"
+              valor={
+                !pilot?.cambios_pendientes
+                  ? 'Todo guardado'
+                  : pilot.guarda_en_segundos > 0
+                    ? `Guarda en ${pilot.guarda_en_segundos}s`
+                    : 'Guardando…'
+              }
+              tono={pilot?.cambios_pendientes ? 'amber' : 'emerald'}
+            />
           </div>
+
+          <p className="text-[11px] leading-relaxed text-slate-400">
+            <strong className="text-slate-200">Guardado con retardo:</strong> no se sube nada a la
+            nube mientras escribes. Cuando dejas de poner informacion, el sistema espera un poco y
+            guarda todo tu contenido en tu Drive. Asi nunca se guardan agendas a medio escribir.
+          </p>
 
           <div className="space-y-2">
             <Interruptor
@@ -324,18 +385,20 @@ export default function PermisosPanel() {
                   activo: v,
                   respaldo_auto: pilot?.respaldo_auto ?? true,
                   importar_calendario: pilot?.importar_calendario ?? true,
+                  resumen_diario: pilot?.resumen_diario ?? false,
                 })
               }
             />
             <Interruptor
               etiqueta="Respaldar solo en mi Drive"
-              ayuda="Una copia de agenda, tareas y gastos cada 12 horas."
+              ayuda="Una copia de agenda, tareas y gastos: al parar de escribir y cada 12 horas."
               activo={pilot?.respaldo_auto ?? false}
               onChange={(v) =>
                 void cambiarAutopiloto({
                   activo: pilot?.activo ?? false,
                   respaldo_auto: v,
                   importar_calendario: pilot?.importar_calendario ?? true,
+                  resumen_diario: pilot?.resumen_diario ?? false,
                 })
               }
             />
@@ -348,6 +411,20 @@ export default function PermisosPanel() {
                   activo: pilot?.activo ?? false,
                   respaldo_auto: pilot?.respaldo_auto ?? true,
                   importar_calendario: v,
+                  resumen_diario: pilot?.resumen_diario ?? false,
+                })
+              }
+            />
+            <Interruptor
+              etiqueta="Resumen de manana por correo"
+              ayuda="Cada dia te llega un correo con tu agenda de manana, tareas y gastos de ayer."
+              activo={pilot?.resumen_diario ?? false}
+              onChange={(v) =>
+                void cambiarAutopiloto({
+                  activo: pilot?.activo ?? false,
+                  respaldo_auto: pilot?.respaldo_auto ?? true,
+                  importar_calendario: pilot?.importar_calendario ?? true,
+                  resumen_diario: v,
                 })
               }
             />
@@ -357,11 +434,17 @@ export default function PermisosPanel() {
             <Boton variante="secundario" onClick={() => void ejecutar()} disabled={ocupado}>
               <RefreshCw size={13} /> Ejecutar ahora
             </Boton>
-            <Boton variante="secundario" onClick={() => void respaldar()} disabled={ocupado}>
+            <Boton variante="secundario" onClick={() => void guardarAhora()} disabled={ocupado}>
+              <CloudUpload size={13} /> Guardar ahora
+            </Boton>
+            <Boton variante="fantasma" onClick={() => void respaldar()} disabled={ocupado}>
               <CloudUpload size={13} /> Respaldar ahora
             </Boton>
             <Boton variante="fantasma" onClick={() => void importar()} disabled={ocupado}>
               Importar mi calendario
+            </Boton>
+            <Boton variante="fantasma" onClick={() => void mandarResumen()} disabled={ocupado}>
+              Mandar el resumen ahora
             </Boton>
             <Boton variante="fantasma" onClick={() => void restaurarDesdeDrive()} disabled={ocupado}>
               <Download size={13} /> Recuperar de Drive

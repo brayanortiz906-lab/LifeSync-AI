@@ -45,6 +45,11 @@ class Settings(BaseSettings):
     smtp_password: str = ""
     smtp_desde: str = ""
 
+    # --- Tarea diaria (v21) -------------------------------------------- #
+    # Token que protege `POST /api/permisos/ejecutar-todos`. La tarea diaria
+    # de GitHub Actions lo usa para despertar la API y mandar el resumen.
+    cron_token: str = ""
+
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
     # ID de cliente OAuth de Google usado por el boton "Continuar con Google".

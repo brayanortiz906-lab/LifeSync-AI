@@ -158,3 +158,98 @@ Servidor (guarda el token cifrado)
 | `frontend/src/components/PermisosPanel.tsx` | «Recuperar de Drive» |
 | `frontend/src/App.tsx` | al entrar: sincronizar + cargar todo |
 | `frontend/src/lib/api.ts` | `cuentas.reenviarCodigo`, `cuentas.restaurarDrive`, `cuentas.sincronizar` |
+
+---
+
+## 6. v21 - Guardado con retardo, restauracion que fusiona y tarea diaria
+
+### 6.1 El problema del respaldo por reloj
+
+Respaldar cada 12 horas tiene dos fallos:
+
+1. Si el servidor se reinicia justo despues de un respaldo, se pierde hasta 12 h
+   de trabajo.
+2. Si se respalda mientras la persona esta escribiendo, el Drive guarda un
+   estado a medio escribir.
+
+### 6.2 La solucion: marcar, esperar y guardar
+
+| Pieza | Donde | Que hace |
+|---|---|---|
+| `cambios_pendientes` / `ultimo_cambio` | `permisos_cuenta` | marcan que la cuenta cambio |
+| listener `after_flush` | `backend/app/database.py` (`_registrar_escucha_cambios`) | cualquier escritura de Event, Task, LogEntry, Maintenance o Panel pone `session.info["cambios_contenido"] = True` |
+| `marcar_cambios(db)` | `backend/app/permisos.py` | tras el commit, la cuenta queda «con cambios pendientes» |
+| `pendiente_de_respaldo(db)` | `backend/app/permisos.py` | True si pasaron **45 s** (`SEGUNDOS_ESPERA`) sin cambios |
+| `_tarea_guardado()` | `backend/app/main.py` | cada **20 s** revisa que cuentas tienen cambios pendientes y respalda las que ya pararon de escribir |
+| `POST /api/permisos/guardar` | `backend/app/routers/permisos.py` | guardar en el acto, sin esperar |
+| `POST /api/permisos/correo/resumen` | idem | mandar el resumen diario ahora |
+
+La interfaz (`PermisosPanel.tsx`) muestra el estado en un Stat mas:
+**«Todo guardado»**, **«Guarda en 14s»** o **«Guardando…»**, y se refresca
+cada 15 s.
+
+> **Bug real encontrado**: el listener se escribio al principio con la firma
+> `(session, _flush_context, _instances)`, pero SQLAlchemy 2.1 llama `after_flush`
+> con 2 argumentos -> `TypeError` en **cada escritura** (500). La firma
+> correcta es `def _marcar_cambios(session, *args)`.
+
+### 6.3 La restauracion ahora fusiona (no solo si el servidor esta vacio)
+
+`POST /api/cuentas/sincronizar` (al entrar con tu cuenta):
+
+| Situacion | Que hace |
+|---|---|
+| El Drive es mas nuevo que el servidor | restaura **solo lo que falta** (dedupe por titulo + fecha) y no duplica nada |
+| El servidor es mas nuevo que el Drive | no toca nada: «Tu contenido de aqui es mas nuevo que el respaldo de Drive» |
+| No hay respaldo en Drive | avisa, no rompe nada |
+
+`restaurar_snapshot()` deduplica por evento (titulo + inicio), tarea (titulo +
+entrega), gasto (descripcion + fecha) y mantenimiento (tarea + fecha), de modo
+que volver a cargar el mismo Drive muchas veces nunca duplica filas.
+
+### 6.4 La tarea diaria (GitHub Actions, gratis en repos publicos)
+
+`.github/workflows/daily.yml`:
+
+| Campo | Valor | Donde se configura |
+|---|---|---|
+| Programacion | `cron "0 11 * * *"` (06:00 en Colombia) | en el archivo |
+| Objetivo | `POST $API_URL/api/permisos/ejecutar-todos` | variable `API_URL` del repo |
+| Autorizacion | cabecera `X-Cron-Token` | secreto `CRON_TOKEN` |
+| Sin `API_URL` o sin `CRON_TOKEN` | el workflow avisa con `::notice::` y no rompe | - |
+
+`POST /api/permisos/ejecutar-todos` responde **403** si `CRON_TOKEN` no esta
+configurado o no coincide, asi que nadie mas puede disparar la tarea.
+
+Que hace la tarea, para cada cuenta con el piloto encendido:
+
+1. Si hay cambios pendientes (**o** se vencio el respaldo de 12 h) sube un
+   respaldo nuevo a Drive y limpia la marca.
+2. Si el piloto tiene **resumen diario** activo, manda un correo con la agenda
+   de manana, las tareas pendientes y los gastos de ayer (API de Gmail
+   `users/me/messages/send`, mensaje RFC822 en base64url).
+3. Si no tocaba, responde «No tocaba: tus datos ya estan guardados de hace poco»
+   (por eso el smoke es idempotente y se puede correr dos veces seguidas).
+
+### 6.5 Verificacion
+
+Los 5 checks nuevos del smoke (99 -> **104**):
+
+```
+[OK] [GUARDADO] el estado avisa si hay cambios por guardar
+[OK] [GUARDADO] al cambiar algo se marca pendiente
+[OK] [GUARDADO] el guardado espera a que la persona pare
+[OK] [GUARDADO] la tarea diaria esta protegida -> cod=403
+[OK] [GUARDADO] al entrar se revisa Drive y se rellena lo que falte
+```
+
+| Archivo | Que aporta |
+|---|---|
+| `backend/app/database.py` | `_registrar_escucha_cambios`, listener `after_flush` con `*args`, migracion de las 3 columnas nuevas |
+| `backend/app/permisos.py` | `marcar_cambios`, `pendiente_de_respaldo`, `guardar_si_toca`, `enviar_resumen_diario`, `ejecutar_autopiloto_para_todos` |
+| `backend/app/main.py` | `_tarea_guardado` (cada 20 s) en el lifespan |
+| `backend/app/routers/permisos.py` | `/guardar`, `/correo/resumen`, `/ejecutar-todos` (con `X-Cron-Token`) |
+| `backend/app/routers/cuentas.py` | `/sincronizar` que fusiona |
+| `backend/app/config.py` | `cron_token` (env `CRON_TOKEN`) |
+| `frontend/src/components/PermisosPanel.tsx` | Stat «Estado del guardado», interruptor «Resumen de manana por correo», botones «Guardar ahora» y «Mandar el resumen ahora» |
+| `.github/workflows/daily.yml` | tarea diaria gratis en repos publicos |

@@ -432,32 +432,41 @@ def restaurar_desde_drive(db: Session = Depends(get_db, scope="function"), usuar
 
 @router.post("/sincronizar")
 def sincronizar(db: Session = Depends(get_db, scope="function"), usuario=Depends(usuario_actual)):
-    """Al entrar con tu cuenta: si el servidor esta vacio, recupera tu contenido de Drive.
+    """Al entrar con tu cuenta: recupera de Drive lo que te falte.
 
-    Asi tu contenido esta siempre disponible, entres desde el computador o
-    desde el celular.
+    v21 (mejora A): ya no importa que el servidor este vacio o no. Se compara
+    lo que hay aqui con el respaldo de Drive y se mete SOLO lo que falte (sin
+    duplicar). Ademas, si tu contenido aqui es mas nuevo que el respaldo, no
+    se toca nada (para no resucitar cosas que borraste).
     """
     from ..cuentas import restaurar_snapshot
-    from ..permisos import restaurar_drive
-    from ..models import Event, LogEntry, Maintenance, Task
+    from ..permisos import restaurar_drive, ultimo_cambio_servidor
 
-    tiene_contenido = any(
-        db.scalars(select(modelo).limit(1)).first() is not None
-        for modelo in (Event, Task, LogEntry, Maintenance)
-    )
-    if tiene_contenido:
-        return {"ok": True, "restaurado": False, "mensaje": "Tu contenido ya estaba aqui."}
     try:
-        datos = restaurar_drive(db)
+        respuesta = restaurar_drive(db)
     except Exception:
-        datos = None
-    if not datos:
+        respuesta = None
+    if not respuesta or not respuesta.get("datos"):
         return {
             "ok": True,
             "restaurado": False,
             "mensaje": "Todavia no hay nada guardado en Drive para esta cuenta.",
         }
-    resultado = restaurar_snapshot(db, datos)
+    fecha_respaldo = respuesta.get("fecha")
+    ultimo_cambio = ultimo_cambio_servidor(db)
+    if ultimo_cambio and fecha_respaldo and fecha_respaldo < ultimo_cambio:
+        return {
+            "ok": True,
+            "restaurado": False,
+            "mensaje": "Tu contenido de aqui es mas nuevo que el respaldo de Drive: no se toco nada.",
+        }
+    resultado = restaurar_snapshot(db, respuesta["datos"])
+    restaurados = resultado.get("restaurados") or {}
+    total = sum(int(v or 0) for v in restaurados.values())
     resultado["restaurado"] = True
-    resultado["mensaje"] = "Recuperamos tu contenido de Google Drive."
+    resultado["mensaje"] = (
+        f"Recuperamos {total} cosa(s) de Google Drive."
+        if total
+        else "Tu contenido ya estaba al dia."
+    )
     return resultado

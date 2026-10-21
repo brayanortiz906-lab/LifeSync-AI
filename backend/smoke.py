@@ -550,6 +550,45 @@ def main() -> int:
         f"codigo={codigo_perm}",
     )
 
+    # ------------------------------------------------------------------ #
+    # v21: guardado con retardo + restauracion que fusiona + tarea diaria
+    # ------------------------------------------------------------------ #
+    print("\nGUARDADO AUTOMATICO Y RESTAURACION (v21)")
+    aut21 = pedir("GET", "/api/permisos")
+    piloto21 = (aut21 or {}).get("autopiloto", {}) if isinstance(aut21, dict) else {}
+    check(
+        "[GUARDADO] el estado avisa si hay cambios por guardar",
+        "cambios_pendientes" in piloto21 and "guarda_en_segundos" in piloto21,
+        f"cambios_pendientes={piloto21.get('cambios_pendientes')}",
+    )
+    # Un cambio real (el chat registra un evento) debe marcar "pendiente".
+    chat("Tengo una cita manana a las 3 PM para revisar el proyecto")
+    aut21b = pedir("GET", "/api/permisos")
+    piloto21b = (aut21b or {}).get("autopiloto", {}) if isinstance(aut21b, dict) else {}
+    check(
+        "[GUARDADO] al cambiar algo se marca que hay que guardar",
+        piloto21b.get("cambios_pendientes") is True,
+        f"cambios_pendientes={piloto21b.get('cambios_pendientes')}",
+    )
+    guard21 = pedir("POST", "/api/permisos/guardar")
+    check(
+        "[GUARDADO] el guardado espera a que la persona deje de escribir",
+        isinstance(guard21, dict) and "guardado" in guard21,
+        f"guardado={(guard21 or {}).get('guardado') if isinstance(guard21, dict) else '-'}",
+    )
+    sin21 = pedir_suave("POST", "/api/permisos/ejecutar-todos")
+    check(
+        "[GUARDADO] la tarea diaria esta protegida con token",
+        sin21[0] == 403,
+        f"-> cod={sin21[0]}",
+    )
+    sinc21 = pedir("POST", "/api/cuentas/sincronizar")
+    check(
+        "[GUARDADO] al entrar se revisa Drive y se rellena lo que falte",
+        isinstance(sinc21, dict) and sinc21.get("ok") is True and "mensaje" in sinc21,
+        f"mensaje={(sinc21 or {}).get('mensaje', '-')[:60] if isinstance(sinc21, dict) else '-'}",
+    )
+
     # Regresion: cada persona tiene su propia politica (v11) y la suya no choca.
     correo_v16 = f"smoke.v16+{int(time.time())}@example.com"
     alta = pedir("POST", "/api/cuentas/codigo", {"correo": correo_v16, "nombre": "Prueba v16"})

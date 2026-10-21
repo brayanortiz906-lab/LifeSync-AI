@@ -127,7 +127,7 @@ Detalle completo en [`docs/06-CONE-XIONES.md`](docs/06-CONE-XIONES.md).
 
 ### Verificación automática
 
-Con el backend corriendo, `backend/smoke.py` comprueba los 99 casos de uso contra la
+Con el backend corriendo, `backend/smoke.py` comprueba los 104 casos de uso contra la
 base de datos real (calendario, bitácora, tareas, mantenimiento, multi-intención,
 cascadas de registro automático, el sistema de IA responsable, el centro de conexiones
 y los permisos con piloto automático):
@@ -342,7 +342,7 @@ imagen de Python 3.12 que corre la API. La base SQLite vive en el volumen `/data
 
 ### 1-bis.4 Automatización (CI)
 
-`.github/workflows/ci.yml` corre en cada push: levanta la API, ejecuta los **99 casos** de
+`.github/workflows/ci.yml` corre en cada push: levanta la API, ejecuta los **104 casos** de
 `backend/smoke.py` (que incluyen el chat multi-intención, las cascadas, el sistema responsable,
 el centro de conexiones y los permisos con piloto automático) y compila el frontend con
 `tsc -b && vite build`. La insignia de arriba refleja el estado real del último push.
@@ -354,7 +354,8 @@ el centro de conexiones y los permisos con piloto automático) y compila el fron
 ```
 .
 ├── .github/workflows/
-│   ├── ci.yml                   ← CI: 99 casos del smoke test + build del frontend
+│   ├── ci.yml                   ← CI: 104 casos del smoke test + build del frontend
+│   ├── daily.yml                ← Tarea diaria (respaldo + resumen por correo)
 │   └── deploy-pages.yml         ← Publica la interfaz en GitHub Pages
 ├── .devcontainer/               ← Codespaces: Python 3.12 + Node 20 preinstalados
 ├── Dockerfile                   ← Multi-stage: Node 20 compila, Python 3.12 sirve
@@ -391,7 +392,7 @@ el centro de conexiones y los permisos con piloto automático) y compila el fron
 │   │                                 aprobaciones, redacción, cumplimiento)
 │   ├── requirements.txt
 │   ├── run.py
-│   └── smoke.py                 ← 92 verificaciones end-to-end contra la BD real
+│   └── smoke.py                 ← 104 verificaciones end-to-end contra la BD real
 ├── frontend/
 │   └── src/
 │       ├── App.tsx              ← Layout: agenda (vista inicial) + responsabilidad +
@@ -669,6 +670,34 @@ que tablas hay, si falta alguna y si el SMTP y Google estan configurados.
 
 Detalle tecnico (el error 500 explicado, el flujo de verificacion y el ciclo
 Drive): `docs/16-RESPALDO-Y-NUBE.md`.
+
+### Guarda cuando dejas de escribir, no cada X horas
+
+El respaldo no dispara mientras estas escribiendo: el sistema **marca** que
+cambiaste algo y espera a que pares.
+
+| Pieza | Como funciona |
+|---|---|
+| **Marcado de cambios** | cualquier escritura (agenda, tareas, gastos, mantenimiento, paneles) marca la cuenta como «cambios pendientes» |
+| **Espera de 45 s** | cuando pasan 45 segundos sin cambios, se sube el respaldo a Drive y se limpia la marca |
+| **Contador visible** | la pestaña Permisos muestra «Todo guardado» o «Guarda en 14s», y se refresca solo cada 15 s |
+| **Boton «Guardar ahora»** | si quieres que se guarde en el acto |
+| **Tarea diaria (GitHub Actions)** | `.github/workflows/daily.yml` despierta la API a las 6:00, respalda y manda el resumen por correo |
+
+Asi no se guardan estados a medio escribir, no se crean tres respaldos por
+minuto y el Drive siempre queda con la version buena.
+
+Al **entrar** con tu cuenta, ademas, la restauracion **fusiona**: compara el
+Drive con el servidor y mete **solo lo que falte** (sin duplicar y sin
+resucitar lo que borraste). Si tu contenido del servidor es mas nuevo que el
+respaldo, no toca nada.
+
+| Variable en el repo / Render | Para que |
+|---|---|
+| `API_URL` (variable del repo) | saber a que API despertar en la tarea diaria |
+| `CRON_TOKEN` (secreto) | autorizar la llamada de la tarea diaria |
+
+Detalle tecnico: `docs/16-RESPALDO-Y-NUBE.md`, seccion «Guardado con retardo».
 
 ---
 

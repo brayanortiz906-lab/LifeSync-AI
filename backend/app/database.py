@@ -95,6 +95,16 @@ def _migrar_sqlite() -> None:
         _asegurar_columnas(
             conn, "usuarios", {"password_hash": "VARCHAR(200) DEFAULT ''"}
         )
+        # Permisos (v21): el sistema guarda solo cuando la persona deja de escribir.
+        _asegurar_columnas(
+            conn,
+            "permisos_cuenta",
+            {
+                "cambios_pendientes": "BOOLEAN DEFAULT 0",
+                "ultimo_cambio": "DATETIME DEFAULT NULL",
+                "resumen_diario": "BOOLEAN DEFAULT 0",
+            },
+        )
 
         filas = conn.exec_driver_sql("PRAGMA foreign_key_list(tasks)").fetchall()
         if not filas:
@@ -152,6 +162,38 @@ class Base(DeclarativeBase):
     pass
 
 
+_ESCUCHA_CAMBIOS = False
+
+
+def _registrar_escucha_cambios() -> None:
+    """Marca en la sesion cuando se escribio contenido de la persona (v21).
+
+    Escucha el `after_flush` de SQLAlchemy: si se creo o modifico un evento,
+    tarea, gasto, mantenimiento o panel, deja la marca `cambios_contenido` en
+    la sesion. Despues, en `get_db`, se avisa al modulo de permisos para que
+    programe el guardado automatico (que ocurre cuando la persona deja de
+    escribir, no mientras escribe).
+    """
+    global _ESCUCHA_CAMBIOS
+    if _ESCUCHA_CAMBIOS:
+        return
+    try:
+        from .models import Event, LogEntry, Maintenance, Panel, Task
+
+        @event.listens_for(Session, "after_flush")
+        def _marcar_cambios(session, *args):
+            # La firma de `after_flush` cambia entre versiones de SQLAlchemy
+            # (2.0: session, flush_context, instances), asi que se acepta
+            # cualquier numero de argumentos extra.
+            for obj in list(session.new) + list(session.dirty):
+                if isinstance(obj, (Event, Task, LogEntry, Maintenance, Panel)):
+                    session.info["cambios_contenido"] = True
+                    break
+    except Exception:  # pragma: no cover - si falla, la app sigue igual
+        return
+    _ESCUCHA_CAMBIOS = True
+
+
 def get_db(request: Request) -> Generator[Session, None, None]:
     """Sesión por request.
 
@@ -160,7 +202,11 @@ def get_db(request: Request) -> Generator[Session, None, None]:
     de enviar la respuesta, así que el `commit` ocurre tarde y un GET
     inmediato posterior todavia no ve los datos. Con scope="function" el
     commit se confirma antes de responder y la lectura siguiente es consistente.
+
+    v21: si la petición escribió contenido, se avisa al módulo de permisos
+    para que programe el guardado automático.
     """
+    _registrar_escucha_cambios()
     db = SessionLocal()
     try:
         # Persona de la peticion (v11): sin token, se usa el usuario local.
@@ -169,6 +215,14 @@ def get_db(request: Request) -> Generator[Session, None, None]:
         fijar_usuario_de_peticion(db, request.headers.get("authorization", ""))
         yield db
         db.commit()
+        if db.info.get("cambios_contenido"):
+            try:
+                from .permisos import marcar_cambios
+
+                marcar_cambios(db)
+                db.commit()
+            except Exception:  # pragma: no cover - nunca debe romper la peticion
+                db.rollback()
     except Exception:
         db.rollback()
         raise

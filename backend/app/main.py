@@ -61,6 +61,52 @@ def _autopiloto_una_vez() -> None:
                 establecer_usuario(None)
 
 
+async def _tarea_guardado() -> None:
+    """Cada 20 segundos: si la persona DEJO de escribir, se guarda en Drive.
+
+    Este es el guardado con retardo (v21): no se sube a la nube a media
+    escritura, se espera a que la persona termine de poner informacion.
+    """
+    import asyncio
+
+    while True:
+        await asyncio.sleep(20)
+        try:
+            await asyncio.to_thread(_guardar_una_vez)
+        except Exception as exc:  # pragma: no cover - nunca debe tumbar la app
+            print(f"[guardado] fallo: {exc}")
+
+
+def _guardar_una_vez() -> None:
+    """Guarda en Drive a quien dejo de escribir (v21)."""
+    from .cuentas import establecer_usuario
+    from .database import engine
+    from .permisos import guardar_si_toca
+
+    try:
+        with engine.connect() as conn:
+            filas = conn.exec_driver_sql(
+                "SELECT DISTINCT usuario_id FROM permisos_cuenta WHERE cambios_pendientes = 1"
+            ).fetchall()
+    except Exception:  # pragma: no cover
+        return
+    if not filas:
+        return
+    from .database import SessionLocal
+
+    with SessionLocal() as db:
+        for (uid,) in filas:
+            establecer_usuario(uid)
+            try:
+                guardar_si_toca(db)
+                db.commit()
+            except Exception as exc:  # pragma: no cover
+                print(f"[guardado] usuario {uid}: {exc}")
+                db.rollback()
+            finally:
+                establecer_usuario(None)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Primero se crean las tablas y después se migran: la migración solo
@@ -89,10 +135,13 @@ async def lifespan(app: FastAPI):
             db.commit()
     # v16: el autopiloto trabaja en segundo plano (respaldo + agenda).
     tarea = asyncio.create_task(_tarea_autopiloto())
+    # v21: guardado con retardo (45 s despues de que la persona pare).
+    tarea_guardado = asyncio.create_task(_tarea_guardado())
     try:
         yield
     finally:
         tarea.cancel()
+        tarea_guardado.cancel()
 
 
 app = FastAPI(

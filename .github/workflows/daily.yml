@@ -1,0 +1,45 @@
+name: "Tarea diaria"
+
+# v21: la tarea diaria del sistema. Se ejecuta sola, sin que nadie abra la app.
+#
+# 1. Despierta la API (en los hostings gratuitos se duerme a los 15 minutos).
+# 2. La API guarda el respaldo de cada persona en su Drive.
+# 3. La API manda el resumen del dia siguiente por correo (si la persona lo activó).
+#
+# Para que funcione hay que configurar dos cosas en el repositorio:
+#   - Variable  API_URL    = https://tu-api.onrender.com   (Settings > Secrets and variables > Actions > Variables)
+#   - Secreto  CRON_TOKEN  = la misma clave que CRON_TOKEN en el despliegue (Settings > Secrets and variables > Actions > Secrets)
+# GitHub Actions es gratis en repositorios publicos.
+
+on:
+  schedule:
+    # 06:00 hora de Colombia (UTC-5) = 11:00 UTC. Todos los dias.
+    - cron: "0 11 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  diaria:
+    name: "Despertar la API y mandar el resumen"
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Ejecutar el trabajo diario de todas las cuentas"
+        env:
+          API_URL: ${{ vars.API_URL }}
+          CRON_TOKEN: ${{ secrets.CRON_TOKEN }}
+        run: |
+          if [ -z "$API_URL" ]; then
+            echo "::notice::Falta la variable API_URL. Configurala en Settings > Secrets and variables > Actions > Variables."
+            exit 0
+          fi
+          if [ -z "$CRON_TOKEN" ]; then
+            echo "::notice::Falta el secreto CRON_TOKEN. Configuralo en Settings > Secrets and variables > Actions > Secrets."
+            exit 0
+          fi
+          echo "Despertando $API_URL ..."
+          curl -sS --max-time 300 -X POST "$API_URL/api/permisos/ejecutar-todos" \
+            -H "X-Cron-Token: $CRON_TOKEN" \
+            -w "\nHTTP %{http_code}\n" || echo "::warning::La API no respondio (se dormira y volvera a intentarse manana)."
+          echo "::notice::Tarea diaria terminada."
