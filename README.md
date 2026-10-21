@@ -540,6 +540,8 @@ el centro de conexiones y los permisos con piloto automático) y compila el fron
 | [docs/15-CUENTAS-Y-PANELES.md](docs/15-CUENTAS-Y-PANELES.md) | Cuentas que siempre funcionan (correo + contraseña) y paneles con permiso de acceso |
 | [docs/16-RESPALDO-Y-NUBE.md](docs/16-RESPALDO-Y-NUBE.md) | El error 500 explicado y arreglado, el código de verificación y Drive como almacén real |
 | [docs/17-INSTALADOR-LOCAL.md](docs/17-INSTALADOR-LOCAL.md) | El instalador `.exe` de Windows: qué lleva dentro, dónde viven los datos y cómo se compila |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Cómo contribuir: reglas del proyecto, qué comprobar antes de un PR y dónde tocar cada cosa |
+| [SECURITY.md](SECURITY.md) | Política de seguridad: qué datos se cifran, qué **no** pegar en un issue y cómo reportar un problema |
 
 ---
 
@@ -828,3 +830,37 @@ descompone y la registra sola.
 ```
 
 Detalle tecnico: `docs/13-MOTOR-LOCAL.md`.
+
+---
+
+## 6. Qué hay en este repositorio
+
+| Pieza | Dónde | Qué hace |
+|---|---|---|
+| **CI** | `.github/workflows/ci.yml` | en cada push: levanta la API, corre los **111 casos** del smoke test, valida el System Prompt y compila la interfaz |
+| **Publicación de la web** | `.github/workflows/deploy-pages.yml` | compila la interfaz y la publica en la rama `gh-pages` (que es la que sirve GitHub Pages) |
+| **Tarea diaria** | `.github/workflows/daily.yml` | despierta la API, guarda el respaldo en Drive y manda el resumen por correo |
+| **Instalador** | `.github/workflows/build-installer.yml` | compila el `.exe` de Windows y lo publica como descarga en cada release |
+| **Plantillas de issues** | `.github/ISSUE_TEMPLATE/` | *Reportar un error* (pide el diagnóstico) e *Idear o proponer* |
+| **Codespaces** | `.devcontainer/` | entorno listo (Python 3.12 + Node 20) con `postCreate` que instala todo |
+| **Seguridad** | `SECURITY.md` | qué se cifra, qué no pegar nunca y cómo reportar un problema |
+| **Contribuir** | `CONTRIBUTING.md` | reglas del proyecto, qué comprobar y dónde tocar cada cosa |
+| **Manual del sistema** | `MANUAL-LOCAL.md` · `LEEME.txt` | cómo tenerlo en tu equipo y qué hace cada archivo |
+| **Empaquetado** | `empaquetar.ps1` | un ZIP con todo el sistema, listo para llevar a otro equipo |
+
+### Ramas y releases
+
+| Rama/etiqueta | Para qué |
+|---|---|
+| `main` | el código (todo lo que se desarrolla) |
+| `gh-pages` | la interfaz compilada que sirve la web |
+| `v1.0.0` | release: `LifeAgente.exe` (instalador) y `LifeAgente-AI-sistema.zip` (código completo) |
+
+### Estado de los workflows
+
+| Workflow | Cuándo se dispara | Qué hace |
+|---|---|---|
+| `CI` | push y pull request en `main` | 111 comprobaciones + build de TypeScript |
+| `Publicar la interfaz` | push en `main` | publica en GitHub Pages |
+| `Instalador de Windows` | a mano o al crear un tag `v*` | compila el `.exe` y lo sube al release |
+| `Tarea diaria` | todos los días a las 06:00 (Colombia) | respaldo + resumen por correo |

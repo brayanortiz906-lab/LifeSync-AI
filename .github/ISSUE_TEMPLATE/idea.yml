@@ -1,0 +1,34 @@
+name: Idear o proponer
+description: Una función nueva, una mejora o una pregunta de uso
+title: ""
+labels: ["idea"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Cuéntame qué te gustaría que LifeAgente hiciera. No hace falta que sea
+        técnico: cuéntalo como lo contarías.
+
+  - type: textarea
+    id: la-idea
+    attributes:
+      label: La idea
+      description: ¿Qué quieres que pase? ¿Cómo lo usarías?
+    validations:
+      required: true
+
+  - type: textarea
+    id: para-quien
+    attributes:
+      label: ¿Para quién es?
+      description: ¿Solo para ti, para tu equipo, para cualquiera que use la app?
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternativas
+    attributes:
+      label: ¿Lo resolviste de otra forma?
+      description: Si te saliste con un rodeo, cuéntalo: sirve para entender el problema.
+    validations:
+      required: false
