@@ -353,7 +353,15 @@ powershell -ExecutionPolicy Bypass -File empaquetar.ps1
 
 # 5. Compilar el instalador
 powershell -ExecutionPolicy Bypass -File desktop\build.ps1
+
+# 6. PUBLICAR la mejora (del PC -> GitHub -> Render) en un solo comando
+powershell -ExecutionPolicy Bypass -File publicar.ps1 -Mensaje "fix(agenda): corrige X"
 ```
+
+El paso 6 hace todo el camino: corre las 119 pruebas, compila la interfaz,
+crea el commit, lo sube a GitHub, espera a que GitHub Actions termine en verde
+y te dice donde mirar. **Render reconstruye solo** con cada push a `main`
+(`autoDeploy: true`), asi que la nube queda actualizada sin tocar nada mas.
 
 Reglas del proyecto (para no romperlo):
 

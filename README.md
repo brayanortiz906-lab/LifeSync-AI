@@ -892,6 +892,7 @@ Detalle tecnico: `docs/13-MOTOR-LOCAL.md`.
 | **Contribuir** | `CONTRIBUTING.md` | reglas del proyecto, qué comprobar y dónde tocar cada cosa |
 | **Manual del sistema** | `MANUAL-LOCAL.md` · `LEEME.txt` | cómo tenerlo en tu equipo y qué hace cada archivo |
 | **Empaquetado** | `empaquetar.ps1` | un ZIP con todo el sistema, listo para llevar a otro equipo |
+| **Publicar** | `publicar.ps1` | **un solo comando** para subir una mejora del PC a GitHub y que Render la despliegue |
 
 ### Ramas y releases
 
