@@ -12,9 +12,9 @@
 import { useEffect, useState } from 'react'
 import {
   ArrowRight, Check, CircleAlert, Cpu, Eye, EyeOff, Loader2, LogIn,
-  Plug, RefreshCw, Sparkles, Trash2, Wifi,
+  Plug, RefreshCw, Server, Sparkles, Trash2, Wifi,
 } from 'lucide-react'
-import { api } from '../lib/api'
+import { api, guardarUrlApi, leerUrlApi } from '../lib/api'
 import type { AutorizacionCuenta, Conexion, MotorLocal, ProveedorCatalogo } from '../types'
 import { Boton, Chip, Modal } from './ui'
 
@@ -66,6 +66,7 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
   const [clientId, setClientId] = useState('')
   const [autorizacion, setAutorizacion] = useState<AutorizacionCuenta | null>(null)
   const [esperando, setEsperando] = useState(false)
+  const [apiUrl, setApiUrl] = useState(() => leerUrlApi())
 
   const cargar = async () => {
     try {
@@ -231,6 +232,37 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
           {activa && (
             <Chip className="bg-emerald-500/15 text-emerald-300 ring-emerald-500/30">activo</Chip>
           )}
+        </div>
+
+        {/* Direccion de la API: util cuando la interfaz esta en GitHub Pages */}
+        <div className="rounded-xl border border-white/10 bg-white/4 p-3">
+          <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
+            <Server size={13} />
+            Direccion de la API
+          </div>
+          <p className="mt-1 text-[10px] leading-relaxed text-slate-400">
+            Si abriste LifeSync desde GitHub Pages, pon aqui la direccion donde vive el
+            servidor (por ejemplo <code className="text-slate-300">https://lifesync-api.onrender.com/api</code>).
+            Se guarda solo en este navegador.
+          </p>
+          <div className="mt-2 flex gap-2">
+            <input
+              value={apiUrl}
+              onChange={(e) => setApiUrl(e.target.value)}
+              placeholder="dejala vacio si la API esta en este mismo sitio"
+              className="min-w-0 flex-1 rounded-lg border border-white/10 bg-black/30 px-2.5 py-1.5 text-[11px] text-slate-100 outline-none focus:border-indigo-500/60"
+            />
+            <Boton
+              variante="secundario"
+              onClick={() => {
+                guardarUrlApi(apiUrl)
+                setEstado({ ok: true, texto: 'Direccion de la API guardada. Recargando…' })
+                setTimeout(() => window.location.reload(), 600)
+              }}
+            >
+              Guardar
+            </Boton>
+          </div>
         </div>
 
         {paso === 'inicio' ? (

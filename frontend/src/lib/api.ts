@@ -5,9 +5,24 @@ import type {
   ReporteCumplimiento, ResumenAuditoria, RespuestaAgente, ResultadoAutorizacion, Tarea,
 } from '../types'
 
-// La URL de la API: variable de entorno (VITE_API_URL) o el mismo origen.
-// Con VITE_BASE='./' (GitHub Pages) cae a './api' en lugar de '/api'.
-const BASE = import.meta.env.VITE_API_URL || `${import.meta.env.BASE_URL}api`
+// La URL de la API, en este orden de prioridad:
+// 1. Lo que el usuario guardo en el navegador (util cuando la interfaz esta en
+//    GitHub Pages y la API vive en otro sitio: se puede cambiar sin recompilar).
+// 2. Variable de entorno VITE_API_URL (la inyecta el workflow de Pages).
+// 3. El mismo origen (./api) cuando la API se sirve junto a la interfaz.
+const CLAVE_API_URL = 'lifesync.apiUrl'
+
+export function leerUrlApi(): string {
+  const guardada = localStorage.getItem(CLAVE_API_URL)?.trim()
+  if (guardada) return guardada.replace(/\/+$/, '')
+  return (import.meta.env.VITE_API_URL || `${import.meta.env.BASE_URL}api`).replace(/\/+$/, '')
+}
+
+export function guardarUrlApi(url: string): void {
+  const limpio = url.trim()
+  if (limpio) localStorage.setItem(CLAVE_API_URL, limpio)
+  else localStorage.removeItem(CLAVE_API_URL)
+}
 
 export class ApiError extends Error {
   status: number
@@ -18,7 +33,7 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
+  const res = await fetch(`${leerUrlApi()}${path}`, {
     headers: { 'Content-Type': 'application/json' },
     ...init,
   })
