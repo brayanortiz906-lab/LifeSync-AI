@@ -131,6 +131,17 @@ class Settings(BaseSettings):
     smtp_password: str = ""
     smtp_desde: str = ""
 
+    # --- Envio de correo sin SMTP (v39) ---------------------------------- #
+    # Brevo (300 correos/dia gratis) y Resend (3.000/mes gratis): con UNA
+    # clave de API se manda el codigo de verificacion y los avisos, sin
+    # puertos de correo abierto y sin configurar un servidor SMTP.
+    # "brevo" | "resend" | "smtp" | "" (se deduce solo).
+    email_provider: str = ""
+    brevo_api_key: str = ""
+    brevo_remitente: str = ""
+    resend_api_key: str = ""
+    resend_remitente: str = ""
+
     # --- Tarea diaria (v21) -------------------------------------------- #
     # Token que protege `POST /api/permisos/ejecutar-todos`. La tarea diaria
     # de GitHub Actions lo usa para despertar la API y mandar el resumen.

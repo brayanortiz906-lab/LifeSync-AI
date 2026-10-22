@@ -122,6 +122,16 @@ def _migrar_sqlite() -> None:
                 "resumen_diario": "BOOLEAN DEFAULT 0",
             },
         )
+        # Envio de correo sin SMTP (v39): proveedor + clave de API + remitente.
+        _asegurar_columnas(
+            conn,
+            "configuracion_servidor",
+            {
+                "proveedor_correo": "VARCHAR(20) DEFAULT 'smtp'",
+                "api_key_cifrada": "TEXT DEFAULT NULL",
+                "remitente": "VARCHAR(160) DEFAULT ''",
+            },
+        )
 
         filas = conn.exec_driver_sql("PRAGMA foreign_key_list(tasks)").fetchall()
         if not filas:

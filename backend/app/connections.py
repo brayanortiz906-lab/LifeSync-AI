@@ -309,6 +309,168 @@ CATALOGO: dict[str, Proveedor] = {
         url_registro="https://github.com/LostRuins/koboldcpp",
         base_url="http://127.0.0.1:5001/v1",
     ),
+    "vllm": Proveedor(
+        id="vllm",
+        nombre="vLLM (IA en tu computador)",
+        modo="local",
+        resumen="vLLM sirve modelos con API compatible con OpenAI: LifeAgente lo detecta y lo usa.",
+        icono="🖥️",
+        gratis=True,
+        instrucciones=[
+            f"Arranca vLLM (IA en tu computador) con su API activada.",
+            f"LifeAgente lo encuentra en el puerto 8000.",
+            "Si vive en otro puerto, conéctalo a mano con su URL.",
+        ],
+        pasos_ayuda=["Nada sale de tu equipo: todo se queda aqui."],
+        modelos=["local-model"],
+        modelo_defecto="local-model",
+        url_registro="https://docs.vllm.ai",
+        base_url="http://127.0.0.1:8000",
+    ),
+    "tabby": Proveedor(
+        id="tabby",
+        nombre="TabbyAPI (IA en tu computador)",
+        modo="local",
+        resumen="TabbyAPI sirve tu modelo con API compatible con OpenAI.",
+        icono="🖥️",
+        gratis=True,
+        instrucciones=[
+            f"Arranca TabbyAPI (IA en tu computador) con su API activada.",
+            f"LifeAgente lo encuentra en el puerto 9090.",
+            "Si vive en otro puerto, conéctalo a mano con su URL.",
+        ],
+        pasos_ayuda=["Nada sale de tu equipo: todo se queda aqui."],
+        modelos=["local-model"],
+        modelo_defecto="local-model",
+        url_registro="https://tabbyml.com",
+        base_url="http://127.0.0.1:9090",
+    ),
+    "litellm": Proveedor(
+        id="litellm",
+        nombre="LiteLLM (puente de IAs y agentes)",
+        modo="local",
+        resumen="LiteLLM es un puente: te sirve GPT, Claude, Gemini y agentes con una sola direccion.",
+        icono="🖥️",
+        gratis=True,
+        instrucciones=[
+            f"Arranca LiteLLM (puente de IAs y agentes) con su API activada.",
+            f"LifeAgente lo encuentra en el puerto 4000.",
+            "Si vive en otro puerto, conéctalo a mano con su URL.",
+        ],
+        pasos_ayuda=["Nada sale de tu equipo: todo se queda aqui."],
+        modelos=["local-model"],
+        modelo_defecto="local-model",
+        url_registro="https://docs.litellm.ai",
+        base_url="http://127.0.0.1:4000",
+    ),
+    "openwebui": Proveedor(
+        id="openwebui",
+        nombre="Open WebUI (interfaz de IAs)",
+        modo="local",
+        resumen="Open WebUI con la API activada: LifeAgente usa sus mismos modelos.",
+        icono="🖥️",
+        gratis=True,
+        instrucciones=[
+            f"Arranca Open WebUI (interfaz de IAs) con su API activada.",
+            f"LifeAgente lo encuentra en el puerto 3000.",
+            "Si vive en otro puerto, conéctalo a mano con su URL.",
+        ],
+        pasos_ayuda=["Nada sale de tu equipo: todo se queda aqui."],
+        modelos=["local-model"],
+        modelo_defecto="local-model",
+        url_registro="https://openwebui.com",
+        base_url="http://127.0.0.1:3000",
+    ),
+    "anythingllm": Proveedor(
+        id="anythingllm",
+        nombre="AnythingLLM (agentes y documentos)",
+        modo="local",
+        resumen="AnythingLLM con la API activada: conectas tus agentes y documentos.",
+        icono="🖥️",
+        gratis=True,
+        instrucciones=[
+            f"Arranca AnythingLLM (agentes y documentos) con su API activada.",
+            f"LifeAgente lo encuentra en el puerto 3001.",
+            "Si vive en otro puerto, conéctalo a mano con su URL.",
+        ],
+        pasos_ayuda=["Nada sale de tu equipo: todo se queda aqui."],
+        modelos=["local-model"],
+        modelo_defecto="local-model",
+        url_registro="https://anythingllm.com",
+        base_url="http://127.0.0.1:3001",
+    ),
+    "flowise": Proveedor(
+        id="flowise",
+        nombre="Flowise (flujos de agentes)",
+        modo="local",
+        resumen="Flowise con la API activada: LifeAgente puede usar tus flujos de agentes.",
+        icono="🖥️",
+        gratis=True,
+        instrucciones=[
+            f"Arranca Flowise (flujos de agentes) con su API activada.",
+            f"LifeAgente lo encuentra en el puerto 3002.",
+            "Si vive en otro puerto, conéctalo a mano con su URL.",
+        ],
+        pasos_ayuda=["Nada sale de tu equipo: todo se queda aqui."],
+        modelos=["local-model"],
+        modelo_defecto="local-model",
+        url_registro="https://flowiseai.com",
+        base_url="http://127.0.0.1:3002",
+    ),
+    "dify": Proveedor(
+        id="dify",
+        nombre="Dify (agentes y apps)",
+        modo="local",
+        resumen="Dify con la API activada: conectas tus apps y agentes.",
+        icono="🖥️",
+        gratis=True,
+        instrucciones=[
+            f"Arranca Dify (agentes y apps) con su API activada.",
+            f"LifeAgente lo encuentra en el puerto 5002.",
+            "Si vive en otro puerto, conéctalo a mano con su URL.",
+        ],
+        pasos_ayuda=["Nada sale de tu equipo: todo se queda aqui."],
+        modelos=["local-model"],
+        modelo_defecto="local-model",
+        url_registro="https://dify.ai",
+        base_url="http://127.0.0.1:5002",
+    ),
+    "aichat": Proveedor(
+        id="aichat",
+        nombre="Otro servidor compatible con OpenAI",
+        modo="local",
+        resumen="Cualquier servidor local que hable el formato de OpenAI (por ejemplo un agente tuyo).",
+        icono="🖥️",
+        gratis=True,
+        instrucciones=[
+            f"Arranca Otro servidor compatible con OpenAI con su API activada.",
+            f"LifeAgente lo encuentra en el puerto 7777.",
+            "Si vive en otro puerto, conéctalo a mano con su URL.",
+        ],
+        pasos_ayuda=["Nada sale de tu equipo: todo se queda aqui."],
+        modelos=["local-model"],
+        modelo_defecto="local-model",
+        url_registro="",
+        base_url="http://127.0.0.1:7777",
+    ),
+    "msty": Proveedor(
+        id="msty",
+        nombre="Msty (IA en tu computador)",
+        modo="local",
+        resumen="Msty con la API activada: LifeAgente lo detecta y lo usa.",
+        icono="🖥️",
+        gratis=True,
+        instrucciones=[
+            f"Arranca Msty (IA en tu computador) con su API activada.",
+            f"LifeAgente lo encuentra en el puerto 1338.",
+            "Si vive en otro puerto, conéctalo a mano con su URL.",
+        ],
+        pasos_ayuda=["Nada sale de tu equipo: todo se queda aqui."],
+        modelos=["local-model"],
+        modelo_defecto="local-model",
+        url_registro="https://msty.app",
+        base_url="http://127.0.0.1:1338",
+    ),
     "claude_local": Proveedor(
         id="claude_local",
         nombre="Claude en tu computador (proxy local)",
@@ -325,6 +487,29 @@ CATALOGO: dict[str, Proveedor] = {
         modelo_defecto="claude-local",
         url_registro="https://docs.anthropic.com/en/docs/claude-code",
         base_url="http://127.0.0.1:8787",
+    ),
+
+    "personalizado": Proveedor(
+        id="personalizado",
+        nombre="Mi sistema (URL propia)",
+        modo="local",
+        resumen="Conecta cualquier IA o agente que tengas: pega su direccion y LifeAgente "
+        "averigua solo como hablarle.",
+        icono="🔌",
+        gratis=True,
+        instrucciones=[
+            "Pega la direccion de tu sistema (por ejemplo http://127.0.0.1:4000/v1).",
+            "LifeAgente prueba si habla como OpenAI, como Ollama o como Anthropic.",
+            "Si pide clave, escribela en el campo de al lado (puede ir vacia).",
+        ],
+        pasos_ayuda=[
+            "Sirve para LiteLLM, Open WebUI, vLLM, LocalAI, TabbyAPI o cualquier proxy de agentes.",
+            "Tambien para un servidor de Anthropic (compatible con la API de Claude).",
+        ],
+        modelos=[],
+        modelo_defecto="",
+        url_registro="https://github.com/BerriAI/litellm",
+        base_url="",
     ),
 
     "demo": Proveedor(
@@ -487,12 +672,16 @@ CATALOGO: dict[str, Proveedor] = {
 #: Motores locales que hablan la API de OpenAI (o una compatible).
 PROVEEDOR_LOCAL_GENERICO = {
     "jan", "gpt4all", "llamacpp", "textgen", "kobold", "localai", "claude_local",
+    "personalizado", "vllm", "tabby", "litellm", "openwebui", "anythingllm",
+    "flowise", "dify", "aichat", "msty",
 }
 
 #: Proveedores que la app sabe ejecutar de verdad.
 PROVEEDORES_SOPORTADOS = {
     "openai", "anthropic", "gemini", "openrouter", "ollama", "lmstudio", "mock",
     "jan", "gpt4all", "llamacpp", "textgen", "kobold", "claude_local",
+    "personalizado", "vllm", "tabby", "litellm", "openwebui", "anythingllm",
+    "flowise", "dify", "aichat", "msty",
     "google_cuenta", "chatgpt_cuenta", "claude_cuenta",
     "outlook_cuenta", "github_cuenta",
 }
@@ -623,8 +812,10 @@ _CACHE_TTL = 30.0
 #: interrogaba en fila, lo que arrivals a 16 segundos de espera.
 TIMEOUT_SONDEO = 0.7
 
-#: Puertos donde suele vivir una IA local. Se sondean todos a la vez.
+#: Puertos donde suele vivir una IA local o una plataforma de agentes.
+#: Se sondean todos a la vez (ver `_sondear_motor`).
 CANDIDATOS_MOTORES: list[dict[str, str]] = [
+    # --- Motores de lenguaje locales -------------------------------------
     {"id": "ollama", "url": "http://127.0.0.1:11434/api/tags", "nombre": "Ollama", "estilo": "ollama"},
     {"id": "ollama", "url": "http://127.0.0.1:11435/api/tags", "nombre": "Ollama (puerto 11435)", "estilo": "ollama"},
     {"id": "lmstudio", "url": "http://127.0.0.1:1234/v1/models", "nombre": "LM Studio", "estilo": "openai"},
@@ -633,6 +824,17 @@ CANDIDATOS_MOTORES: list[dict[str, str]] = [
     {"id": "llamacpp", "url": "http://127.0.0.1:8080/v1/models", "nombre": "llama.cpp / LocalAI", "estilo": "openai"},
     {"id": "textgen", "url": "http://127.0.0.1:5000/v1/models", "nombre": "text-generation-webui", "estilo": "openai"},
     {"id": "kobold", "url": "http://127.0.0.1:5001/v1/models", "nombre": "KoboldCpp", "estilo": "openai"},
+    {"id": "vllm", "url": "http://127.0.0.1:8000/v1/models", "nombre": "vLLM", "estilo": "openai"},
+    {"id": "tabby", "url": "http://127.0.0.1:9090/v1/models", "nombre": "TabbyAPI", "estilo": "openai"},
+    # --- Plataformas de agentes y de IA en el equipo ---------------------
+    {"id": "litellm", "url": "http://127.0.0.1:4000/v1/models", "nombre": "LiteLLM (proxy de agentes)", "estilo": "openai"},
+    {"id": "openwebui", "url": "http://127.0.0.1:3000/v1/models", "nombre": "Open WebUI", "estilo": "openai"},
+    {"id": "anythingllm", "url": "http://127.0.0.1:3001/v1/models", "nombre": "AnythingLLM", "estilo": "openai"},
+    {"id": "flowise", "url": "http://127.0.0.1:3002/v1/models", "nombre": "Flowise", "estilo": "openai"},
+    {"id": "dify", "url": "http://127.0.0.1:5002/v1/models", "nombre": "Dify", "estilo": "openai"},
+    {"id": "aichat", "url": "http://127.0.0.1:7777/v1/models", "nombre": "Otro servidor compatible con OpenAI", "estilo": "openai"},
+    {"id": "llamacpp", "url": "http://127.0.0.1:8081/v1/models", "nombre": "llama.cpp (puerto 8081)", "estilo": "openai"},
+    {"id": "msty", "url": "http://127.0.0.1:1338/v1/models", "nombre": "Msty", "estilo": "openai"},
 ]
 
 
@@ -701,6 +903,115 @@ def detectar_motores_locales_sync(forzar: bool = False) -> list[dict[str, Any]]:
     _CACHE_MOTORES["ts"] = ahora
     _CACHE_MOTORES["valor"] = encontrados
     return list(encontrados)
+
+
+def _rutas_modelos(base: str) -> list[str]:
+    """Rutas donde se listan los modelos segun como venga la direccion."""
+    if base.endswith("/v1"):
+        return [f"{base}/models"]
+    return [f"{base}/v1/models", f"{base}/models"]
+
+
+def detectar_estilo_y_modelos(base_url: str, clave: str = "") -> dict[str, Any]:
+    """Averigua como hablar con un sistema que la persona YA tiene en su equipo.
+
+    Prueba los estilos mas usados (OpenAI, Ollama y Anthropic) y devuelve el
+    primero que responde, con su lista de modelos. Asi la persona solo pega
+    la direccion de su sistema de agentes y LifeAgente se apaña.
+    """
+    base = (base_url or "").strip().rstrip("/")
+    if not base:
+        return {
+            "ok": False,
+            "estilo": "",
+            "base_url": "",
+            "modelos": [],
+            "mensaje": "Escribe la direccion de tu sistema (por ejemplo http://127.0.0.1:4000/v1).",
+        }
+    if "://" not in base:
+        base = f"http://{base}"
+    cabeceras: dict[str, str] = {"Accept": "application/json"}
+    if clave:
+        cabeceras["Authorization"] = f"Bearer {clave}"
+
+    def _modelos_de(data: Any) -> list[str]:
+        if not isinstance(data, dict):
+            return []
+        return [
+            m.get("id", "")
+            for m in data.get("data", [])
+            if isinstance(m, dict) and m.get("id")
+        ]
+
+    # 1) Estilo Ollama (nativo): se prueba primero porque Ollama tambien
+    #    expone un /v1 compatible, y su ruta nativa es mas fiable.
+    try:
+        resp = httpx.get(f"{base}/api/tags", timeout=4.0)
+        if resp.status_code < 400:
+            data = resp.json()
+            modelos = [
+                m.get("name", "")
+                for m in (data.get("models", []) if isinstance(data, dict) else [])
+                if isinstance(m, dict) and m.get("name")
+            ]
+            return {
+                "ok": True,
+                "estilo": "ollama",
+                "base_url": base,
+                "modelos": modelos,
+                "mensaje": f"Habla como Ollama. {len(modelos)} modelo(s) disponible(s).",
+            }
+    except Exception:
+        pass
+    # 2) Estilo OpenAI (LiteLLM, vLLM, LM Studio, LocalAI, Open WebUI...).
+    for ruta in _rutas_modelos(base):
+        try:
+            resp = httpx.get(ruta, headers=cabeceras, timeout=4.0)
+        except Exception:
+            continue
+        if resp.status_code < 400:
+            try:
+                data = resp.json()
+            except Exception:
+                continue
+            modelos = _modelos_de(data)
+            return {
+                "ok": True,
+                "estilo": "openai",
+                "base_url": base,
+                "modelos": modelos,
+                "mensaje": f"Habla como OpenAI. {len(modelos)} modelo(s) disponible(s).",
+            }
+    # 3) Estilo Anthropic (proxies de Claude).
+    cabeceras_anthropic = dict(cabeceras)
+    cabeceras_anthropic["anthropic-version"] = "2023-06-01"
+    if clave:
+        cabeceras_anthropic["x-api-key"] = clave
+    for ruta in _rutas_modelos(base):
+        try:
+            resp = httpx.get(ruta, headers=cabeceras_anthropic, timeout=4.0)
+        except Exception:
+            continue
+        if resp.status_code < 400:
+            try:
+                data = resp.json()
+            except Exception:
+                continue
+            modelos = _modelos_de(data)
+            return {
+                "ok": True,
+                "estilo": "anthropic",
+                "base_url": base,
+                "modelos": modelos,
+                "mensaje": f"Habla como Anthropic. {len(modelos)} modelo(s) disponible(s).",
+            }
+    return {
+        "ok": False,
+        "estilo": "",
+        "base_url": base,
+        "modelos": [],
+        "mensaje": "No respondio en esa direccion. Revisa la URL, que el sistema este encendido y si necesita clave.",
+    }
 
 
 async def detectar_motores_locales(forzar: bool = False) -> list[dict[str, Any]]:

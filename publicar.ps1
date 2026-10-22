@@ -41,18 +41,28 @@ Titulo "1/4 Comprobando que todo esta bien"
 if (-not $SinPruebas) {
   Write-Host "    pruebas del sistema..."
   $log = "$env:TEMP\lifeagente-smoke.log"
+  # OJO: en PowerShell 5.1 un comando nativo que escribe en la salida de error
+  # (un aviso de vite, por ejemplo) se convierte en un error que, con
+  # ErrorActionPreference = "Stop", corta el script. Aqui solo miramos el
+  # codigo de salida, asi que los avisos no deben tumbar la publicacion.
+  $ErrorActionPreference = "Continue"
   & "$Raiz\backend\.venv\Scripts\python.exe" "$Raiz\backend\smoke.py" *> $log
-  if ($LASTEXITCODE -ne 0) {
+  $codPruebas = $LASTEXITCODE
+  $ErrorActionPreference = "Stop"
+  if ($codPruebas -ne 0) {
     Error_ "Las pruebas fallaron. Revisa $log"
     Get-Content $log -Tail 12
     exit 1
   }
-  Ok "las 119 pruebas pasaron"
+  $cuantas = (Select-String -Path $log -Pattern "^\[OK" -ErrorAction SilentlyContinue | Measure-Object).Count
+  Ok "las $cuantas pruebas pasaron"
 
   Write-Host "    compilando la interfaz..."
   Push-Location "$Raiz\frontend"
+  $ErrorActionPreference = "Continue"
   npm run build *> $env:TEMP\lifeagente-build.log
   $cod = $LASTEXITCODE
+  $ErrorActionPreference = "Stop"
   Pop-Location
   if ($cod -ne 0) {
     Error_ "La interfaz no compila. Revisa $env:TEMP\lifeagente-build.log"

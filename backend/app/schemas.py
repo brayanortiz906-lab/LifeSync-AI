@@ -264,6 +264,8 @@ class ConexionCreate(BaseModel):
     email: str | None = None
     modelo: str | None = None
     reemplazar_credenciales: bool = False
+    #: Como habla el sistema: "openai" | "ollama" | "anthropic" (v40).
+    estilo: str | None = None
 
 
 class ConexionOut(BaseModel):

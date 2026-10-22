@@ -117,7 +117,7 @@ cambiar de tema no rompe ningun espaciado ni ningun color.
 | No hay titulo duplicado | Contar apariciones del nombre del proveedor en `innerText` |
 | Padding y aire | `getComputedStyle(bloque).paddingTop` debe ser >= 12px |
 | Build sin errores | `npm run build` en `frontend/` |
-| Suite completa | `backend/.venv/Scripts/python.exe backend/smoke.py` (143 casos) |
+| Suite completa | `backend/.venv/Scripts/python.exe backend/smoke.py` (150  casos) |
 | Sin caracteres CJK | Escaneo sobre `.py`, `.ts`, `.tsx`, `.md`, `.txt` |
 
 ## 9. Archivos

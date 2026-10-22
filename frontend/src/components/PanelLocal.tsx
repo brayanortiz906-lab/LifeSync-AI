@@ -10,6 +10,8 @@ import { useState } from 'react'
 import { Cpu, Plug, Sparkles, Wifi } from 'lucide-react'
 import { useLifeAgente } from '../store/useLifeAgente'
 import { PLANTILLAS } from '../lib/plantillas'
+import { api } from '../lib/api'
+import type { InfoEstiloUrl } from '../types'
 import { Aviso, Boton, Panel } from './ui'
 
 /** Motores que viven en el computador de la persona. */
@@ -23,6 +25,16 @@ const MOTORES_LOCALES = [
   'textgen',
   'kobold',
   'claude_local',
+  'vllm',
+  'tabby',
+  'litellm',
+  'openwebui',
+  'anythingllm',
+  'flowise',
+  'dify',
+  'aichat',
+  'msty',
+  'personalizado',
 ]
 
 export default function PanelLocal({
@@ -36,6 +48,45 @@ export default function PanelLocal({
   const cargarPlantilla = useLifeAgente((s) => s.cargarPlantilla)
   const [textoPegado, setTextoPegado] = useState('')
   const [avisos, setAvisos] = useState('')
+  /** Conexion manual por URL (v40). */
+  const [urlPropia, setUrlPropia] = useState('')
+  const [probandoUrl, setProbandoUrl] = useState(false)
+  const [resultadoUrl, setResultadoUrl] = useState<InfoEstiloUrl | null>(null)
+
+  /** Prueba la direccion y, si responde, guarda la conexion. */
+  const conectarUrlPropia = async () => {
+    const url = urlPropia.trim()
+    if (!url) return
+    setProbandoUrl(true)
+    setResultadoUrl(null)
+    try {
+      const info = await api.probarUrl(url)
+      setResultadoUrl(info)
+      if (info.ok) {
+        await api.guardarConexion({
+          proveedor: 'personalizado',
+          base_url: url,
+          modelo: info.modelos[0],
+          estilo: info.estilo,
+          nombre: `Mi sistema (${info.estilo})`,
+          modo: 'local',
+        })
+        setAvisos(`Listo: conectamos tu sistema (${info.estilo}).`)
+        setUrlPropia('')
+      }
+    } catch (e) {
+      setResultadoUrl({
+        ok: false,
+        estilo: '',
+        base_url: url,
+        modelos: [],
+        total: 0,
+        mensaje: (e as Error).message,
+      })
+    } finally {
+      setProbandoUrl(false)
+    }
+  }
 
   const motorLocalConectado = MOTORES_LOCALES.includes(proveedor)
   const hayPlantillas = PLANTILLAS.length > 0
@@ -97,6 +148,44 @@ export default function PanelLocal({
             <Sparkles size={12} />
             Usar el motor local sin IA
           </Boton>
+        )}
+      </div>
+
+      {/* Conectar un sistema de IA a mano con su URL (v40) */}
+      <div className="mt-3">
+        <div className="ls-label mb-1.5">Conecta tu propio sistema de IA con su direccion</div>
+        <p className="ls-hint mb-1.5">
+          Si tu IA o tu agente vive en otro puerto (LiteLLM, Open WebUI, vLLM, un servidor
+          tuyo...), pega aqui su direccion y LifeAgente averigua solo como hablarle.
+        </p>
+        <input
+          className="ls-input"
+          placeholder="http://127.0.0.1:4000"
+          value={urlPropia}
+          onChange={(e) => setUrlPropia(e.target.value)}
+        />
+        <div className="mt-1.5 flex items-center justify-between gap-2">
+          <span className="ls-hint">{urlPropia.trim() ? 'Pulsa Conectar y lo probamos.' : ''}</span>
+          <Boton
+            variante="secundario"
+            disabled={!urlPropia.trim() || probandoUrl}
+            onClick={() => void conectarUrlPropia()}
+            className="!px-2.5 !py-1.5 text-[10px]"
+          >
+            {probandoUrl ? 'Probando…' : 'Conectar'}
+          </Boton>
+        </div>
+        {resultadoUrl && (
+          <div className="mt-1.5">
+            <Aviso tono={resultadoUrl.ok ? 'ok' : 'aviso'}>
+              {resultadoUrl.mensaje}
+              {resultadoUrl.ok && resultadoUrl.modelos.length > 0 && (
+                <span className="mt-1 block text-slate-300">
+                  Modelos: {resultadoUrl.modelos.slice(0, 5).join(', ')}
+                </span>
+              )}
+            </Aviso>
+          </div>
         )}
       </div>
 

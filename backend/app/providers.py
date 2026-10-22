@@ -737,6 +737,7 @@ async def complete(
     temperature: float = 0.2,
     mensaje_original: str | None = None,
     base_url: str | None = None,
+    estilo: str = "",
 ) -> str:
     """Llama al proveedor seleccionado y devuelve el texto de respuesta.
 
@@ -771,6 +772,23 @@ async def complete(
         return await _call_anthropic(
             system, user, api_key or "local", modelo or "claude-local",
             temperature, base_url or "http://127.0.0.1:8787",
+        )
+    if proveedor == "personalizado":
+        # Sistema propio de la persona: el estilo se detecto al conectar
+        # (OpenAI, Ollama o Anthropic) y se guardo con la conexion.
+        destino = (base_url or "").rstrip("/")
+        if not destino:
+            raise ProviderError(
+                "Esa conexion no tiene direccion. Vuelve a conectarla escribiendo su URL."
+            )
+        if estilo == "ollama":
+            return await _call_ollama(system, user, modelo or "local-model", temperature, destino)
+        if estilo == "anthropic":
+            return await _call_anthropic(
+                system, user, api_key or "local", modelo or "local-model", temperature, destino
+            )
+        return await _call_openai_compatible(
+            system, user, api_key, modelo or "local-model", temperature, destino, "tu sistema"
         )
 
     # --- Proveedores remotos: requieren credencial ---------------------------

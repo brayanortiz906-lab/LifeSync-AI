@@ -50,7 +50,8 @@ Si buscas **cómo usarlo**: empieza por [`MANUAL-LOCAL.md`](../MANUAL-LOCAL.md)
 | 18 | [IA ligera y acceso](18-IA-LIGERA-Y-ACCESO.md) | Por qué las credenciales son públicas (acceso con un clic) y cómo bajar una IA de 400 MB para usar la app local. |
 | 19 | [Rendimiento](19-RENDIMIENTO.md) | Por qué la app no se siente lenta: las mediciones antes/después y los 5 arreglos. |
 | 20 | [Correo que sí llega, una sola petición y el correo como almacén](20-CORREO-Y-RENDIMIENTO.md) | El código de verificación por SMTP, la app abre en 1 viaje y el correo como almacén. |
-| 21 | [Revisión del log del servidor](20-CORREO-Y-RENDIMIENTO.md) | Los 3 bugs del log de Render y la lista de pendientes del despliegue. |
+| 21 | [Revisi
+| 22 | [Correo con una clave y conexion con cualquier agente](22-CORREO-Y-AGENTES.md) | Brevo/Resend para el codigo, 18 motores de IA detectados y conexion manual por URL. |ón del log del servidor](20-CORREO-Y-RENDIMIENTO.md) | Los 3 bugs del log de Render y la lista de pendientes del despliegue. |
 
 ## Documentos fuera de `docs/`
 

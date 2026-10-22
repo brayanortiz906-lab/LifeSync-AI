@@ -18,5 +18,9 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: false,
+    // La app completa (agenda + chat + paneles + responsabilidad + permisos)
+    // ronda los 500 kB: es normal y no es un problema. Sin esto, vite avisa
+    // por stderr y algunos scripts de PowerShell lo toman por un fallo.
+    chunkSizeWarningLimit: 900,
   },
 })

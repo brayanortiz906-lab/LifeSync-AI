@@ -2,7 +2,7 @@
 import type {
   Ajustes, Aprobacion, AutorizacionCuenta, CatalogoModelos, Conexion, Dashboard, DatosPanel,
   DescargaIA, EntradaAuditoria, EstadoGoogle, Diagnostico,
-  EstadoPermisos, InfoClientesPublicos, InfoModelosLigeros, InfoProveedores, Inicio, MiembroPanel,
+  EstadoPermisos, InfoClientesPublicos, InfoEstiloUrl, InfoModelosLigeros, InfoProveedores, Inicio, MiembroPanel,
   Panel, Permiso,
   PerfilCuenta, Respaldo, ResultadoCodigo, ResultadoSesion, Usuario,
   Evento, HistorialMsg, Mantenimiento, MotorLocal, Politica, ProveedorCatalogo, Registro,
@@ -346,7 +346,19 @@ export const api = {
     modelo?: string
     nombre?: string
     modo?: string
+    estilo?: string
   }) => request<Conexion>('/conexiones', { method: 'POST', body: JSON.stringify(datos) }),
+
+  /**
+   * Prueba una direccion a mano (v40): averigua sola que sistema es
+   * (Ollama, compatible con OpenAI o compatible con Anthropic) y que
+   * modelos tiene. No guarda nada.
+   */
+  probarUrl: (base_url: string, api_key?: string) =>
+    request<InfoEstiloUrl>('/conexiones/probar-url', {
+      method: 'POST',
+      body: JSON.stringify({ base_url, api_key }),
+    }),
 
   verificarConexion: (id: number) =>
     request<Conexion>(`/conexiones/${id}/verificar`, { method: 'POST' }),

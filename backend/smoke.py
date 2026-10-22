@@ -1159,6 +1159,60 @@ def main() -> int:
         f"-> cod={cod_alias}",
     )
 
+    # --- Correo con una sola clave (Brevo/Resend) y sistemas de agentes ---
+    cod_cat, r_cat = pedir_suave("GET", "/api/conexiones/catalogo")
+    ids = [p.get("id") for p in (r_cat.get("proveedores") or [])] if isinstance(r_cat, dict) else []
+    check(
+        "[CORREO] el catalogo trae el proveedor de conexion manual",
+        "personalizado" in ids,
+        f"-> providers={len(ids)}",
+    )
+    locales = [p.get("id") for p in (r_cat.get("proveedores") or []) if isinstance(p, dict) and p.get("modo") == "local"] if isinstance(r_cat, dict) else []
+    check(
+        "[AGENTES] se detectan muchos sistemas de IA y de agentes en el computador",
+        len(locales) >= 12,
+        f"-> {len(locales)} motores locales: {','.join(locales[:8])}",
+    )
+    cod_url, r_url = pedir_suave("POST", "/api/conexiones/probar-url", {"base_url": "http://127.0.0.1:9999"})
+    check(
+        "[AGENTES] una direccion que no responde se explica sin fallar",
+        cod_url == 200 and r_url.get("ok") is False and str(r_url.get("mensaje") or "").strip(),
+        f"-> cod={cod_url} mensaje={str(r_url.get('mensaje'))[:50]}",
+    )
+    # OJO: esta comprobacion NO puede depender de que Ollama este encendido
+    # (en CI no lo esta). Se valida que la deteccion responda bien y, si hay
+    # una IA local viva, que ademas la reconozca.
+    cod_ollama, r_ollama = pedir_suave("POST", "/api/conexiones/probar-url", {"base_url": "http://127.0.0.1:11434"})
+    estilo_detectado = str(r_ollama.get("estilo") or "")
+    check(
+        "[AGENTES] LifeAgente averigua solo como hablarle a tu IA local",
+        cod_ollama == 200
+        and (
+            r_ollama.get("ok") is True
+            or (estilo_detectado == "" and str(r_ollama.get("mensaje") or "").strip())
+        ),
+        f"-> cod={cod_ollama} ok={r_ollama.get('ok')} estilo={estilo_detectado or 'sin IA local encendida'} modelos={r_ollama.get('total')}",
+    )
+    cod_correo, r_correo = pedir_suave("GET", "/api/cuentas/correo")
+    check(
+        "[CORREO] el estado del correo solo lo puede ver un administrador",
+        cod_correo in (200, 403),
+        f"-> cod={cod_correo}",
+    )
+
+    cod_ini, r_ini = pedir_suave("GET", "/api/inicio")
+    eventos_ini = (r_ini.get("eventos") or []) if isinstance(r_ini, dict) else []
+    check(
+        "[INICIO] los eventos llegan con su duracion calculada (sin NaN en pantalla)",
+        cod_ini == 200 and all(isinstance(e.get("duracion_min"), int) for e in eventos_ini),
+        f"-> cod={cod_ini} eventos={len(eventos_ini)} con_duracion={sum(1 for e in eventos_ini if isinstance(e.get('duracion_min'), int))}",
+    )
+    check(
+        "[INICIO] una sola peticion trae agenda, tareas, bitacora y mantenimiento",
+        cod_ini == 200 and all(k in r_ini for k in ("eventos", "tareas", "registros", "mantenimiento", "dashboard", "ajustes")),
+        f"-> claves={len(r_ini) if isinstance(r_ini, dict) else 0}",
+    )
+
     print("=" * 70)
     if fallos:
         print(f"RESULTADO: {len(fallos)} CASO(S) FALLIDO(S): {fallos}")

@@ -308,6 +308,31 @@ comprometerse a guardar la conexion.
 > la v35 con el esquema `VerificacionOut` y cubierto por 4 comprobaciones
 > automaticas que fallan si vuelve a pasar.
 
+
+## 11. Conectar cualquier sistema de IA o de agente con su URL (v40)
+
+Ademas de los 18 motores que se detectan solos, puedes **pegar la direccion a mano** de
+cualquier IA o agente que tengas (LiteLLM, Open WebUI, vLLM, un flujo de Flowise, un
+servidor tuyo...).
+
+| Paso | Que haces | Que hace LifeAgente |
+|---|---|---|
+| 1 | Pegas la URL (y la clave si la pide) en *Conectar IA > 2. Usa la IA de tu computador* | — |
+| 2 | Pulsas **Probar esta direccion** | Prueba 3 formatos a la vez: Ollama (`/api/tags`), OpenAI (`/v1/models` con `Authorization: Bearer`) y Anthropic (`x-api-key` + `anthropic-version`) |
+| 3 | Ves el estilo detectado y los modelos que hay | Te dice como se llama y quantos modelos tiene |
+| 4 | Pulsas **Guardar conexion** | Guarda la conexion con el estilo y el primer modelo, y la deja activa |
+
+El proveedor nuevo del catalogo se llama **personalizado** (icono 🔌, modo `local`).
+
+| Ruta | Que hace |
+|---|---|
+| `POST /api/conexiones/probar-url` | `{base_url, api_key?}` -> `{ok, estilo, base_url, modelos[], total, mensaje}` |
+| `GET /api/conexiones/locales` | lista los motores detectados (18, en paralelo) + autoconexion |
+
+Si el sistema no responde, la API **no se cae**: devuelve `ok: false` con un mensaje claro
+("No respondio en esa direccion. Revisa la URL, que el sistema este encendido y si
+necesita clave.").
+
 ## 9. Referencias
 
 - `backend/app/connections.py` — catálogo, detección local y verificación.

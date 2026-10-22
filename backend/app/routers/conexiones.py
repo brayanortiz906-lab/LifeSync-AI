@@ -219,10 +219,29 @@ def guardar(payload: ConexionCreate, db: Session = Depends(get_db, scope="functi
         credenciales["token"] = payload.token.strip()
     if payload.email:
         credenciales["email"] = payload.email.strip()
+    if payload.estilo:
+        credenciales["estilo"] = payload.estilo.strip().lower()
     if not credenciales.get("base_url") and prov.base_url:
         # Los motores locales (Ollama, LM Studio) ya traen su dirección: si el
         # usuario no escribe nada, se usa la de por defecto.
         credenciales["base_url"] = prov.base_url
+    if (
+        not credenciales.get("estilo")
+        and credenciales.get("base_url")
+        and (pid in con.PROVEEDOR_LOCAL_GENERICO or pid == "personalizado")
+    ):
+        # Averiguamos solo como hablarle a su sistema (OpenAI, Ollama o
+        # Anthropic) y, si hay modelos, cogemos el primero.
+        try:
+            deteccion = con.detectar_estilo_y_modelos(
+                credenciales["base_url"], credenciales.get("api_key") or ""
+            )
+        except Exception:
+            deteccion = {}
+        if deteccion.get("ok"):
+            credenciales["estilo"] = deteccion.get("estilo") or "openai"
+            if deteccion.get("modelos") and not payload.modelo:
+                credenciales["modelo_detectado"] = deteccion["modelos"][0]
 
     existente = db.scalars(
         select(ConexionIA).where(ConexionIA.proveedor == pid)
@@ -243,7 +262,11 @@ def guardar(payload: ConexionCreate, db: Session = Depends(get_db, scope="functi
 
     existente.nombre = payload.nombre or prov.nombre
     existente.modo = payload.modo or prov.modo
-    existente.modelo = payload.modelo or prov.modelo_defecto
+    existente.modelo = (
+        payload.modelo
+        or credenciales.get("modelo_detectado")
+        or prov.modelo_defecto
+    )
     existente.estado = "pendiente_verificacion"
     existente.detalle_estado = "Conectado. Falta verificar que responda."
     db.flush()
@@ -289,6 +312,33 @@ async def verificar_sin_guardar(payload: ConexionTest):
         payload.proveedor, cred, payload.modelo or None
     )
     return {"ok": ok, "mensaje": mensaje, "detalle": extra}
+
+
+@router.post("/probar-url")
+def probar_url(payload: dict):
+    """Detecta como habla un sistema que la persona YA tiene en su equipo.
+
+    La persona pega la direccion de su IA o de su sistema de agentes y
+    LifeAgente averigua si habla como OpenAI, como Ollama o como Anthropic,
+    y le lista los modelos que encuentra.
+    """
+    base_url = str(payload.get("base_url") or payload.get("url") or "").strip()
+    clave = str(payload.get("api_key") or payload.get("clave") or "").strip()
+    if not base_url:
+        raise HTTPException(
+            status_code=400,
+            detail="Escribe la direccion de tu sistema (por ejemplo http://127.0.0.1:4000/v1).",
+        )
+    deteccion = con.detectar_estilo_y_modelos(base_url, clave)
+    modelos = list(deteccion.get("modelos") or [])
+    return {
+        "ok": bool(deteccion.get("ok")),
+        "estilo": deteccion.get("estilo") or "",
+        "base_url": deteccion.get("base_url") or base_url,
+        "modelos": modelos[:40],
+        "total": len(modelos),
+        "mensaje": deteccion.get("mensaje") or "",
+    }
 
 
 @router.post("/{conexion_id}/activar", response_model=ConexionOut)

@@ -331,18 +331,51 @@ def configuracion_smtp(db: SASession | None = None) -> dict[str, Any]:
     return datos
 
 
+def enviar_codigo_smtp_directo(
+    destinatario: str,
+    asunto: str,
+    cuerpo: str,
+    html: str,
+    smtp: dict[str, Any],
+) -> tuple[bool, str]:
+    """Envia con SMTP. Devuelve (ok, mensaje)."""
+    try:
+        mensaje = EmailMessage()
+        mensaje["Subject"] = asunto
+        mensaje["From"] = smtp.get("desde") or smtp.get("usuario") or ""
+        mensaje["To"] = destinatario
+        mensaje.set_content(cuerpo)
+        mensaje.add_alternative(html, subtype="html")
+        with smtplib.SMTP(smtp["host"], int(smtp.get("puerto") or 587), timeout=20) as srv:
+            srv.starttls(context=ssl.create_default_context())
+            if smtp.get("usuario"):
+                srv.login(smtp["usuario"], smtp.get("clave") or "")
+            srv.send_message(mensaje)
+        return True, "Enviado por correo."
+    except Exception as exc:  # pragma: no cover - depende del SMTP
+        print(f"[correo] no se pudo enviar a {destinatario}: {exc}")
+        return False, f"No se pudo enviar por correo: {exc}"
+
+
 def enviar_codigo(
     correo: str, codigo: str, nombre: str = "", db: SASession | None = None
 ) -> str:
-    """Envía el código por correo. Devuelve 'smtp', 'consola' o 'ninguno'.
+    """Envia el codigo por correo.
 
-    El código NUNCA se guarda en claro: en la base de datos solo queda su
+    Devuelve 'brevo', 'resend', 'smtp', 'consola' o 'ninguno'.
+
+    El codigo NUNCA se guarda en claro: en la base de datos solo queda su
     hash (SHA-256). Si alguien lee la base de datos, no puede usarlos para
-    entrar. En produccion, ademas, el código no se devuelve en la respuesta
+    entrar. En produccion, ademas, el codigo no se devuelve en la respuesta
     de la API ni se imprime en el log del servidor.
+
+    Se puede enviar con Brevo o Resend (una sola clave de API, sin SMTP) o
+    con un servidor SMTP clasico; ver `app.correo`.
     """
+    from . import correo as modulo_correo
+
     asunto = f"Tu codigo de acceso a {settings.app_name}"
-    saludo = f"{(nombre or '').strip()} hola:" if (nombre or "").strip() else "Hola:"
+    saludo = f"{(nombre or '').strip()} hola:" if (nombre or '').strip() else "Hola:"
     cuerpo = (
         f"{saludo}\n\n"
         f"Tu codigo para entrar a {settings.app_name} es:\n\n"
@@ -351,7 +384,7 @@ def enviar_codigo(
         "Si no fuiste tu, ignora este mensaje: nadie puede entrar con el solo "
         "tener este correo.\n\n"
         "--\n"
-        f"{settings.app_name} · Asistente Integral de Vida y Productividad"
+        f"{settings.app_name} - Asistente Integral de Vida y Productividad"
     )
     html = f"""<!doctype html>
 <html lang="es"><body style="margin:0;padding:24px;background:#0f172a;
@@ -369,34 +402,27 @@ background:#0f172a;border:1px solid #4338ca;border-radius:12px;padding:16px;colo
     </p>
   </div>
 </body></html>"""
-    smtp = configuracion_smtp(db)
-    if smtp["host"]:
-        try:
-            mensaje = EmailMessage()
-            mensaje["Subject"] = asunto
-            mensaje["From"] = smtp["desde"] or smtp["usuario"]
-            mensaje["To"] = correo
-            mensaje.set_content(cuerpo)
-            mensaje.add_alternative(html, subtype="html")
-            with smtplib.SMTP(smtp["host"], smtp["puerto"], timeout=20) as srv:
-                srv.starttls(context=ssl.create_default_context())
-                if smtp["usuario"]:
-                    srv.login(smtp["usuario"], smtp["clave"])
-                srv.send_message(mensaje)
-            return "smtp"
-        except Exception as exc:  # pragma: no cover - depende del SMTP
-            print(f"[correo] no se pudo enviar a {correo}: {exc}")
+    modo, mensaje = modulo_correo.enviar_correo(correo, asunto, cuerpo, html, db=db, nombre=nombre)
+    if modo in ("brevo", "resend", "smtp"):
+        print(f"[correo] codigo enviado a {correo} con {modo}")
+        return modo
+    if modo == "error":
+        print(f"[correo] fallo al enviar a {correo}: {mensaje}")
+        if settings.es_produccion:
             return "ninguno"
-    # Sin SMTP configurado.
+        return "consola"
+    # Sin proveedor configurado.
     if settings.es_produccion:
         # En produccion NO se suelta el codigo por pantalla ni al log.
-        print(f"[correo] SMTP no configurado; no se puede enviar el codigo a {correo}")
+        print(f"[correo] no hay proveedor de correo configurado; no se puede enviar a {correo}")
         return "ninguno"
     # Modo desarrollo: el codigo se muestra en la respuesta (quien lo pide es
     # la propia persona). Al log NO se escribe: un codigo de acceso en el
     # log del servidor es una puerta abierta (quien lo lea entra).
     print(f"[correo] codigo de acceso generado para {correo} (6 digitos; no se escribe en el log)")
     return "consola"
+
+
 
 
 # --------------------------------------------------------------------------- #

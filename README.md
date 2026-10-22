@@ -13,7 +13,7 @@ reorganiza tu agenda ante imprevistos y registra lo que te pasa en lenguaje natu
 | | |
 |---|---|
 | **Versión** | `v1.1.0` (release con el instalador `.exe` y el código completo) · el número vive en el archivo [`VERSION`](VERSION) |
-| **Pruebas** | 143 comprobaciones automáticas (`backend/smoke.py`) + build TypeScript |
+| **Pruebas** | 150  comprobaciones automáticas (`backend/smoke.py`) + build TypeScript |
 | **Documentación** | 20 documentos (`docs/00-INDICE.md` es el índice) + [`CHANGELOG.md`](CHANGELOG.md) |
 | **Interfaz** | React 19 · Vite 7 · TypeScript · Tailwind CSS v4 · Zustand 5 |
 | **API** | FastAPI · SQLAlchemy 2 · SQLite · Pydantic v2 |
@@ -338,7 +338,7 @@ Detalle completo en [`docs/06-CONE-XIONES.md`](docs/06-CONE-XIONES.md).
 
 ### Verificación automática
 
-Con el backend corriendo, `backend/smoke.py` comprueba los 143 casos de uso contra la
+Con el backend corriendo, `backend/smoke.py` comprueba los 150  casos de uso contra la
 base de datos real (calendario, bitácora, tareas, mantenimiento, multi-intención,
 cascadas de registro automático, el sistema de IA responsable, el centro de conexiones
 y los permisos con piloto automático):
@@ -657,7 +657,7 @@ imagen de Python 3.12 que corre la API. La base SQLite vive en el volumen `/data
 
 ### 1-bis.4 Automatización (CI)
 
-`.github/workflows/ci.yml` corre en cada push: levanta la API, ejecuta los **143 casos** de
+`.github/workflows/ci.yml` corre en cada push: levanta la API, ejecuta los **150  casos** de
 `backend/smoke.py` (que incluyen el chat multi-intención, las cascadas, el sistema responsable,
 el centro de conexiones y los permisos con piloto automático) y compila el frontend con
 `tsc -b && vite build`. La insignia de arriba refleja el estado real del último push.
@@ -669,7 +669,7 @@ el centro de conexiones y los permisos con piloto automático) y compila el fron
 ```
 .
 ├── .github/workflows/
-│   ├── ci.yml                   ← CI: 143 casos del smoke test + build del frontend
+│   ├── ci.yml                   ← CI: 150  casos del smoke test + build del frontend
 │   ├── daily.yml                ← Tarea diaria (respaldo + resumen por correo)
 │   └── deploy-pages.yml         ← Publica la interfaz en GitHub Pages
 ├── .devcontainer/               ← Codespaces: Python 3.12 + Node 20 preinstalados
@@ -791,7 +791,8 @@ el centro de conexiones y los permisos con piloto automático) y compila el fron
 | [docs/17-INSTALADOR-LOCAL.md](docs/17-INSTALADOR-LOCAL.md) | El instalador `.exe` de Windows: qué lleva dentro, dónde viven los datos y cómo se compila |
 | [docs/18-IA-LIGERA-Y-ACCESO.md](docs/18-IA-LIGERA-Y-ACCESO.md) | Credenciales públicas (acceso en un clic) y descarga de una IA super ligera |
 | [docs/19-RENDIMIENTO.md](docs/19-RENDIMIENTO.md) | Por qué la app no se siente lenta: mediciones antes/después y los 5 arreglos |
-| [docs/20-CORREO-Y-RENDIMIENTO.md](docs/20-CORREO-Y-RENDIMIENTO.md) | El código de verificación que sí llega, la app en 1 sola petición y el correo como almacén |
+| [docs/20-CORREO-Y-RENDIMIENTO.md]
+| [docs/22-CORREO-Y-AGENTES.md](docs/22-CORREO-Y-AGENTES.md) | Correo con una sola clave (Brevo/Resend), 18 motores de IA detectados y conexion manual por URL |(docs/20-CORREO-Y-RENDIMIENTO.md) | El código de verificación que sí llega, la app en 1 sola petición y el correo como almacén |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Cómo contribuir: reglas del proyecto, qué comprobar antes de un PR y dónde tocar cada cosa |
 | [SECURITY.md](SECURITY.md) | Política de seguridad: qué datos se cifran, qué **no** pegar en un issue y cómo reportar un problema |
 
@@ -1095,7 +1096,7 @@ Detalle tecnico: `docs/13-MOTOR-LOCAL.md`.
 
 | Pieza | Dónde | Qué hace |
 |---|---|---|
-| **CI** | `.github/workflows/ci.yml` | en cada push: levanta la API, corre los **143 casos** del smoke test, valida el System Prompt y compila la interfaz |
+| **CI** | `.github/workflows/ci.yml` | en cada push: levanta la API, corre los **150  casos** del smoke test, valida el System Prompt y compila la interfaz |
 | **Publicación de la web** | `.github/workflows/deploy-pages.yml` | compila la interfaz y la publica en la rama `gh-pages` (que es la que sirve GitHub Pages) |
 | **Tarea diaria** | `.github/workflows/daily.yml` | despierta la API, guarda el respaldo en Drive y manda el resumen por correo |
 | **Instalador** | `.github/workflows/build-installer.yml` | compila el `.exe` de Windows y lo publica como descarga en cada release |
@@ -1119,7 +1120,7 @@ Detalle tecnico: `docs/13-MOTOR-LOCAL.md`.
 
 | Workflow | Cuándo se dispara | Qué hace |
 |---|---|---|
-| `CI` | push y pull request en `main` | 143 comprobaciones + build de TypeScript |
+| `CI` | push y pull request en `main` | 150  comprobaciones + build de TypeScript |
 | `Publicar la interfaz` | push en `main` | publica en GitHub Pages |
 | `Instalador de Windows` | a mano o al crear un tag `v*` | compila el `.exe` y lo sube al release |
 | `Tarea diaria` | todos los días a las 06:00 (Colombia) | respaldo + resumen por correo |
@@ -1156,3 +1157,45 @@ La contrasena equivocada no crea cuentas nuevas y no revela si un correo esta
 registrado. La sesion se recuerda 30 dias.
 
 Detalle: [`docs/09-CUENTAS.md`](docs/09-CUENTAS.md)
+
+
+### Correo con una sola clave (Brevo o Resend)
+
+Para que el **codigo de verificacion llegue de verdad** no hace falta montar un servidor de
+correo: dos servicios lo hacen con **una clave de API** y funcionan aunque el hosting
+bloquee los puertos de SMTP (como el plan gratis de Render).
+
+| Camino | Que pegas | Plan gratis | Donde |
+|---|---|---|---|
+| **Brevo** (recomendado) | la clave `xkeysib-...` | **300 correos/dia** | [app.brevo.com/settings/keys/api](https://app.brevo.com/settings/keys/api) |
+| **Resend** | la clave `re_...` | **3.000 correos/mes** | [resend.com/api-keys](https://resend.com/api-keys) |
+| SMTP clasico | host, puerto, usuario y clave de aplicacion | depende | el correo que uses |
+
+**Como se activa (3 pasos, desde la app):**
+1. Abre **Conectar IA > Ajustes tecnicos > Envio de correo** (solo administradores).
+2. Elige Brevo o Resend, pega la clave y escribe el remitente.
+3. Pulsa **Mandar un correo de prueba**. Si llega, el codigo de verificacion sale solo.
+
+La clave se guarda **cifrada** y la API nunca la devuelve. Si el proveedor falla, se prueba
+otro que este listo; y en produccion el codigo **nunca** se muestra en pantalla.
+
+Detalle en `docs/22-CORREO-Y-AGENTES.md`.
+
+### Conecta tu propio sistema de IA o de agentes con su URL
+
+LifeAgente detecta **18 sistemas** de IA y de agentes en tu computador, todos a la vez
+(~20 ms): Ollama, LM Studio, Jan, GPT4All, llama.cpp/LocalAI, text-generation-webui,
+KoboldCpp, vLLM, TabbyAPI, LiteLLM, Open WebUI, AnythingLLM, Flowise, Dify, Msty y
+cualquier servidor compatible con OpenAI.
+
+Y si el tuyo vive en otro puerto (o es un agente tuyo), **pides la direccion a mano**:
+
+1. **Conectar IA > 2. Usa la IA de tu computador** -> *¿Tienes otro sistema de IA o de
+   agentes? Conéctalo con su URL*.
+2. Pega `http://127.0.0.1:4000` (y la clave, si la pide) -> **Probar esta direccion**.
+3. LifeAgente **averigua solo como hablarle** (Ollama, compatible con OpenAI o compatible
+   con Anthropic), te muestra los modelos que tiene y pulsas **Guardar conexion**.
+
+Tambien puedes pegar la URL desde la **agenda**, en la tarjeta **Cosas de local**.
+
+

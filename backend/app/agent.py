@@ -778,6 +778,8 @@ async def procesar_mensaje(db: Session, req: ChatRequest) -> ChatResponse:
     # estar cifrada en el servidor ("recordar en el servidor").
     api_key = req.api_key or descifrar(app.api_key_cifrada)
     base_url: str | None = None
+    #: Como habla el sistema propio de la persona: "openai" | "ollama" | "anthropic".
+    estilo: str = ""
 
     # Conexión activa del "Centro de conexiones": trae credencial cifrada y la
     # URL del motor local cuando aplica (Ollama / LM Studio).
@@ -806,6 +808,9 @@ async def procesar_mensaje(db: Session, req: ChatRequest) -> ChatResponse:
             # defecto si el usuario no	configuro otra.
             prov = conexiones.obtener_proveedor(conexion.proveedor)
             base_url = prov.base_url if prov else None
+        # El estilo se detecto al conectar (OpenAI, Ollama o Anthropic).
+        if cred.get("estilo"):
+            estilo = str(cred["estilo"])
         if not req.modelo and conexion.modelo:
             modelo = conexion.modelo
         if not req.proveedor:
@@ -847,7 +852,7 @@ async def procesar_mensaje(db: Session, req: ChatRequest) -> ChatResponse:
 
     texto = await providers.complete(
         system_prompt, user_prompt, proveedor=proveedor, api_key=api_key, modelo=modelo,
-        mensaje_original=mensaje, base_url=base_url,
+        mensaje_original=mensaje, base_url=base_url, estilo=estilo,
     )
     crudo = providers.extract_json(texto)
 

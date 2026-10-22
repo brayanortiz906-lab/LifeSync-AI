@@ -571,6 +571,104 @@ def probar_smtp(db: Session = Depends(get_db, scope="function"), usuario=Depends
     raise HTTPException(status_code=502, detail="El servidor de correo no pudo enviar el mensaje. Revisa host, puerto y clave.")
 
 
+# --------------------------------------------------------------------------- #
+# Envio de correo SIN SMTP: Brevo o Resend (v39)
+# --------------------------------------------------------------------------- #
+@router.get("/correo")
+def ver_correo(db: Session = Depends(get_db, scope="function"), usuario=Depends(usuario_admin)):
+    """Estado del envio de correo: proveedor, si esta listo y NUNCA la clave."""
+    from ..correo import catalogo_proveedores, resumen_configuracion
+
+    return {"ok": True, "proveedores": catalogo_proveedores(), **resumen_configuracion(db)}
+
+
+@router.put("/correo")
+def guardar_correo(payload: dict, db: Session = Depends(get_db, scope="function"), usuario=Depends(usuario_admin)):
+    """Guarda el proveedor de correo (Brevo, Resend o SMTP) con su clave cifrada.
+
+    Con Brevo o Resend basta UNA clave de API: sin puertos de correo, sin
+    servidor SMTP y sin claves de aplicacion.
+    """
+    from ..correo import resumen_configuracion
+    from ..models import ConfiguracionServidor
+    from ..security import cifrar
+
+    proveedor = str(payload.get("proveedor") or "smtp").strip().lower()
+    if proveedor not in ("brevo", "resend", "smtp"):
+        raise HTTPException(
+            status_code=400,
+            detail="Ese proveedor no existe. Usa Brevo (300 correos al dia), Resend (3.000 al mes) o SMTP.",
+        )
+    clave = str(payload.get("api_key") or payload.get("clave") or payload.get("password") or "").strip()
+    remitente = str(payload.get("remitente") or payload.get("desde") or "").strip()
+    fila = db.query(ConfiguracionServidor).order_by(ConfiguracionServidor.id).first()
+    if fila is None:
+        fila = ConfiguracionServidor()
+        db.add(fila)
+    fila.proveedor_correo = proveedor
+    if remitente:
+        fila.remitente = remitente[:160]
+    if clave:
+        fila.api_key_cifrada = cifrar(clave)
+    if proveedor == "smtp":
+        host = str(payload.get("host") or "").strip()
+        if host:
+            fila.smtp_host = host[:120]
+        if payload.get("puerto"):
+            try:
+                fila.smtp_port = int(payload.get("puerto"))
+            except Exception:
+                fila.smtp_port = 587
+        usuario_smtp = str(payload.get("usuario") or "").strip()
+        if usuario_smtp:
+            fila.smtp_user = usuario_smtp[:160]
+        if remitente:
+            fila.smtp_desde = remitente[:160]
+        if clave:
+            fila.smtp_password_cifrado = cifrar(clave)
+    db.commit()
+    return {
+        "ok": True,
+        "mensaje": "Correo configurado. A partir de ahora el codigo de verificacion si llega.",
+        **resumen_configuracion(db),
+    }
+
+
+@router.post("/correo/probar")
+def probar_correo(payload: dict, db: Session = Depends(get_db, scope="function"), usuario=Depends(usuario_admin)):
+    """Manda un correo de prueba para confirmar que el envio funciona."""
+    from ..correo import enviar_correo, resumen_configuracion
+
+    resumen = resumen_configuracion(db)
+    destinatario = str(payload.get("correo") or "").strip() or str(resumen.get("remitente") or "").strip()
+    if not destinatario:
+        raise HTTPException(
+            status_code=400,
+            detail="Dinos a que correo mandamos la prueba (deja el campo 'correo' o pon un remitente).",
+        )
+    asunto = f"Prueba de correo de {settings.app_name}"
+    texto = (
+        "Este es un correo de prueba de LifeAgente AI.\n\n"
+        "Si lo recibiste, el envio de correo funciona y el codigo de verificacion "
+        "te llegara a tu bandeja."
+    )
+    html = (
+        "<div style='font-family:system-ui,sans-serif;background:#0f172a;color:#e2e8f0;"
+        "padding:24px;border-radius:12px'>"
+        "<h3 style='color:#c7d2fe;margin:0 0 8px'>LifeAgente AI</h3>"
+        "<p style='margin:0'>Este es un correo de prueba. Si lo recibiste, el envio "
+        "de correo funciona y el codigo de verificacion te llegara.</p></div>"
+    )
+    modo, mensaje = enviar_correo(destinatario, asunto, texto, html, db=db)
+    if modo in ("brevo", "resend", "smtp"):
+        return {
+            "ok": True,
+            "modo": modo,
+            "mensaje": f"Correo de prueba enviado a {destinatario} con {modo}. Revisa la bandeja de entrada y el correo no deseado.",
+        }
+    raise HTTPException(status_code=502, detail=mensaje or "No se pudo enviar el correo de prueba.")
+
+
 def db_smtp_fila():
     """Fila de configuracion del servidor (la primera)."""
     from ..database import SessionLocal

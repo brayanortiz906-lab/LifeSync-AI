@@ -170,6 +170,12 @@ class ConfiguracionServidor(Base):
     #: Clave del correo (o clave de aplicacion), cifrada con Fernet.
     smtp_password_cifrado: Mapped[str | None] = mapped_column(Text, default=None)
     smtp_desde: Mapped[str] = mapped_column(String(160), default="")
+    #: Proveedor de correo sin SMTP: "brevo" | "resend" | "smtp" (v39).
+    proveedor_correo: Mapped[str] = mapped_column(String(20), default="smtp")
+    #: Clave de API del proveedor (Brevo / Resend), cifrada con Fernet (v39).
+    api_key_cifrada: Mapped[str | None] = mapped_column(Text, default=None)
+    #: Correo remitente (el que el proveedor tiene verificado) (v39).
+    remitente: Mapped[str] = mapped_column(String(160), default="")
     actualizado_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
 

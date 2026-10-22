@@ -16,8 +16,8 @@ import {
 } from 'lucide-react'
 import { api, apiGuardadaEsEstatica, cuentas, guardarUrlApi, leerUrlApi, urlApiEnUso } from '../lib/api'
 import type {
-  AutorizacionCuenta, CatalogoModelos, Conexion, Diagnostico, EstadoGoogle, ModeloCatalogo,
-  MotorLocal, ProveedorCatalogo,
+  AutorizacionCuenta, CatalogoModelos, Conexion, Diagnostico, EstadoGoogle, InfoEstiloUrl,
+  ModeloCatalogo, MotorLocal, ProveedorCatalogo,
 } from '../types'
 import { Aviso, Boton, Campo, Chip, Modal } from './ui'
 import BloqueIaLigera from './BloqueIaLigera'
@@ -124,6 +124,11 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
   const [cargandoModelos, setCargandoModelos] = useState(false)
   /** Autodiagnostico del servidor (v37): que falta por configurar. */
   const [diagnostico, setDiagnostico] = useState<Diagnostico | null>(null)
+  /** Conexion manual por URL (v40): cualquier IA o agente con su direccion. */
+  const [urlManual, setUrlManual] = useState('')
+  const [claveManual, setClaveManual] = useState('')
+  const [estiloUrl, setEstiloUrl] = useState<InfoEstiloUrl | null>(null)
+  const [probandoUrl, setProbandoUrl] = useState(false)
 
   const cargar = async () => {
     try {
@@ -337,6 +342,55 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
     await cargar()
   }
 
+  /** Prueba una direccion a mano y averigua sola como hablarle (v40). */
+  const probarUrlManual = async () => {
+    const url = urlManual.trim()
+    if (!url) {
+      setEstado({ ok: false, texto: 'Escribe la direccion de tu sistema de IA (por ejemplo http://127.0.0.1:4000).' })
+      return
+    }
+    setProbandoUrl(true)
+    setEstado(null)
+    setEstiloUrl(null)
+    try {
+      const info = await api.probarUrl(url, claveManual.trim() || undefined)
+      setEstiloUrl(info)
+      setEstado({ ok: info.ok, texto: info.mensaje })
+    } catch (e) {
+      setEstado({ ok: false, texto: (e as Error).message })
+    } finally {
+      setProbandoUrl(false)
+    }
+  }
+
+  /** Guarda la conexion manual con el estilo y el modelo detectados. */
+  const guardarUrlManual = async () => {
+    if (!estiloUrl?.ok) return
+    setOcupado(true)
+    try {
+      const guardada = await api.guardarConexion({
+        proveedor: 'personalizado',
+        base_url: urlManual.trim(),
+        api_key: claveManual.trim() || undefined,
+        modelo: estiloUrl.modelos[0],
+        estilo: estiloUrl.estilo,
+        nombre: `Mi sistema (${estiloUrl.estilo})`,
+        modo: 'local',
+      })
+      const verificada = await api.verificarConexion(guardada.id)
+      setEstado({
+        ok: verificada.estado === 'activa',
+        texto: verificada.detalle_estado ?? 'Conectado.',
+      })
+      setClaveManual('')
+      await cargar()
+    } catch (e) {
+      setEstado({ ok: false, texto: (e as Error).message })
+    } finally {
+      setOcupado(false)
+    }
+  }
+
   const porModo = (modo: string) => catalogo.filter((c) => c.modo === modo)
   const motoresDisponibles = motores.filter((m) => porModo('local').some((c) => c.id === m.id))
   /** Cuentas de entrada que no son Google (Outlook, GitHub). */
@@ -509,6 +563,73 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
               ) : (
                 <BloqueIaLigera alCambiar={() => void cargar()} />
               )}
+
+              {/* Conexion manual por URL (v40): cualquier IA o agente. */}
+              <div className="rounded-xl border border-white/10 bg-white/3 p-3">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-100">
+                  <Plug size={13} />
+                  ¿Tienes otro sistema de IA o de agentes? Conéctalo con su URL
+                </div>
+                <p className="mt-1 text-[10px] leading-relaxed text-slate-400">
+                  Si tu IA vive en otro puerto o es un agente tuyo (LiteLLM, Open WebUI, vLLM,
+                  un servidor propio...), pega su dirección. LifeAgente averigua solo cómo hablarle.
+                </p>
+                <div className="mt-2 space-y-2">
+                  <input
+                    className="ls-input"
+                    placeholder="http://127.0.0.1:4000"
+                    value={urlManual}
+                    onChange={(e) => {
+                      setUrlManual(e.target.value)
+                      setEstiloUrl(null)
+                    }}
+                  />
+                  <input
+                    className="ls-input"
+                    type="password"
+                    placeholder="Clave (si el sistema la pide) - opcional"
+                    value={claveManual}
+                    onChange={(e) => setClaveManual(e.target.value)}
+                  />
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <Boton
+                    variante="secundario"
+                    onClick={() => void probarUrlManual()}
+                    disabled={probandoUrl || ocupado}
+                    className="!px-3 !py-1.5 text-[11px]"
+                  >
+                    {probandoUrl ? 'Probando…' : 'Probar esta dirección'}
+                  </Boton>
+                  {estiloUrl?.ok && (
+                    <Boton
+                      variante="primario"
+                      onClick={() => void guardarUrlManual()}
+                      disabled={ocupado}
+                      className="!px-3 !py-1.5 text-[11px]"
+                    >
+                      Guardar conexión
+                    </Boton>
+                  )}
+                </div>
+                {estiloUrl && (
+                  <div
+                    className={`mt-2 rounded-lg border px-2.5 py-2 text-[10px] leading-relaxed ${
+                      estiloUrl.ok
+                        ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200'
+                        : 'border-amber-500/30 bg-amber-500/10 text-amber-200'
+                    }`}
+                  >
+                    {estiloUrl.mensaje}
+                    {estiloUrl.ok && estiloUrl.modelos.length > 0 && (
+                      <div className="mt-1 text-slate-300">
+                        Modelos: {estiloUrl.modelos.slice(0, 6).join(', ')}
+                        {estiloUrl.total > 6 ? `… y ${estiloUrl.total - 6} mas` : ''}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </BloqueSeccion>
 
             {/* ============ 3 · Conectar una IA con clave ============ */}

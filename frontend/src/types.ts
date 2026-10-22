@@ -489,6 +489,20 @@ export interface InfoClientesPublicos {
   configurado: boolean
 }
 
+/**
+ * Resultado de probar una direccion a mano (v40): que sistema es, como
+ * hablarle y que modelos tiene.
+ */
+export interface InfoEstiloUrl {
+  ok: boolean
+  /** "ollama", "openai" o "anthropic": como habla ese sistema. */
+  estilo: string
+  base_url: string
+  modelos: string[]
+  total: number
+  mensaje: string
+}
+
 /** Estado del acceso con Google: dice si ya hay un ID de cliente configurado. */
 export interface EstadoGoogle {
   /** Ya hay un ID de cliente de Google guardado (un clic y entras). */
