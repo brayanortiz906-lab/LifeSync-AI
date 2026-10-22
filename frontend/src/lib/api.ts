@@ -467,6 +467,12 @@ export const cuentas = {
       method: 'PUT',
       body: JSON.stringify(datos),
     }),
+  /** Comprueba un identificador de OAuth contra el proveedor antes de guardarlo. */
+  probarClienteServidor: (proveedor: string, client_id: string) =>
+    request<{ ok: boolean; mensaje: string; detalle?: string }>('/cuentas/servidor/clientes/probar', {
+      method: 'POST',
+      body: JSON.stringify({ proveedor, client_id }),
+    }),
   googleDisponible: () =>
     request<{ ok: boolean; disponible: boolean; mensaje: string }>('/cuentas/google/disponible'),
   /**

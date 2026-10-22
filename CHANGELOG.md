@@ -8,6 +8,21 @@ La app, el instalador `.exe` y las Releases de GitHub muestran la misma.
 
 ---
 
+## v1.5.0 - La guia de las cuentas DENTRO de la app (y un boton que comprueba el identificador)
+
+### Que quedaba: "no me deja entrar con Google / Hotmail / GitHub"
+
+- **Guia paso a paso dentro de la app** (en *Conectar IA > Ajustes tecnicos > Entrar con Google, Outlook o GitHub*): los 6 pasos exactos de cada proveedor, con el enlace a su consola y que copiar. Sin tecnicismos.
+- **Boton "Comprobar"**: antes de guardar, la app pregunta al propio proveedor si el identificador sirve. Si esta mal copiado, lo dice claro ("Ese ID de cliente no existe...") y no se guarda nada.
+- En una **instalacion local** (la que se descarga), el usuario local es el dueno de la maquina y puede activar las cuentas sin buscar un administrador.
+- Las tarjetas de Google / Outlook / GitHub ya se ven tambien en la **pantalla de bienvenida** de la version local.
+
+### Lo demas
+
+- El Drive tiene siempre salida: si no esta autorizado, "Descargar y subir a Drive" (abre el uploader de Google) o "Activar el acceso a Google".
+- La vista del celular empieza por "Tu dia de un vistazo" y el panel "IA de tu movil" recomienda el modelo segun la RAM y los nucleos del aparato.
+- 167 comprobaciones automaticas (2 nuevas: la activacion responde y un identificador falso se rechaza con mensaje claro).
+
 ## v1.4.0 - Entrar con Google, Outlook o GitHub (para toda la gente) + IA del movil
 
 ### Las cuentas de verdad, activables desde la app

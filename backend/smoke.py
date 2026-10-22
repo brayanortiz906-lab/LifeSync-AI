@@ -1393,6 +1393,25 @@ def main() -> int:
         f"-> cod={cod_agentes} agentes={len(cuerpo_agentes.get('agentes', [])) if isinstance(cuerpo_agentes, dict) else 0}",
     )
 
+    # --- Guia y comprobacion de los identificadores de cuentas (v1.5.0) ---
+    cod_guia, cuerpo_guia = pedir_suave("GET", "/api/cuentas/servidor/clientes")
+    check(
+        "[CUENTAS] la activacion de cuentas responde (admin o proteccion)",
+        cod_guia in (200, 403),
+        f"-> cod={cod_guia}",
+    )
+    cod_prueba, cuerpo_prueba = pedir_suave(
+        "POST", "/api/cuentas/servidor/clientes/probar",
+        {"proveedor": "google_cuenta", "client_id": "1234567890-abcd.apps.googleusercontent.com"},
+    )
+    check(
+        "[CUENTAS] un identificador falso se rechaza con un mensaje claro",
+        (cod_prueba == 200 and isinstance(cuerpo_prueba, dict) and cuerpo_prueba.get("ok") is False
+         and "no existe" in str(cuerpo_prueba.get("mensaje", "")))
+        or cod_prueba in (400, 403),
+        f"-> cod={cod_prueba} ok={cuerpo_prueba.get('ok') if isinstance(cuerpo_prueba, dict) else '-'}",
+    )
+
     limpiar_pruebas()
 
     print("=" * 70)

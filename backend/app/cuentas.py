@@ -811,6 +811,10 @@ def exigir_admin(usuario) -> None:
             status_code=403,
             detail="Esta cuenta esta bloqueada. Escribe al administrador de LifeAgente.",
         )
+    # En una instalacion LOCAL (la que se descarga y corre en tu computador)
+    # el unico usuario es el dueno de la maquina: el admin es el usuario local.
+    if settings.perfil_efectivo == "local" and getattr(usuario, "id", 0) == 1:
+        return
     if (getattr(usuario, "rol", "") or "") != "admin":
         raise HTTPException(
             status_code=403,

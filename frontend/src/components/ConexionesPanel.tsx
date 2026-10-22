@@ -11,7 +11,7 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import {
-  ArrowRight, Check, ChevronDown, CircleAlert, Cpu, Eye, EyeOff, Loader2, LogIn,
+  ArrowRight, BookOpen, Check, ChevronDown, CircleAlert, Cpu, Eye, EyeOff, Loader2, LogIn,
   Mail, MonitorSmartphone, Plug, RefreshCw, Search, Server, Settings, ShieldCheck, Sparkles,
   KeyRound, Trash2, Wifi, Wrench,
 } from 'lucide-react'
@@ -87,6 +87,46 @@ function BloqueSeccion({
   )
 }
 
+const GUIA_CUENTAS = [
+  {
+    clave: 'google' as const,
+    titulo: 'Google (para Google, Drive, Calendar y correo)',
+    url: 'https://console.cloud.google.com/apis/credentials',
+    pasos: [
+      'Abre la consola de Google Cloud y elige un proyecto (o crea uno con el boton de arriba).',
+      'Pulsa "Crear credenciales" y luego "ID de cliente OAuth".',
+      'En "Tipo de aplicacion" elige "App de escritorio" (es el que funciona sin URL de redireccion).',
+      'Ponle un nombre (por ejemplo "LifeAgente") y pulsa "Crear".',
+      'Se abre una ventana con tu ID de cliente: una linea larga que termina en .apps.googleusercontent.com. Copiala con el boton de copiar.',
+      'Pega el ID aqui arriba, pulsa "Comprobar" y, si dice que esta bien, "Guardar y activarlo para todos".',
+    ],
+  },
+  {
+    clave: 'github' as const,
+    titulo: 'GitHub (para entrar con tu cuenta de GitHub)',
+    url: 'https://github.com/settings/developers',
+    pasos: [
+      'Abre los ajustes dedevelopers de tu cuenta de GitHub.',
+      'Pulsa "New OAuth App" (OAuth Apps).',
+      'Pon "LifeAgente" como nombre y deja las dos URL de redireccion en http://localhost (no se usan, pero GitHub las pide).',
+      'Pulsa "Create OAuth App" y copia el "Client ID" (el secret no hace falta).',
+      'Pegalo aqui arriba, pulsa "Comprobar" y guarda.',
+    ],
+  },
+  {
+    clave: 'outlook' as const,
+    titulo: 'Outlook / Hotmail (para entrar con tu correo de Microsoft)',
+    url: 'https://portal.azure.com/',
+    pasos: [
+      'Entra en el portal de Microsoft Azure y busca "App registrations" (registros de aplicaciones).',
+      'Pulsa "New registration" y ponle el nombre "LifeAgente".',
+      'En "Supported account types" elige la opcion que incluye las cuentas personales (Hotmail, Outlook).',
+      'Registra la aplicacion y copia el "Application (client) ID" que aparece en la pagina de resumen.',
+      'Pegalo aqui arriba, pulsa "Comprobar" y guarda.',
+    ],
+  },
+]
+
 export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolean; onCerrar: () => void }) {
   const [catalogo, setCatalogo] = useState<ProveedorCatalogo[]>([])
   const [conexiones, setConexiones] = useState<Conexion[]>([])
@@ -114,6 +154,12 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
   /** v45: identificadores OAuth del servidor (publicos) para toda la gente. */
   const [clientes, setClientes] = useState({ google: '', outlook: '', github: '' })
   const [estadoClientes, setEstadoClientes] = useState<{ ok: boolean; texto: string } | null>(null)
+  /** La guia paso a paso se puede abrir y cerrar. */
+  const [guiaAbierta, setGuiaAbierta] = useState(false)
+  /** Que proveedor se esta comprobando ahora mismo ('' = ninguno). */
+  const [probandoCliente, setProbandoCliente] = useState('')
+  /** Resultado de la comprobacion de cada identificador. */
+  const [pruebaClientes, setPruebaClientes] = useState<Record<string, { ok: boolean; texto: string }>>({})
   /** v44: en local no hay cuentas: solo IA de tu computador, clave o demo. */
   const perfil = useLifeAgente((s) => s.perfil)
   /** v46: en el movil (o en el APK) solo se ofrecen IAs locales. */
@@ -191,6 +237,23 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
       setClientes({ google: r.google ?? '', outlook: r.outlook ?? '', github: r.github ?? '' })
     } catch {
       /* no es el administrador: no puede verlos */
+    }
+  }
+
+  /** Comprueba un identificador contra el proveedor ANTES de guardarlo. */
+  const comprobarCliente = async (clave: 'google' | 'outlook' | 'github') => {
+    setProbandoCliente(clave)
+    try {
+      const proveedor = clave === 'google' ? 'google_cuenta' : clave === 'outlook' ? 'outlook_cuenta' : 'github_cuenta'
+      const r = await cuentas.probarClienteServidor(proveedor, clientes[clave].trim())
+      setPruebaClientes((p) => ({ ...p, [clave]: { ok: r.ok, texto: r.mensaje } }))
+    } catch (e) {
+      setPruebaClientes((p) => ({
+        ...p,
+        [clave]: { ok: false, texto: (e as Error).message },
+      }))
+    } finally {
+      setProbandoCliente('')
     }
   }
 
@@ -1014,26 +1077,97 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
                           placeholder="identificador de cliente (no es tu contrasena)"
                           className="ls-input mt-1 font-mono text-[11px]"
                         />
-                        <a
-                          href={
-                            k === 'google'
-                              ? 'https://console.cloud.google.com/apis/credentials'
+                        <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                          <a
+                            href={
+                              k === 'google'
+                                ? 'https://console.cloud.google.com/apis/credentials'
+                                : k === 'outlook'
+                                  ? 'https://portal.azure.com/'
+                                  : 'https://github.com/settings/developers'
+                            }
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-[10px] text-indigo-300 underline"
+                          >
+                            {k === 'google'
+                              ? 'Crear el identificador en Google Cloud'
                               : k === 'outlook'
-                                ? 'https://portal.azure.com/'
-                                : 'https://github.com/settings/developers'
-                          }
-                          target="_blank"
-                          rel="noreferrer"
-                          className="mt-1 inline-block text-[10px] text-indigo-300 underline"
-                        >
-                          {k === 'google'
-                            ? 'Crear el identificador en Google Cloud'
-                            : k === 'outlook'
-                              ? 'Crear la app en Microsoft Azure'
-                              : 'Crear la app OAuth en GitHub'}
-                        </a>
+                                ? 'Crear la app en Microsoft Azure'
+                                : 'Crear la app OAuth en GitHub'}
+                          </a>
+                          {clientes[k].trim().length >= 10 && (
+                            <Boton
+                              variante="secundario"
+                              onClick={() => void comprobarCliente(k)}
+                              disabled={probandoCliente === k}
+                            >
+                              {probandoCliente === k ? 'Comprobando…' : 'Comprobar'}
+                            </Boton>
+                          )}
+                        </div>
+                        {pruebaClientes[k] && (
+                          <div
+                            className={`mt-1.5 rounded-lg border px-2.5 py-1.5 text-[10px] leading-relaxed ${
+                              pruebaClientes[k].ok
+                                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200'
+                                : 'border-amber-500/30 bg-amber-500/10 text-amber-200'
+                            }`}
+                          >
+                            {pruebaClientes[k].texto}
+                          </div>
+                        )}
                       </div>
                     ))}
+
+                    {/* Guia paso a paso, dentro de la app. */}
+                    <button
+                      type="button"
+                      onClick={() => setGuiaAbierta((v) => !v)}
+                      className="mt-3 flex w-full items-center gap-2 text-left"
+                    >
+                      <BookOpen size={13} className="text-indigo-300" />
+                      <span className="text-[11px] font-bold text-indigo-200">
+                        Como se hace, paso a paso (sin tecnicismos)
+                      </span>
+                      <ChevronDown
+                        size={13}
+                        className={`ml-auto text-slate-500 transition ${guiaAbierta ? 'rotate-180' : ''}`}
+                      />
+                    </button>
+                    {guiaAbierta && (
+                      <div className="mt-2 space-y-2.5">
+                        {GUIA_CUENTAS.map((g) => (
+                          <div key={g.clave} className="rounded-lg border border-white/8 bg-black/25 p-2.5">
+                            <div className="text-[10px] font-bold text-slate-200">{g.titulo}</div>
+                            <ol className="mt-1.5 space-y-1">
+                              {g.pasos.map((paso, i) => (
+                                <li key={i} className="flex gap-2 text-[10px] leading-relaxed text-slate-400">
+                                  <span className="mt-px grid h-4 w-4 shrink-0 place-items-center rounded-full bg-indigo-500/20 text-[8px] font-bold text-indigo-200">
+                                    {i + 1}
+                                  </span>
+                                  <span>{paso}</span>
+                                </li>
+                              ))}
+                            </ol>
+                            <a
+                              href={g.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="mt-2 inline-block text-[10px] text-indigo-300 underline"
+                            >
+                              Abrir {g.url}
+                            </a>
+                          </div>
+                        ))}
+                        <p className="text-[10px] leading-relaxed text-slate-500">
+                          El identificador de cliente es publico (no es tu contrasena ni un token
+                          privado) y solo sirve para que la app pida permiso a tu cuenta. Con el
+                          abierto, Google, Drive, Calendar y el correo funcionan para toda la
+                          gente que use LifeAgente.
+                        </p>
+                      </div>
+                    )}
                     <div className="mt-2 flex flex-wrap gap-2">
                       <Boton variante="primario" onClick={() => void guardarClientes()}>
                         Guardar y activarlo para todos

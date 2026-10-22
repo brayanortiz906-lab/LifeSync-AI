@@ -1025,3 +1025,57 @@ def guardar_clientes_servidor(
         "outlook": fila.outlook_client_id,
         "github": fila.github_client_id,
     }
+
+
+class ClienteServidorIn(BaseModel):
+    """Identificador publico de OAuth de un proveedor, para probarlo."""
+
+    proveedor: str = "google_cuenta"
+    client_id: str = ""
+
+
+@router.post("/servidor/clientes/probar")
+def probar_cliente_servidor(
+    payload: ClienteServidorIn,
+    db: Session = Depends(get_db, scope="function"),
+    admin=Depends(usuario_admin),
+):
+    """Comprueba que un identificador de OAuth serve ANTES de guardarlo.
+
+    Se hace la misma peticion que luego hara el flujo de cuenta (pedir el
+    codigo de autorizacion al proveedor). Si el proveedor acepta el
+    identificador, el ID es correcto; si lo rechaza, el mensaje explica
+    por que (esta mal copiado, le falta algo o el tipo de app no sirve).
+    """
+    proveedor = (payload.proveedor or "google_cuenta").strip()
+    client_id = (payload.client_id or "").strip()
+    if len(client_id) < 10:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "El identificador esta incompleto. Copialo completo: son unos 100 caracteres "
+                "que terminan en .apps.googleusercontent.com (Google) o en .oauth2 (GitHub)."
+            ),
+        )
+    try:
+        datos = con.iniciar_autorizacion_cuenta(proveedor, client_id)
+    except con.ErrorConexion as exc:
+        return {
+            "ok": False,
+            "mensaje": str(exc),
+            "detalle": "El proveedor no acepto el identificador. Revisa que lo copiaste entero.",
+        }
+    except Exception as exc:  # pragma: no cover - red o proveedor caido
+        return {
+            "ok": False,
+            "mensaje": f"No se pudo comprobar ahora mismo: {exc}",
+            "detalle": "Puedes guardarlo igual e intentarlo despues.",
+        }
+    return {
+        "ok": True,
+        "mensaje": "El identificador es correcto: ya puedes activarlo para todos.",
+        "detalle": (
+            f"El proveedor acepto la solicitud (codigo de autorizacion "
+            f"{datos.get('user_code', '')[:8]}...)."
+        ),
+    }
