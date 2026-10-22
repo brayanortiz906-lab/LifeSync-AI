@@ -1,7 +1,7 @@
 /** Cliente HTTP de la API de LifeAgente AI. */
 import type {
   Ajustes, Aprobacion, AutorizacionCuenta, CatalogoModelos, Conexion, Dashboard, DatosPanel,
-  DescargaIA, EntradaAuditoria, EstadoGoogle,
+  DescargaIA, EntradaAuditoria, EstadoGoogle, Diagnostico,
   EstadoPermisos, InfoClientesPublicos, InfoModelosLigeros, InfoProveedores, Inicio, MiembroPanel,
   Panel, Permiso,
   PerfilCuenta, Respaldo, ResultadoCodigo, ResultadoSesion, Usuario,
@@ -229,6 +229,7 @@ export const api = {
   dashboard: () => request<Dashboard>('/dashboard'),
   /** Todo lo de la pantalla inicial en UNA sola peticion (v36). */
   inicio: () => request<Inicio>('/inicio'),
+  diagnostico: () => request<Diagnostico>('/diagnostico'),
 
   eventos: (desde?: string, hasta?: string) => {
     const q = new URLSearchParams()

@@ -58,3 +58,5 @@ Si buscas **cómo usarlo**: empieza por [`MANUAL-LOCAL.md`](../MANUAL-LOCAL.md)
 | [`MANUAL-LOCAL.md`](../MANUAL-LOCAL.md) | **El manual del sistema**: 5 formas de correrlo, dónde están los datos y qué hace cada archivo. |
 | [`LEEME.txt`](../LEEME.txt) | Arranque rápido en texto plano, para quien no usa Markdown. |
 | [`LICENSE`](../LICENSE) | Licencia MIT. |
+
+| 21 | **Revision del log del servidor y lista de pendientes** | `GET /api/diagnostico` + el bloque *Estado del servidor* (que falta por configurar y como se arregla) | `docs/20-CORREO-Y-RENDIMIENTO.md` |

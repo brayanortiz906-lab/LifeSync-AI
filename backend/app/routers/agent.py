@@ -168,6 +168,17 @@ def leer_settings(db: Session = Depends(get_db, scope="function")):
     )
 
 
+@router.get("/ajustes", response_model=SettingsOut, include_in_schema=False)
+def leer_settings_alias(db: Session = Depends(get_db, scope="function")):
+    """Alias de /settings.
+
+    Las versiones viejas de la interfaz guardada en el navegador pedian
+    /api/ajustes y hoy eso devolvia un 404 confuso. Con este alias, una
+    pestana vieja sigue funcionando (y avisa de que hay version nueva).
+    """
+    return leer_settings(db=db)
+
+
 @router.put("/settings", response_model=SettingsOut)
 def guardar_settings(payload: SettingsUpdate, db: Session = Depends(get_db, scope="function")):
     app = _get_app_settings(db)

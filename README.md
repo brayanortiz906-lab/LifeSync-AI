@@ -13,7 +13,7 @@ reorganiza tu agenda ante imprevistos y registra lo que te pasa en lenguaje natu
 | | |
 |---|---|
 | **Versión** | `v1.0.0` (release con el instalador y el código completo) |
-| **Pruebas** | 140 comprobaciones autom.ticas (`backend/smoke.py`) + build TypeScript |
+| **Pruebas** | 143 comprobaciones autom.ticas (`backend/smoke.py`) + build TypeScript |
 | **Documentación** | 18 documentos (`docs/00-INDICE.md` es el índice) |
 | **Interfaz** | React 19 · Vite 7 · TypeScript · Tailwind CSS v4 · Zustand 5 |
 | **API** | FastAPI · SQLAlchemy 2 · SQLite · Pydantic v2 |
@@ -258,7 +258,7 @@ Detalle completo en [`docs/06-CONE-XIONES.md`](docs/06-CONE-XIONES.md).
 
 ### Verificación automática
 
-Con el backend corriendo, `backend/smoke.py` comprueba los 140 casos de uso contra la
+Con el backend corriendo, `backend/smoke.py` comprueba los 143 casos de uso contra la
 base de datos real (calendario, bitácora, tareas, mantenimiento, multi-intención,
 cascadas de registro automático, el sistema de IA responsable, el centro de conexiones
 y los permisos con piloto automático):
@@ -296,6 +296,24 @@ FastAPI validaba la respuesta, no encontraba el campo `proveedor` y devolvia un
 
 Hay **4 comprobaciones automaticas** que vigilan que ningun endpoint vuelva a
 devolver un 500 por culpa de un esquema mal declarado.
+
+### El log del servidor te lo dice todo: la lista de pendientes
+
+Si algo no funciona, la app te dice **que falta**, no un error seco. En
+*Conectar IA > Ajustes tecnicos > Estado del servidor* hay una lista que se
+calcula con informacion real del servidor:
+
+| Pendiente | Como se arregla |
+|---|---|
+| Modo produccion (`APP_ENTORNO=produccion`) | Render > Environment > `APP_ENTORNO` = `produccion`. Mientras no lo pongas, el codigo de verificacion se muestra en pantalla. |
+| Correo para el codigo de verificacion (SMTP) | *Conectar IA > Ajustes tecnicos > Envio de correo* (host, puerto, usuario, clave, desde) o `SMTP_*` en Render. |
+| Acceso con Google (`GOOGLE_CLIENT_ID`) | ID de cliente OAuth de escritorio en Google Cloud, pegado en *Ajustes tecnicos* o en Render. Opcional: hay otras vias. |
+| La web de GitHub Pages puede llamar a la API (CORS) | `CORS_ORIGINS` con `https://brayanortiz906-lab.github.io` en Render. |
+| Direccion de la API en la web publicada (`VITE_API_URL`) | Vacia (la API va en el mismo sitio) o con la URL completa. |
+
+El mismo dato esta disponible sin abrir la app: `GET /api/diagnostico` devuelve
+la lista de pendientes, los problemas de la base de datos y el estado del
+correo y de Google.
 
 ### Que no vaya lento (rendimiento medido)
 
@@ -559,7 +577,7 @@ imagen de Python 3.12 que corre la API. La base SQLite vive en el volumen `/data
 
 ### 1-bis.4 Automatización (CI)
 
-`.github/workflows/ci.yml` corre en cada push: levanta la API, ejecuta los **140 casos** de
+`.github/workflows/ci.yml` corre en cada push: levanta la API, ejecuta los **143 casos** de
 `backend/smoke.py` (que incluyen el chat multi-intención, las cascadas, el sistema responsable,
 el centro de conexiones y los permisos con piloto automático) y compila el frontend con
 `tsc -b && vite build`. La insignia de arriba refleja el estado real del último push.
@@ -571,7 +589,7 @@ el centro de conexiones y los permisos con piloto automático) y compila el fron
 ```
 .
 ├── .github/workflows/
-│   ├── ci.yml                   ← CI: 140 casos del smoke test + build del frontend
+│   ├── ci.yml                   ← CI: 143 casos del smoke test + build del frontend
 │   ├── daily.yml                ← Tarea diaria (respaldo + resumen por correo)
 │   └── deploy-pages.yml         ← Publica la interfaz en GitHub Pages
 ├── .devcontainer/               ← Codespaces: Python 3.12 + Node 20 preinstalados
@@ -982,7 +1000,7 @@ Detalle tecnico: `docs/13-MOTOR-LOCAL.md`.
 
 | Pieza | Dónde | Qué hace |
 |---|---|---|
-| **CI** | `.github/workflows/ci.yml` | en cada push: levanta la API, corre los **140 casos** del smoke test, valida el System Prompt y compila la interfaz |
+| **CI** | `.github/workflows/ci.yml` | en cada push: levanta la API, corre los **143 casos** del smoke test, valida el System Prompt y compila la interfaz |
 | **Publicación de la web** | `.github/workflows/deploy-pages.yml` | compila la interfaz y la publica en la rama `gh-pages` (que es la que sirve GitHub Pages) |
 | **Tarea diaria** | `.github/workflows/daily.yml` | despierta la API, guarda el respaldo en Drive y manda el resumen por correo |
 | **Instalador** | `.github/workflows/build-installer.yml` | compila el `.exe` de Windows y lo publica como descarga en cada release |
@@ -1006,7 +1024,7 @@ Detalle tecnico: `docs/13-MOTOR-LOCAL.md`.
 
 | Workflow | Cuándo se dispara | Qué hace |
 |---|---|---|
-| `CI` | push y pull request en `main` | 140 comprobaciones + build de TypeScript |
+| `CI` | push y pull request en `main` | 143 comprobaciones + build de TypeScript |
 | `Publicar la interfaz` | push en `main` | publica en GitHub Pages |
 | `Instalador de Windows` | a mano o al crear un tag `v*` | compila el `.exe` y lo sube al release |
 | `Tarea diaria` | todos los días a las 06:00 (Colombia) | respaldo + resumen por correo |

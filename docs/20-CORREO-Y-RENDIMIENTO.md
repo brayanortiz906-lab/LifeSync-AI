@@ -115,3 +115,31 @@ Ventajas: no depende de Drive, no depende del disco del servidor, y el archivo q
 | Servidor SMTP + clave de aplicacion | *Conectar IA > Ajustes tecnicos > Envio de correo* (o `SMTP_*` en Render) | que el codigo de verificacion llegue al correo |
 | ID de cliente OAuth de escritorio | Google Cloud / `GOOGLE_CLIENT_ID` | que "Continuar con Google" funcione en un clic y con Drive/Calendar |
 | `APP_ENTORNO=produccion` | Render | cierra el modo consola (el codigo no sale por pantalla) |
+
+## Revision del log del servidor (v37)
+
+Un log de produccion enseña los problemas que nadie ve desde la interfaz.
+Estos son los que aparecian y como quedaron:
+
+| En el log | Que era | Arreglo |
+|---|---|---|
+| `[correo] codigo de acceso para shadow...@gmail.com: 185875` | **El codigo de acceso se escribia en el log del servidor.** Quien pudiera leer el log entraba a la cuenta. | El codigo **nunca** se escribe en el log (solo se avisa de que se genero). Sigue estando en la respuesta de la API en modo desarrollo. |
+| `GET /api/ajustes 404 Not Found` | Las interfaces viejas guardadas en el navegador piden `/api/ajustes`; ese endpoint no existe (el bueno es `/api/settings`). | Se creo el **alias `/api/ajustes`** -> una pestana vieja sigue funcionando en vez de romperse. |
+| 11 peticiones followed de `/api/dashboard`, `/api/events`... | El navegador estaba usando el **bundle viejo** (cache del navegador) que hace 11 viajes HTTP. | Con la v36 la app hace **1 viaje** (`/api/inicio`). Para tomar la version nueva: **recarga sin cache** (Ctrl+Shift+R). |
+| `POST /api/cuentas/google/desde-conexion 400` | Correcto: no hay ninguna cuenta de Google conectada todavia. | Con `GOOGLE_CLIENT_ID` configurado funciona. |
+| `POST /api/conexiones/verificar 200` | Correcto: ya no da 500 (arreglo de la v35). | Sin cambios. |
+| `Deploying...` / `Shutting down` / `Your service is live` | Es el **despliegue normal de Render**: levanta la instancia nueva, pasa el chequeo de salud y reemplaza la vieja. | Sin cambios (no es un error). |
+
+### La lista de pendientes, dentro de la app
+
+`GET /api/diagnostico` y el bloque *Estado del servidor* (en *Conectar IA >
+Ajustes tecnicos*) dicen, con informacion real del servidor, que falta:
+
+1. **Modo produccion** (`APP_ENTORNO=produccion`).
+2. **Correo SMTP** (para que el codigo de verificacion llegue).
+3. **Acceso con Google** (opcional: hay otras vias de entrada).
+4. **CORS** con el origen de la web de GitHub Pages.
+5. **Direccion de la API** en la web publicada.
+
+Cada uno con su estado (`listo` / `pendiente` / `opcional`) y **como se
+arregla**. Asi nadie tiene que adivinar.

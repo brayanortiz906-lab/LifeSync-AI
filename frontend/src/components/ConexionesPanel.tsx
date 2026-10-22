@@ -12,12 +12,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   ArrowRight, Check, ChevronDown, CircleAlert, Cpu, Eye, EyeOff, Loader2, LogIn,
-  Mail, Plug, RefreshCw, Search, Server, Settings, Sparkles, Trash2, Wifi,
+  Mail, Plug, RefreshCw, Search, Server, Settings, ShieldCheck, Sparkles, Trash2, Wifi,
 } from 'lucide-react'
 import { api, apiGuardadaEsEstatica, cuentas, guardarUrlApi, leerUrlApi, urlApiEnUso } from '../lib/api'
 import type {
-  AutorizacionCuenta, CatalogoModelos, Conexion, EstadoGoogle, ModeloCatalogo, MotorLocal,
-  ProveedorCatalogo,
+  AutorizacionCuenta, CatalogoModelos, Conexion, Diagnostico, EstadoGoogle, ModeloCatalogo,
+  MotorLocal, ProveedorCatalogo,
 } from '../types'
 import { Aviso, Boton, Campo, Chip, Modal } from './ui'
 import BloqueIaLigera from './BloqueIaLigera'
@@ -122,15 +122,19 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
   const [familias, setFamilias] = useState<{ familia: string; modelos: number }[]>([])
   const [filtroModelo, setFiltroModelo] = useState('')
   const [cargandoModelos, setCargandoModelos] = useState(false)
+  /** Autodiagnostico del servidor (v37): que falta por configurar. */
+  const [diagnostico, setDiagnostico] = useState<Diagnostico | null>(null)
 
   const cargar = async () => {
     try {
-      const [cat, cons, loc, google] = await Promise.all([
+      const [cat, cons, loc, google, diag] = await Promise.all([
         api.catalogoConexiones(),
         api.conexiones(),
         api.detectarLocales(),
         api.estadoGoogle(),
+        api.diagnostico().catch(() => null),
       ])
+      setDiagnostico(diag)
       setCatalogo(cat.proveedores)
       setConexiones(cons)
       setMotores(loc.motores)
@@ -615,6 +619,44 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
                     Esta parte es para quien instala LifeAgente en su servidor. Si solo quieres
                     usar la app, no tienes que tocar nada de aqui.
                   </p>
+
+                  {/* ---- Estado del servidor: que falta por configurar (v37) ---- */}
+                  {diagnostico && diagnostico.pendientes.length > 0 && (
+                    <div className="rounded-xl border border-white/8 bg-black/20 p-3">
+                      <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
+                        <ShieldCheck size={13} />
+                        Estado del servidor
+                        {diagnostico.listo ? (
+                          <span className="ml-auto rounded-full border border-emerald-500/40 bg-emerald-500/15 px-2 py-0.5 text-[9px] font-bold text-emerald-200">
+                            todo listo
+                          </span>
+                        ) : (
+                          <span className="ml-auto rounded-full border border-amber-500/40 bg-amber-500/15 px-2 py-0.5 text-[9px] font-bold text-amber-200">
+                            falta algo
+                          </span>
+                        )}
+                      </div>
+                      <ul className="mt-2 space-y-2">
+                        {diagnostico.pendientes.map((p) => (
+                          <li key={p.titulo} className="flex gap-2 text-[10px] leading-relaxed">
+                            <span
+                              className={`mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full ${
+                                p.estado === 'listo'
+                                  ? 'bg-emerald-400'
+                                  : p.estado === 'opcional'
+                                    ? 'bg-sky-400'
+                                    : 'bg-amber-400'
+                              }`}
+                            />
+                            <span>
+                              <span className="font-semibold text-slate-200">{p.titulo}</span>
+                              <span className="block text-slate-400">{p.como}</span>
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
 
                   <div className="rounded-xl border border-white/8 bg-black/20 p-3">
                     <div className="flex items-center gap-2 text-xs font-bold text-slate-200">

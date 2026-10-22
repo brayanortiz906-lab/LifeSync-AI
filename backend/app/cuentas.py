@@ -393,8 +393,9 @@ background:#0f172a;border:1px solid #4338ca;border-radius:12px;padding:16px;colo
         print(f"[correo] SMTP no configurado; no se puede enviar el codigo a {correo}")
         return "ninguno"
     # Modo desarrollo: el codigo se muestra en la respuesta (quien lo pide es
-    # la propia persona) y se imprime en el log del servidor.
-    print(f"[correo] codigo de acceso para {correo}: {codigo}")
+    # la propia persona). Al log NO se escribe: un codigo de acceso en el
+    # log del servidor es una puerta abierta (quien lo lea entra).
+    print(f"[correo] codigo de acceso generado para {correo} (6 digitos; no se escribe en el log)")
     return "consola"
 
 

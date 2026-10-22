@@ -1138,6 +1138,27 @@ def main() -> int:
         f"-> cod={cod_correo} {str(r_correo)[:110]}",
     )
 
+    # --- ESTADO DEL SERVIDOR Y RUTAS DE INTERFACES VIEJAS (v37) --------------
+    cod_diag, r_diag = pedir_suave("GET", "/api/diagnostico")
+    pendientes = (r_diag or {}).get("pendientes") or []
+    estados = {p.get("estado") for p in pendientes if isinstance(p, dict)}
+    check(
+        "[SERVIDOR] el autodiagnostico dice que falta por configurar",
+        cod_diag == 200 and len(pendientes) >= 3 and estados <= {"listo", "pendiente", "opcional"},
+        f"-> cod={cod_diag} pendientes={len(pendientes)} estados={sorted(estados)}",
+    )
+    check(
+        "[SERVIDOR] cada pendiente dice como se arregla",
+        bool(pendientes) and all(str(p.get("como") or "").strip() for p in pendientes),
+        f"-> {[str(p.get('titulo'))[:28] for p in pendientes]}",
+    )
+    cod_alias, r_alias = pedir_suave("GET", "/api/ajustes")
+    check(
+        "[SERVIDOR] la ruta /api/ajustes de las interfaces viejas sigue viva",
+        cod_alias == 200 and "proveedor" in str(r_alias),
+        f"-> cod={cod_alias}",
+    )
+
     print("=" * 70)
     if fallos:
         print(f"RESULTADO: {len(fallos)} CASO(S) FALLIDO(S): {fallos}")

@@ -5,6 +5,7 @@ Arranque:  python run.py     (http://localhost:8000/docs para ver la API)
 from __future__ import annotations
 
 import asyncio
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -234,7 +235,79 @@ def diagnostico():
         info["problemas"].append(f"No se pudo inspeccionar la base de datos: {exc}")
     info["correos"] = bool(settings.smtp_host)
     info["google_configurado"] = bool(settings.google_client_id)
+    info["pendientes"] = _pendientes_del_despliegue()
+    info["listo"] = all(p["estado"] == "listo" for p in info["pendientes"])
     return info
+
+
+def _pendientes_del_despliegue() -> list[dict[str, str]]:
+    """Lista de lo que el administrador del despliegue tiene que dejar listo.
+
+    Se calcula con informacion real del servidor, no con suposiciones: asi la
+    persona ve si falta el correo, el acceso con Google o el modo produccion.
+    """
+    pendientes: list[dict[str, str]] = []
+
+    def anadir(titulo: str, estado: str, como: str) -> None:
+        pendientes.append({"titulo": titulo, "estado": estado, "como": como})
+
+    # 1. Modo produccion: si no, el codigo de acceso se muestra por pantalla.
+    if settings.es_produccion:
+        anadir("Modo produccion (APP_ENTORNO=produccion)", "listo", "Ya activo.")
+    else:
+        anadir(
+            "Modo produccion (APP_ENTORNO=produccion)",
+            "pendiente",
+            "Ponlo en Render > Environment > APP_ENTORNO = produccion. "
+            "Mientras no lo pongas, el codigo de verificacion se muestra en pantalla.",
+        )
+
+    # 2. Correo: para que el codigo de verificacion llegue de verdad.
+    if settings.smtp_host:
+        anadir("Correo para enviar el codigo de verificacion (SMTP)", "listo", "Configurado.")
+    else:
+        anadir(
+            "Correo para enviar el codigo de verificacion (SMTP)",
+            "pendiente",
+            "Configuralo en 'Conectar IA > Ajustes tecnicos > Envio de correo' "
+            "(o con SMTP_* en el panel de Render).",
+        )
+
+    # 3. Acceso con Google / Outlook / GitHub.
+    if settings.google_client_id:
+        anadir("Acceso con Google (GOOGLE_CLIENT_ID)", "listo", "Configurado.")
+    else:
+        anadir(
+            "Acceso con Google (GOOGLE_CLIENT_ID)",
+            "opcional",
+            "Crea un ID de cliente OAuth de escritorio en Google Cloud y pegalo en "
+            "'Conectar IA > Ajustes tecnicos' (o en el panel de Render).",
+        )
+
+    # 4. Origenes permitidos: la web de GitHub Pages necesita el suyo.
+    permitidos = [o.strip().lower() for o in settings.cors_origin_list]
+    if "https://brayanortiz906-lab.github.io" in permitidos:
+        anadir("La web de GitHub Pages puede llamar a la API (CORS)", "listo", "Ya permitido.")
+    else:
+        anadir(
+            "La web de GitHub Pages puede llamar a la API (CORS)",
+            "pendiente",
+            "En Render > Environment > CORS_ORIGINS, anade https://brayanortiz906-lab.github.io "
+            "y haz Save & Deploy.",
+        )
+
+    # 5. Direccion de la API en la web publicada.
+    url_api = (os.environ.get("VITE_API_URL") or "").strip()
+    if not url_api or url_api.startswith("http"):
+        anadir("Direccion de la API en la web publicada (VITE_API_URL)", "listo", "Correcta o vacia (misma ruta).")
+    else:
+        anadir(
+            "Direccion de la API en la web publicada (VITE_API_URL)",
+            "pendiente",
+            "El valor actual no es una URL. Ponlo vacio (la API va en el mismo sitio) "
+            "o con la direccion completa, y haz Save & Deploy.",
+        )
+    return pendientes
 
 
 @app.exception_handler(Exception)

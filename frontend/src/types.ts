@@ -398,6 +398,24 @@ export interface ResultadoCodigo {
 }
 
 /** Todo lo que la app necesita al abrirse, en una sola peticion (v36). */
+/** Autodiagnostico del servidor: que falta por configurar (v37). */
+export interface PendienteDespliegue {
+  titulo: string
+  estado: 'listo' | 'pendiente' | 'opcional'
+  como: string
+}
+
+export interface Diagnostico {
+  ok: boolean
+  app: string
+  problemas: string[]
+  usuarios?: number
+  correos?: boolean
+  google_configurado?: boolean
+  pendientes: PendienteDespliegue[]
+  listo?: boolean
+}
+
 export interface Inicio {
   ok: boolean
   dashboard: Dashboard | null
