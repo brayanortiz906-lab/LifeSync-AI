@@ -297,6 +297,17 @@ de quien instala).
 Regla de oro de esta pantalla: **lo que la persona usa todos los dias esta arriba y a
 la vista; lo tecnico esta abajo y plegado.**
 
+### 10-bis. Probar una clave sin guardarla (v35)
+
+`POST /api/conexiones/verificar` recibe `{proveedor, api_key, modelo}` y devuelve
+`{ok, mensaje, detalle}` **sin guardar nada**: es la prueba rapida antes de
+comprometerse a guardar la conexion.
+
+> Ojo: este endpoint declaraba antes el esquema de entrada (`ConexionTest`) como
+> esquema de salida, y FastAPI devolvia un 500 en vez del resultado. Corregido en
+> la v35 con el esquema `VerificacionOut` y cubierto por 4 comprobaciones
+> automaticas que fallan si vuelve a pasar.
+
 ## 9. Referencias
 
 - `backend/app/connections.py` — catálogo, detección local y verificación.

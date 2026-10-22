@@ -291,7 +291,11 @@ def spa(full_path: str, request: Request):
                     f"El servicio '{full_path}' no responde a una peticion "
                     f"{request.method}. Revisa la direccion de la API que tiene "
                     "configurada la app (Conectar IA > Direccion de la API)."
-                )
+                ),
+                # Igual que en el manejador global: que ruta fallo y con que
+                # metodo, para poder arreglarlo sin adivinar.
+                "ruta": full_path,
+                "metodo": request.method,
             },
         )
     if request.method not in ("GET", "HEAD"):

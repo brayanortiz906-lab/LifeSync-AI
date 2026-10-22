@@ -13,7 +13,7 @@ reorganiza tu agenda ante imprevistos y registra lo que te pasa en lenguaje natu
 | | |
 |---|---|
 | **Versión** | `v1.0.0` (release con el instalador y el código completo) |
-| **Pruebas** | 130 comprobaciones automáticas (`backend/smoke.py`) + build TypeScript |
+| **Pruebas** | 134 comprobaciones automáticas (`backend/smoke.py`) + build TypeScript |
 | **Documentación** | 18 documentos (`docs/00-INDICE.md` es el índice) |
 | **Interfaz** | React 19 · Vite 7 · TypeScript · Tailwind CSS v4 · Zustand 5 |
 | **API** | FastAPI · SQLAlchemy 2 · SQLite · Pydantic v2 |
@@ -258,7 +258,7 @@ Detalle completo en [`docs/06-CONE-XIONES.md`](docs/06-CONE-XIONES.md).
 
 ### Verificación automática
 
-Con el backend corriendo, `backend/smoke.py` comprueba los 130 casos de uso contra la
+Con el backend corriendo, `backend/smoke.py` comprueba los 134 casos de uso contra la
 base de datos real (calendario, bitácora, tareas, mantenimiento, multi-intención,
 cascadas de registro automático, el sistema de IA responsable, el centro de conexiones
 y los permisos con piloto automático):
@@ -280,6 +280,22 @@ RESULTADO: TODOS LOS CASOS PASARON
 
 El script es **idempotente**: limpia las citas de corridas anteriores antes de
 empezar, así que se puede repetir sin contaminar la base.
+
+### El error 500 ya no aparece (y si aparece, te dice que fallo)
+
+Habia un endpoint que declaraba el esquema de *entrada* como esquema de *salida*:
+FastAPI validaba la respuesta, no encontraba el campo `proveedor` y devolvia un
+500 sin explicación. Ahora:
+
+| Antes | Ahora |
+|---|---|
+| `POST /api/conexiones/verificar` → **500** «El servidor tuvo un problema» | → **200** con `ok: false` y el motivo: *«La clave fue rechazada. Revísala en la consola del proveedor.»* |
+| `POST /api/cuentas/google/desde-conexion` → **404** (la interfaz lo pedia desde la v26) | → existe y responde con un mensaje claro |
+| Una ruta inexistente → 404 pelado | → 404 con **qué ruta** y **qué método** fallaron |
+| Cualquier 500 → texto genérico | → el error dice **la ruta y la causa real** |
+
+Hay **4 comprobaciones automaticas** que vigilan que ningun endpoint vuelva a
+devolver un 500 por culpa de un esquema mal declarado.
 
 ### Que no vaya lento (rendimiento medido)
 
@@ -500,7 +516,7 @@ imagen de Python 3.12 que corre la API. La base SQLite vive en el volumen `/data
 
 ### 1-bis.4 Automatización (CI)
 
-`.github/workflows/ci.yml` corre en cada push: levanta la API, ejecuta los **130 casos** de
+`.github/workflows/ci.yml` corre en cada push: levanta la API, ejecuta los **134 casos** de
 `backend/smoke.py` (que incluyen el chat multi-intención, las cascadas, el sistema responsable,
 el centro de conexiones y los permisos con piloto automático) y compila el frontend con
 `tsc -b && vite build`. La insignia de arriba refleja el estado real del último push.
@@ -512,7 +528,7 @@ el centro de conexiones y los permisos con piloto automático) y compila el fron
 ```
 .
 ├── .github/workflows/
-│   ├── ci.yml                   ← CI: 130 casos del smoke test + build del frontend
+│   ├── ci.yml                   ← CI: 134 casos del smoke test + build del frontend
 │   ├── daily.yml                ← Tarea diaria (respaldo + resumen por correo)
 │   └── deploy-pages.yml         ← Publica la interfaz en GitHub Pages
 ├── .devcontainer/               ← Codespaces: Python 3.12 + Node 20 preinstalados
@@ -921,7 +937,7 @@ Detalle tecnico: `docs/13-MOTOR-LOCAL.md`.
 
 | Pieza | Dónde | Qué hace |
 |---|---|---|
-| **CI** | `.github/workflows/ci.yml` | en cada push: levanta la API, corre los **130 casos** del smoke test, valida el System Prompt y compila la interfaz |
+| **CI** | `.github/workflows/ci.yml` | en cada push: levanta la API, corre los **134 casos** del smoke test, valida el System Prompt y compila la interfaz |
 | **Publicación de la web** | `.github/workflows/deploy-pages.yml` | compila la interfaz y la publica en la rama `gh-pages` (que es la que sirve GitHub Pages) |
 | **Tarea diaria** | `.github/workflows/daily.yml` | despierta la API, guarda el respaldo en Drive y manda el resumen por correo |
 | **Instalador** | `.github/workflows/build-installer.yml` | compila el `.exe` de Windows y lo publica como descarga en cada release |
@@ -945,7 +961,7 @@ Detalle tecnico: `docs/13-MOTOR-LOCAL.md`.
 
 | Workflow | Cuándo se dispara | Qué hace |
 |---|---|---|
-| `CI` | push y pull request en `main` | 130 comprobaciones + build de TypeScript |
+| `CI` | push y pull request en `main` | 134 comprobaciones + build de TypeScript |
 | `Publicar la interfaz` | push en `main` | publica en GitHub Pages |
 | `Instalador de Windows` | a mano o al crear un tag `v*` | compila el `.exe` y lo sube al release |
 | `Tarea diaria` | todos los días a las 06:00 (Colombia) | respaldo + resumen por correo |

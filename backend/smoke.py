@@ -1018,6 +1018,47 @@ def main() -> int:
         f"-> {dt_dash:.2f} s",
     )
 
+    # ------------------------------------------------------------------ #
+    # v35: errores que la interfaz ve como "el servidor tuvo un problema"
+    # ------------------------------------------------------------------ #
+    print("\n" + "-" * 70)
+    print("ERRORES QUE NO DEBEN SER UN 500 (v35)")
+
+    # El endpoint "probar una clave sin guardarla" declaraba como modelo de
+    # salida el esquema de ENTRADA: FastAPI no encontraba el campo
+    # "proveedor" en la respuesta y devolvia 500.
+    cod_v1, cuerpo_v1 = pedir_suave(
+        "POST", "/api/conexiones/verificar", {"proveedor": "openai", "api_key": "sk-prueba"}
+    )
+    check(
+        "[ERROR] probar una clave sin guardarla NO da 500",
+        cod_v1 != 500,
+        f"-> cod={cod_v1} {str(cuerpo_v1)[:120]}",
+    )
+    cod_v2, cuerpo_v2 = pedir_suave(
+        "POST", "/api/conexiones/verificar", {"proveedor": "ollama", "base_url": "http://127.0.0.1:11434"}
+    )
+    check(
+        "[ERROR] probar la IA local sin guardarla NO da 500",
+        cod_v2 != 500,
+        f"-> cod={cod_v2} {str(cuerpo_v2)[:120]}",
+    )
+    # El camino "entrar con Google desde una conexion guardada" lo anuncia la
+    # interfaz desde hace tiempo, pero el endpoint no existia (404).
+    cod_v3, cuerpo_v3 = pedir_suave("POST", "/api/cuentas/google/desde-conexion", {})
+    check(
+        "[ERROR] entrar con Google desde una conexion guardada existe",
+        cod_v3 != 404,
+        f"-> cod={cod_v3} {str(cuerpo_v3)[:120]}",
+    )
+    # Un 500 debe decir QUE ruta fallo, para poder arreglarlo sin adivinar.
+    cod_v4, cuerpo_v4 = pedir_suave("GET", "/api/ruta-que-no-existe")
+    check(
+        "[ERROR] una ruta inexistente dice cual fallo (no 500)",
+        cod_v4 == 404 and "ruta-que-no-existe" in str(cuerpo_v4),
+        f"-> cod={cod_v4} {str(cuerpo_v4)[:140]}",
+    )
+
     print("=" * 70)
     if fallos:
         print(f"RESULTADO: {len(fallos)} CASO(S) FALLIDO(S): {fallos}")

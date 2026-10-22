@@ -29,7 +29,6 @@ from ..cuentas import (
     entrar_con_password,
     cerrar_sesion,
     crear_sesion,
-    entrar_con_cuenta,
     enviar_codigo,
     registrar_con_password,
     snapshot,
@@ -519,6 +518,50 @@ def respaldo_drive_desde_conexion(db: Session = Depends(get_db, scope="function"
             detail="Todavia no autorizaste el acceso a Google Drive.",
         )
     return respaldo_drive(DriveIn(access_token=token), db)
+
+
+@router.post("/google/desde-conexion")
+def entrar_google_desde_conexion(db: Session = Depends(get_db, scope="function")):
+    """Entra con la cuenta de Google que ya esta conectada (sin volver a autorizar).
+
+    La interfaz anuncia este camino desde hace tiempo, pero el endpoint no
+    existia: al pulsarlo la API respondia 404.
+    """
+    from ..cuentas import entrar_con_cuenta
+    from ..models import ConexionIA
+    from ..security import descifrar
+
+    conexion = (
+        db.query(ConexionIA)
+        .filter(ConexionIA.proveedor == "google_cuenta")
+        .order_by(ConexionIA.activa.desc(), ConexionIA.id.desc())
+        .first()
+    )
+    if conexion is None:
+        raise HTTPException(
+            status_code=400,
+            detail="No hay ninguna cuenta de Google conectada. Entra con Google o con tu correo.",
+        )
+    cred = descifrar(conexion.credenciales_cifradas) or {}
+    token = cred.get("access_token") or cred.get("api_key") or ""
+    if not token:
+        raise HTTPException(
+            status_code=400,
+            detail="La conexion de Google no tiene un token guardado. Vuelve a autorizar.",
+        )
+    try:
+        usuario = entrar_con_cuenta(db, token, "google_cuenta")
+    except Exception as exc:  # el token pudo caducar o estar revocado
+        raise HTTPException(
+            status_code=400,
+            detail=f"No pudimos iniciar sesion con esa conexion de Google: {exc}"[:200],
+        ) from exc
+    if usuario is None:
+        raise HTTPException(
+            status_code=400,
+            detail="No pudimos leer tu correo con esa conexion de Google. Vuelve a autorizar.",
+        )
+    return _perfil(usuario)
 
 
 @router.post("/respaldo/restaurar")

@@ -119,7 +119,7 @@ export class ApiError extends Error {
  * Antes salia el texto crudo del servidor ("Method Not Allowed", "Failed to
  * fetch") y no decia donde se arregla.
  */
-function traducirDetalle(detalle: string, status: number): string {
+function traducirDetalle(detalle: string, status: number, ruta?: string, errorInterno?: string): string {
   const d = (detalle || '').trim()
   const donde = 'Conectar IA > Direccion de la API'
   if (status === 0 || /failed to fetch|networkerror|load failed|network request failed/i.test(d)) {
@@ -130,6 +130,14 @@ function traducirDetalle(detalle: string, status: number): string {
   }
   if (status === 405 || /method not allowed/i.test(d)) {
     return `El servidor no entendio la peticion. Si abriste LifeAgente en GitHub Pages falta la API detras: pon su direccion en ${donde}.`
+  }
+  // 500: el manejador global del servidor ya nos dice que ruta fallo y por que.
+  // Sin esto solo se veia "el servidor tuvo un problema" y no habia forma de saber
+  // que parte exacta era la que se rompia.
+  if (status >= 500) {
+    const extra = ruta ? ` (ruta: ${ruta})` : ''
+    const causa = errorInterno ? ` Causa: ${errorInterno.slice(0, 180)}` : ''
+    return `${d}${extra}${causa}`
   }
   if (!d) return `Error ${status}`
   return d
@@ -177,13 +185,17 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     })
     if (!res.ok) {
       let detalle = `Error ${res.status}`
+      let ruta = ''
+      let errorInterno = ''
       try {
         const cuerpo = await res.json()
         detalle = cuerpo.detail ?? JSON.stringify(cuerpo)
+        ruta = cuerpo.ruta ?? ''
+        errorInterno = cuerpo.error ?? ''
       } catch {
         detalle = await res.text().catch(() => detalle)
       }
-      throw new ApiError(traducirDetalle(detalle, res.status), res.status)
+      throw new ApiError(traducirDetalle(detalle, res.status, ruta, errorInterno), res.status)
     }
     if (res.status === 204) return undefined as T
     return (await res.json()) as T

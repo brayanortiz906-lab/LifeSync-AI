@@ -24,6 +24,7 @@ from ..schemas import (
     DetectarMotores,
     GoogleClienteIn,
     MotorLocal,
+    VerificacionOut,
 )
 from ..security import cifrar
 
@@ -276,7 +277,7 @@ async def verificar(conexion_id: int, db: Session = Depends(get_db, scope="funct
     return _a_out(conexion, db)
 
 
-@router.post("/verificar", response_model=ConexionTest)
+@router.post("/verificar", response_model=VerificacionOut)
 async def verificar_sin_guardar(payload: ConexionTest):
     """Verifica credenciales al vuelo, sin persistir nada."""
     cred: dict = {}

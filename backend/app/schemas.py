@@ -295,6 +295,19 @@ class ConexionTest(BaseModel):
     device_code: str | None = None
 
 
+class VerificacionOut(BaseModel):
+    """Respuesta de "probar una clave sin guardarla".
+
+    Antes este endpoint declaraba ConexionTest (el esquema de ENTRADA) como
+    modelo de salida: FastAPI intentaba validar la respuesta, no encontraba
+    el campo "proveedor" y devolvia un 500 con "El servidor tuvo un problema".
+    """
+
+    ok: bool
+    mensaje: str
+    detalle: dict[str, Any] = {}
+
+
 class GoogleClienteIn(BaseModel):
     """ID de cliente público de Google para conectar cuentas sin jerga.
 
