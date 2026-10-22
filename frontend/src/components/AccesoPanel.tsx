@@ -44,6 +44,8 @@ export default function AccesoPanel({
   const [codigoDePrueba, setCodigoDePrueba] = useState('')
   /** Como se mando el codigo: "smtp", "consola" o "ninguno" (v36). */
   const [modoEnvio, setModoEnvio] = useState('')
+  /** Se enciende cuando Drive no deja guardar: entonces se ofrecen las otras vias. */
+  const [driveSinAutorizar, setDriveSinAutorizar] = useState(false)
   const [ocupado, setOcupado] = useState(false)
   const [googleDisponible, setGoogleDisponible] = useState<boolean | null>(null)
   const [info, setInfo] = useState<InfoProveedores | null>(null)
@@ -251,7 +253,9 @@ export default function AccesoPanel({
       })
       setPaso('permisos')
     } catch (e) {
-      setEstado({ ok: false, texto: (e as Error).message })
+      const msg = (e as Error).message
+      if (/drive|autoriz|activad|permiso|identificador/i.test(msg)) setDriveSinAutorizar(true)
+      setEstado({ ok: false, texto: msg })
     } finally {
       setOcupado(false)
     }
@@ -327,14 +331,34 @@ export default function AccesoPanel({
   const guardarEnDrive = async () => {
     setOcupado(true)
     setEstado(null)
+    setDriveSinAutorizar(false)
     try {
       const r = await cuentas.respaldoDriveDesdeConexion()
       setEstado({ ok: true, texto: `Respaldo guardado en tu Drive: ${r.archivo}.` })
     } catch (e) {
-      setEstado({ ok: false, texto: (e as Error).message })
+      const msg = (e as Error).message
+      // Si lo que falla es que Drive todavia no esta autorizado, no se deja
+      // un error seco: se ofrecen las otras dos vias (subirlo a mano o
+      // activar el acceso), que siempre funcionan.
+      if (/drive|autoriz|activad|permiso/i.test(msg)) {
+        setDriveSinAutorizar(true)
+        setEstado({
+          ok: false,
+          texto:
+            'Tu Drive todavia no esta autorizado en este servidor. Abajo tienes las otras dos formas de guardarlo.',
+        })
+      } else {
+        setEstado({ ok: false, texto: msg })
+      }
     } finally {
       setOcupado(false)
     }
+  }
+
+  /** Descarga la copia y abre el uploader de Drive: siempre funciona, sin claves. */
+  const descargarYSubirADrive = async () => {
+    await descargarRespaldo()
+    window.open('https://drive.google.com/drive/uploader', '_blank', 'noopener')
   }
 
   const conectado = !!usuario && !usuario.es_local
@@ -681,6 +705,30 @@ export default function AccesoPanel({
                 Guardar en mi Drive
               </Boton>
             </div>
+            {driveSinAutorizar && (
+              <div className="space-y-2.5 rounded-2xl border border-amber-500/25 bg-amber-500/8 p-4">
+                <div className="text-[11px] font-bold text-amber-100">
+                  Guardar en Drive: dos caminos que siempre funcionan
+                </div>
+                <p className="text-[11px] leading-relaxed text-amber-100/80">
+                  El acceso automatico a Drive necesita que el dueno de la app active una vez el
+                  identificador publico de Google. Mientras tanto puedes copiar tu respaldo a
+                  Drive a mano: se descarga el archivo y se abre el uploader de Drive (dos toques).
+                </p>
+                <div className="flex flex-wrap gap-2 pt-0.5">
+                  <Boton variante="secundario" onClick={() => void descargarYSubirADrive()} disabled={ocupado}>
+                    <Download size={13} />
+                    Descargar y subir a Drive
+                  </Boton>
+                  {onAbrirConexiones && (
+                    <Boton variante="fantasma" onClick={onAbrirConexiones}>
+                      <KeyRound size={13} />
+                      Activar el acceso a Google
+                    </Boton>
+                  )}
+                </div>
+              </div>
+            )}
             <Boton variante="fantasma" onClick={() => void salir()} disabled={ocupado}>
               <LogOut size={13} />
               Cerrar sesión y volver al modo local

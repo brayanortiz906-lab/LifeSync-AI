@@ -243,9 +243,10 @@ const eventosAgenda = useLifeAgente((s) => s.eventos)
             </div>
           ) : (
             <div className="mx-auto flex w-full max-w-[1900px] flex-col gap-4">
-              <CalendarPanel fecha={fecha} onCambiarFecha={setFecha} />
+              {/* Primero lo importante: las 3 lineas de tu dia. */}
               <ResumenMovil onAbrirMas={() => setMenuMovilAbierto(true)} />
-                <PanelIaMovil alCambiar={() => void cargarTodo()} />
+              <CalendarPanel fecha={fecha} onCambiarFecha={setFecha} />
+              <PanelIaMovil alCambiar={() => void cargarTodo()} />
               <PanelLocal onAbrirConexiones={() => setConexionesAbiertas(true)} />
               <PanelAlarmas eventos={eventosAgenda} />
             </div>
