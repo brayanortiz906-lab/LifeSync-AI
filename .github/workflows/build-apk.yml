@@ -56,6 +56,31 @@ jobs:
           distribution: temurin
           java-version: "21"
 
+      # Gradle se queja de que kotlin-stdlib y kotlin-stdlib-jdk8 traen las
+      # mismas clases: se excluye el modulo viejo (solucion de la propia
+      # documentacion de Android para este error).
+      - name: Corregir el conflicto de Kotlin
+        working-directory: frontend
+        run: |
+          python3 - <<'PY'
+          import pathlib
+          p = pathlib.Path("android/app/build.gradle")
+          t = p.read_text(encoding="utf-8")
+          if "kotlin-stdlib-jdk8" not in t:
+              t = t.replace(
+                  "dependencies {",
+                  "dependencies {\n"
+                  "    configurations.all {\n"
+                  "        resolutionStrategy {\n"
+                  "            exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk8'\n"
+                  "        }\n"
+                  "    }",
+                  1,
+              )
+              p.write_text(t, encoding="utf-8")
+          print("gradle corregido")
+          PY
+
       - name: Construir el APK
         working-directory: frontend
         run: |
