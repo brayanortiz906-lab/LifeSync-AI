@@ -32,6 +32,22 @@ jobs:
       - name: Instalar dependencias
         run: pip install -r requirements.txt
 
+      # v44: la API sirve tambien el manifiesto, el service worker y los
+      # iconos (la app se instala en el celular). Para que el smoke test
+      # pueda comprobarlos hace falta la interfaz compilada.
+      - name: Instalar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Compilar la interfaz (archivos PWA que sirve la API)
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
       - name: Arrancar la API
         run: |
           python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --log-level warning &
