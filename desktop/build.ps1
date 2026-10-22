@@ -12,14 +12,15 @@ $raiz = Split-Path -Parent $PSScriptRoot
 Set-Location $raiz
 
 Write-Host "==> 1/4 Compilando la interfaz" -ForegroundColor Cyan
-if (-not (Test-Path "frontend\dist\index.html")) {
-    Push-Location frontend
-    npm ci
-    npm run build
-    Pop-Location
-} else {
-    Write-Host "    frontend/dist ya existe, se reutiliza."
-}
+# Se compila SIEMPRE: si nos saltamos este paso, el .exe lleva una interfaz
+# vieja dentro (fue el error de la v1.0.0: el .exe tenia el codigo de la
+# v23 mientras la app web ya iba por la v37).
+Push-Location frontend
+npm ci
+npm run build
+Pop-Location
+$version = (Get-Content (Join-Path $raiz "VERSION") -Raw).Trim()
+Write-Host "    Interfaz compilada. Version: $version" -ForegroundColor Green
 
 Write-Host "==> 2/4 Preparando PyInstaller" -ForegroundColor Cyan
 $venv = ".venv-desktop"
@@ -43,7 +44,7 @@ $peso = [math]::Round((Get-Item $exe).Length / 1MB, 1)
 
 Write-Host "==> 4/4 Comprobacion" -ForegroundColor Cyan
 $version = & "$venv\Scripts\python.exe" -c "import sys; print('.'.join(map(str,sys.version_info[:3])))"
-Write-Host "    Python $version · ejecutable de $peso MB" -ForegroundColor Green
+Write-Host "    Python $version · ejecutable de $peso MB · app $((Get-Content (Join-Path $raiz "VERSION") -Raw).Trim())" -ForegroundColor Green
 Write-Host ""
 Write-Host "LISTO: $exe" -ForegroundColor Green
 Write-Host "Copia ese archivo donde quieras y doble clic para instalar." -ForegroundColor Green

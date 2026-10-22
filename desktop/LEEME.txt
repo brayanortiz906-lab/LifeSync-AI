@@ -1,6 +1,7 @@
 =====================================================================
   LifeAgente AI  -  Asistente Integral de Vida y Productividad
   INSTALADOR LOCAL PARA WINDOWS
+  Version 1.1.0
 =====================================================================
 
 QUE VAS A HACER
@@ -16,6 +17,18 @@ El archivo .exe ya lleva dentro el motor de LifeAgente, la base de datos
 y la interfaz. Si algo falta (Docker, Node) la ventana te lo dice y te
 ofrece un boton "Instalar" que lo hace por ti.
 
+LO NUEVO EN ESTA VERSION (v1.1.0)
+---------------------------------
+* Entrar es UN SOLO BOTON: "Entrar o crear mi cuenta".
+* El codigo de verificacion ahora si llega al correo (o te lo dicen de
+  verdad si el servidor no puede enviarlo).
+* "Conectar IA" reorganizado en 4 secciones: tu cuenta, la IA de tu
+  computador, una clave de API, o solo ver como funciona.
+* Puedes descargar una IA ligera (400 MB) para usar la app sin internet.
+* La app abre MUCHo mas rapido (de 12 peticiones a 1).
+* El correo tambien sirve de almacen: te mandas una copia adjunta.
+* Paneles: comparte tu agenda por correo con nivel "ver" o "editar".
+
 DONDE QUEDAN TUS DATOS
 -----------------------
 %APPDATA%\LifeAgente
@@ -25,6 +38,8 @@ DONDE QUEDAN TUS DATOS
    `- logs\
 
 Puedes respaldar esa carpeta completa cuando quieras.
+Ojo: al actualizar el programa (bajar un .exe nuevo) TUS DATOS NO SE
+PIERDEN: siguen en esa carpeta.
 
 CUANDO CIERRAS LA VENTANA
 -------------------------
@@ -46,6 +61,8 @@ PROBLEMAS FRECUENTES
   Cierra la otra ventana o reinicia el equipo.
 * "No se encontro winget": actualiza Windows (o instala el App
   Installer de Microsoft Store).
+* La app tarda al abrir: la primera vez el motor esta $"despertando"$.
+  Es normal, dura unos segundos.
 * Desinstalar: borra la carpeta %APPDATA%\LifeAgente y el .exe.
 
 =====================================================================

@@ -193,6 +193,7 @@ def health():
     return {
         "ok": True,
         "app": settings.app_name,
+        "version": settings.version,
         "proveedor_por_defecto": settings.default_llm_provider,
         "modelo": settings.default_openai_model,
     }

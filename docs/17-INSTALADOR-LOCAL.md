@@ -45,10 +45,14 @@ powershell -ExecutionPolicy Bypass -File desktop\build.ps1
 
 El script:
 
-1. compila la interfaz (`frontend/dist`) si no existe;
-2. crea `.venv-desktop` con PyInstaller;
+1. **compila siempre la interfaz** (`npm ci` + `npm run build`) — esto es
+   importante: en la v1.0.0 el `.exe` se publico con la interfaz vieja
+   (la del v23) porque el script reutilizaba `frontend/dist` si ya existia.
+   Ahora el `.exe` **siempre** lleva la interfaz del dia;
+2. crea `.venv-desktop` e instala `backend/requirements.txt` + PyInstaller
+   (sin las dependencias de la app, los *hidden imports* fallan);
 3. genera **`desktop/dist/LifeAgente.exe`**;
-4. comprueba que el ejecutable existe.
+4. comprueba que el ejecutable existe e imprime la version.
 
 El `.spec` (`desktop/LifeAgente.spec`) mete dentro del ejecutable:
 
@@ -57,10 +61,26 @@ El `.spec` (`desktop/LifeAgente.spec`) mete dentro del ejecutable:
 | La API completa | `app/` |
 | El System Prompt | `shared/system_prompt.txt` |
 | La interfaz compilada | `frontend/dist/` |
+| La version de la app | `VERSION` |
 | El motor de Python | (lo mete PyInstaller) |
 
 Y el lanzador se relanza a si mismo con `--servidor` para levantar la API en
 un proceso aparte (asi el cierre de la ventana lo apaga de verdad).
+
+### La version vive en un solo sitio
+
+El archivo **`VERSION`** (raiz del repositorio) es la fuente unica. Lo leen:
+
+| Quien | Como |
+|---|---|
+| La API | `settings.version` (`backend/app/config.py`) → `GET /api/health` |
+| La interfaz | *Ajustes > Sobre ti* (chip `LifeAgente AI v1.1.0` + enlace a Releases) |
+| El instalador | la cabecera de la ventana (`LifeAgente AI  v1.1.0`) |
+| Las releases | la etiqueta `v1.1.0` y el cuerpo de la release |
+
+> **Ojo**: el archivo se escribe **sin BOM** (UTF-8 puro). Con BOM, la API
+> reportaba `"version": "\ufeff1.1.0"` y el `VERSION` de PyInstaller tambien
+> lo arrastraba.
 
 ## 4. Sin `.exe`: el arranque con un clic
 
@@ -75,10 +95,28 @@ la interfaz, levanta el sistema, abre el navegador y apaga todo al cerrar.
 | Evento | Que hace |
 |---|---|
 | *Run workflow* (manual) | compila y deja el `.exe` como artefacto descargable |
-| Tag `v*` (por ejemplo `v1.0`) | ademas crea una **Release** con el `.exe` adjunto |
+| Tag `v*` (por ejemplo `v1.1.0`) | ademas crea una **Release** con el `.exe` **y** el `.zip` del sistema completo, y un cuerpo con las novedades |
 
 Es **gratis** en repositorios publicos. La descarga directa queda en
 `https://github.com/brayanortiz906-lab/LifeSync-AI/releases`.
+
+El flujo completo para sacar una version nueva:
+
+```powershell
+# 1. pruebas + commit + push + espera al CI
+powershell -ExecutionPolicy Bypass -File publicar.ps1 -Mensaje "feat: mi cambio"
+# 2. etiqueta (esto dispara la release con el .exe)
+git tag v1.1.0
+git push upstream v1.1.0
+```
+
+Lo que se publica en cada release:
+
+| Archivo | Que es |
+|---|---|
+| `LifeAgente.exe` | el instalador de Windows |
+| `LifeAgente-AI-sistema-<version>.zip` | el codigo fuente + la interfaz + la documentacion |
+| el cuerpo | las novedades de esa version, en palabras llanas |
 
 ## 6. Docker dentro del instalador
 
@@ -106,5 +144,7 @@ y un `Dockerfile` multi-stage).
 | `desktop/build.ps1` | compila el `.exe` |
 | `desktop/INICIAR.bat` | arranque con un clic sin compilar el `.exe` |
 | `desktop/LEEME.txt` | el texto que lee la persona que instala |
-| `backend/app/config.py` | `DATA_DIR`, `FRONTEND_DIST` y `SYSTEM_PROMPT_PATH` compatibles con el `.exe` |
+| `backend/app/config.py` | `DATA_DIR`, `FRONTEND_DIST`, `SYSTEM_PROMPT_PATH` y `VERSION` compatibles con el `.exe` |
+| `VERSION` (raiz) | la version de la app (fuente unica) |
+| `CHANGELOG.md` (raiz) | las novedades de cada version |
 | `.github/workflows/build-installer.yml` | compila y publica la descarga |

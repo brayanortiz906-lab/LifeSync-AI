@@ -224,7 +224,8 @@ export function guardarApiKeyLocal(key: string) {
 }
 
 export const api = {
-  health: () => request<{ ok: boolean; proveedor_por_defecto: string }>('/health'),
+  health: () =>
+    request<{ ok: boolean; app: string; version: string; proveedor_por_defecto: string }>('/health'),
 
   dashboard: () => request<Dashboard>('/dashboard'),
   /** Todo lo de la pantalla inicial en UNA sola peticion (v36). */

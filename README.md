@@ -12,14 +12,45 @@ reorganiza tu agenda ante imprevistos y registra lo que te pasa en lenguaje natu
 
 | | |
 |---|---|
-| **Versión** | `v1.0.0` (release con el instalador y el código completo) |
-| **Pruebas** | 143 comprobaciones autom.ticas (`backend/smoke.py`) + build TypeScript |
-| **Documentación** | 18 documentos (`docs/00-INDICE.md` es el índice) |
+| **Versión** | `v1.1.0` (release con el instalador `.exe` y el código completo) · el número vive en el archivo [`VERSION`](VERSION) |
+| **Pruebas** | 143 comprobaciones automáticas (`backend/smoke.py`) + build TypeScript |
+| **Documentación** | 20 documentos (`docs/00-INDICE.md` es el índice) + [`CHANGELOG.md`](CHANGELOG.md) |
 | **Interfaz** | React 19 · Vite 7 · TypeScript · Tailwind CSS v4 · Zustand 5 |
 | **API** | FastAPI · SQLAlchemy 2 · SQLite · Pydantic v2 |
 | **IA** | OpenAI · Gemini · Anthropic · OpenRouter · Ollama · LM Studio · motor local por reglas |
 | **Extras** | IA responsable (auditoría y aprobaciones) · cuentas con Drive · paneles compartidos · `.exe` de Windows |
 | **Licencia** | MIT |
+
+### 📦 Releases: dónde se descarga y qué hay
+La pestaña **Releases** de GitHub es el «escaparate» del proyecto. Ahí vive **una página por
+versión**, con los archivos para descargar y las novedades escritas.
+
+| Qué | Enlace |
+|---|---|
+| **Releases (todas las versiones)** | <https://github.com/brayanortiz906-lab/LifeSync-AI/releases> |
+| **Última versión (v1.1.0)** | <https://github.com/brayanortiz906-lab/LifeSync-AI/releases/latest> |
+| **Novedades completas** | [`CHANGELOG.md`](CHANGELOG.md) |
+
+**Qué hay en cada release**
+
+| Archivo | Qué es | Para quién |
+|---|---|---|
+| `LifeAgente.exe` | El instalador de Windows (13 MB). Trae la API, la interfaz y crea la base de datos. | Quien quiere usarlo en su computador, sin instalar nada |
+| `LifeAgente-AI-sistema.zip` | El código fuente + la interfaz, para quien quiere mirarlo o modificarlo | quien programa o quiere leerlo |
+| El cuerpo de la release | Las novedades de esa versión, en palabras llanas | todo el mundo |
+
+**Cómo se publica una versión nueva** (ya está automatizado):
+1. Se sube el código a `main` (con `publicar.ps1`).
+2. Se crea la etiqueta `v1.1.0` → GitHub Actions compila el `.exe` y **crea la release** con los archivos.
+3. La web (Pages) se republica sola y Render reconstruye el servicio.
+
+```powershell
+git tag v1.1.0
+git push upstream v1.1.0
+```
+
+> La **versión es una sola**: el archivo `VERSION` de la raíz. La app (Ajustes), el `.exe` y las
+> releases muestran el mismo número, así siempre sabes qué tienes instalado.
 
 ### 🌍 Está en vivo
 
@@ -82,6 +113,55 @@ entorno, instala, compila, levanta y abre el navegador). Y el workflow
 gratuita en cada release.
 
 Detalle técnico: `docs/17-INSTALADOR-LOCAL.md`.
+
+### 🚀 Puesta en marcha, paso a paso
+
+#### Opción A — En la nube (lo más fácil, 3 pasos)
+| # | Qué haces | Dónde |
+|---|---|---|
+| 1 | Abre **https://brayanortiz906-lab.github.io/LifeSync-AI/** | el navegador |
+| 2 | Elige cómo entrar: **Google / Outlook / GitHub** (un clic) · **correo + contraseña** · **sin cuenta** (modo local, todo queda en tu navegador) | la pantalla de bienvenida |
+| 3 | Ya estás dentro: la agenda es la pantalla principal y el chat flotante está abajo a la derecha (`Ctrl+K` lo abre y lo cierra) | la app |
+
+> Si la primera carga tarda: es que el servidor de Render estaba dormido. La app te avisa
+> («Despertando el servidor…») y carga sola en ~30 s. **Recarga con `Ctrl+Shift+R`** si ves
+> algo viejo (el navegador guarda copia del código).
+
+#### Opción B — En tu computador con el instalador (5 pasos)
+| # | Qué haces |
+|---|---|
+| 1 | Descarga **LifeAgente.exe** desde [Releases](https://github.com/brayanortiz906-lab/LifeSync-AI/releases) |
+| 2 | Doble clic. Se abre una ventana con los **requisitos** (motor ✅, Docker opcional, base de datos, puerto 8000, interfaz compilada) |
+| 3 | (Opcional) Pulsa **Instalar** para que el propio programa instale lo que falte (Python, Docker, Node) |
+| 4 | Pulsa **Iniciar LifeAgente**: se levanta la API en `http://127.0.0.1:8000` y se abre el navegador solo |
+| 5 | **Al cerrar la ventana**, LifeAgente **guarda una copia** de tus datos y **apaga el servidor** (no queda nada corriendo) |
+
+Tus datos viven en `%APPDATA%\LifeAgente\` (base de datos, respaldos y clave de cifrado) —
+**no se borran** al cerrar ni al actualizar el programa.
+
+#### Opción C — Con el código (para programar)
+```powershell
+# 1. API
+cd backend
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+# 2. Interfaz (en otra terminal)
+cd frontend
+npm install
+npm run dev            # http://localhost:5173
+# 3. Publicar lo que cambiaste (pruebas + commit + push + espera al CI)
+powershell -ExecutionPolicy Bypass -File publicar.ps1 -Mensaje "feat: mi cambio"
+```
+
+#### Lo que puedes hacer después (en cualquier opción)
+| Quiero… | Dónde |
+|---|---|
+| **Que el asistente hable con una IA de verdad** | *Conectar IA* → sección 1 (cuenta), 2 (tu computador) o 3 (clave) |
+| **Usar la app sin internet** | *Conectar IA* → sección 2 → *Descarga una IA ligera* (400 MB) |
+| **Guardar todo en mi Drive** | *Permisos* → *Autorizar todo* → *Respaldo en Drive* |
+| **Que me llegue el resumen de la mañana** | *Permisos* → *Resumen de mañana por correo* |
+| **Que me llegue el código de verificación** | *Conectar IA* → *Ajustes técnicos* → *Envío de correo* (o que el administrador lo ponga en Render) |
+| **Compartir mi agenda con alguien** | *Paneles* → *Compartir* (por correo, nivel *ver* o *editar*) |
+| **Saber qué le falta al servidor** | *Conectar IA* → *Ajustes técnicos* → *Estado del servidor* |
 
 ### 🔑 Acceso en un clic, sin configurar nada
 
@@ -663,7 +743,22 @@ el centro de conexiones y los permisos con piloto automático) y compila el fron
     ├── 09-CUENTAS.md
     ├── 10-DESPLIEGUE.md
     ├── 11-AUTENTICACION.md
-    └── 12-PERMISOS-Y-NUBE.md
+    ├── 12-PERMISOS-Y-NUBE.md
+    ├── 13-MOTOR-LOCAL.md
+    ├── 14-RESPONSIVE.md
+    ├── 15-CUENTAS-Y-PANELES.md
+    ├── 16-RESPALDO-Y-NUBE.md
+    ├── 17-INSTALADOR-LOCAL.md
+    ├── 18-IA-LIGERA-Y-ACCESO.md
+    ├── 19-RENDIMIENTO.md
+    └── 20-CORREO-Y-RENDIMIENTO.md
+├── desktop/                  ← el instalador de Windows
+│   ├── launcher.py           ← ventana: requisitos, instalar, iniciar, guardar y apagar
+│   ├── LifeAgente.spec       ← receta de PyInstaller (empaqueta API + interfaz)
+│   ├── build.ps1             ← compila el .exe (siempre recompila la interfaz)
+│   └── LEEME.txt             ← instrucciones para quien instala
+├── VERSION                   ← el numero de version, en un solo archivo
+└── CHANGELOG.md              ← que hay en cada version
 ```
 
 ---

@@ -260,7 +260,7 @@ Documentación completa de cada área en `docs/`.
 | Archivo | Para qué |
 |---|---|
 | `run.py` | arranque rápido de la API |
-| `smoke.py` | **143 comprobaciones autom.ticas** de todo el sistema (`python smoke.py`) |
+| `smoke.py` | **143 comprobaciones automáticas** de todo el sistema (`python smoke.py`) |
 | `requirements.txt` | dependencias de Python |
 | `.env.example` | plantilla de configuración |
 

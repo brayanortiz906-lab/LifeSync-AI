@@ -41,10 +41,31 @@ jobs:
       - name: Preparar PyInstaller
         run: |
           python -m pip install --upgrade pip
+          # IMPORTANTE: tambien las dependencias de la app. Sin ellas el .exe
+          # se construye pero no arranca (le faltan FastAPI, SQLAlchemy...).
+          python -m pip install -r backend/requirements.txt
           python -m pip install pyinstaller
 
       - name: Generar el .exe
         run: python -m PyInstaller desktop\LifeAgente.spec --noconfirm --clean --distpath desktop\dist --workpath desktop\build
+
+      - name: Empaquetar el sistema completo (codigo fuente)
+        shell: pwsh
+        run: |
+          $version = (Get-Content VERSION -Raw).Trim()
+          $carpeta = "LifeAgente-AI-sistema-$version"
+          New-Item -ItemType Directory -Path $carpeta -Force | Out-Null
+          foreach ($item in @("backend", "frontend/src", "shared", "docs", "desktop", "README.md", "CHANGELOG.md", "VERSION", "LICENSE")) {
+            if (Test-Path $item) {
+              Copy-Item $item -Destination $carpeta -Recurse -Force
+            }
+          }
+          Copy-Item "frontend/package.json" -Destination $carpeta -Force -ErrorAction SilentlyContinue
+          Copy-Item "frontend/package-lock.json" -Destination $carpeta -Force -ErrorAction SilentlyContinue
+          Copy-Item "frontend/vite.config.ts" -Destination $carpeta -Force -ErrorAction SilentlyContinue
+          Copy-Item "frontend/tsconfig.json" -Destination $carpeta -Force -ErrorAction SilentlyContinue
+          Copy-Item "frontend/index.html" -Destination $carpeta -Force -ErrorAction SilentlyContinue
+          Compress-Archive -Path $carpeta -DestinationPath "LifeAgente-AI-sistema-$version.zip" -Force
 
       - name: Subir el instalador
         uses: actions/upload-artifact@v4
@@ -55,14 +76,44 @@ jobs:
 
       - name: Publicar la descarga (si es un tag)
         if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        run: |
+          $version = (Get-Content VERSION -Raw).Trim()
+          $cuerpo = @"
+          ## LifeAgente AI v$version para Windows
+
+          Descarga `LifeAgente.exe`, copialo donde quieras y doble clic.
+
+          - No necesita instalar Python, Node ni Docker.
+          - Crea la base de datos en `%APPDATA%\LifeAgente`.
+          - Al cerrar la ventana, guarda una copia de tus datos y apaga todo.
+          - Los datos **no se borran** al cerrar ni al actualizar el programa.
+
+          ### Las novedades de esta version
+
+          | Que | Como |
+          |---|---|
+          | Entrar es **un solo boton** | *Entrar o crear mi cuenta*: si la cuenta existe entras, si no la creas |
+          | El **codigo de verificacion** si llega | o te lo dicen de verdad (correo configurable desde la app) |
+          | **Conectar cualquier IA** en 4 secciones | Google / Outlook / GitHub, IA de tu computador, clave o demo |
+          | **IA super ligera** descargable | 400 MB, para usar la app sin internet ni claves |
+          | **De 12 peticiones a 1** | la app abre Mucho mas rapido (0,5 s medidos) |
+          | **El correo tambien es almacen** | respaldo completo adjunto en tu buzon |
+          | **Paneles con puerta** | comparte por correo con nivel *ver* o *editar* |
+
+          Las novedades completas estan en `CHANGELOG.md` del repositorio.
+          "@
+          $cuerpo | Out-File -FilePath notas.md -Encoding utf8
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Crear la release (si es un tag)
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: desktop/dist/LifeAgente.exe
-          body: |
-            ## LifeAgente AI para Windows
-
-            Descarga `LifeAgente.exe`, copialo donde quieras y doble clic.
-
-            - No necesita instalar Python, Node ni Docker.
-            - Crea la base de datos en `%APPDATA%\LifeAgente`.
-            - Al cerrar la ventana, guarda una copia de tus datos y apaga todo.
+          files: |
+            desktop/dist/LifeAgente.exe
+            LifeAgente-AI-sistema-*.zip
+          body_path: notas.md
+          draft: false
+          prerelease: false

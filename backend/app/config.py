@@ -67,6 +67,16 @@ SYSTEM_PROMPT_PATH = _primer_existente(
 )
 SHARED_DIR = SYSTEM_PROMPT_PATH.parent
 
+# --- Version de la app (fuente unica: el archivo VERSION) ----------------- #
+# La misma version la ven: la app (Ajustes), el instalador .exe, la API
+# (/api/health) y la pagina de Releases de GitHub.
+VERSION_POR_DEFECTO = "1.1.0"
+VERSION_PATHES = [
+    (MEIPASS / "VERSION") if MEIPASS else PROJECT_DIR / "VERSION",
+    PROJECT_DIR / "VERSION",
+    Path(sys.executable).parent / "VERSION" if FROZEN else BASE_DIR / "VERSION",
+]
+
 
 def _secreto_estable() -> str:
     """Clave estable entre ejecuciones.
@@ -98,7 +108,6 @@ class Settings(BaseSettings):
     app_name: str = "LifeAgente AI"
     app_secret_key: str = ""
     database_url: str = ""
-
     default_llm_provider: str = "mock"
     default_openai_model: str = "gpt-4o-mini"
     default_gemini_model: str = "gemini-2.0-flash"
@@ -182,6 +191,23 @@ class Settings(BaseSettings):
         if SYSTEM_PROMPT_PATH.exists():
             return SYSTEM_PROMPT_PATH.read_text(encoding="utf-8")
         return "Eres LifeAgente, un asistente de vida y productividad. Responde en JSON."
+
+    @property
+    def version(self) -> str:
+        """Version de la app. Fuente unica: el archivo VERSION del repositorio.
+
+        La misma version aparece en la app, en el instalador .exe y en las
+        Releases de GitHub, para que nadie se pierda al actualizar.
+        """
+        for ruta in VERSION_PATHES:
+            try:
+                if ruta.exists():
+                    texto = ruta.read_text(encoding="utf-8").strip()
+                    if texto:
+                        return texto
+            except Exception:
+                continue
+        return VERSION_POR_DEFECTO
 
 
 @lru_cache

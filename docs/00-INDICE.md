@@ -9,6 +9,7 @@ Si buscas **cómo usarlo**: empieza por [`MANUAL-LOCAL.md`](../MANUAL-LOCAL.md)
 | Quiero… | Documento |
 |---|---|
 | **Usarlo en mi computador** | [`MANUAL-LOCAL.md`](../MANUAL-LOCAL.md) · [`17-INSTALADOR-LOCAL.md`](17-INSTALADOR-LOCAL.md) |
+| **Descargar la última versión (el `.exe`)** | [`CHANGELOG.md`](../CHANGELOG.md) · [Releases en GitHub](https://github.com/brayanortiz906-lab/LifeSync-AI/releases/latest) |
 | **Entender cómo está hecho** | [`01-ARQUITECTURA.md`](01-ARQUITECTURA.md) |
 | **Cambiar el comportamiento del agente** | [`02-SYSTEM-PROMPT.md`](02-SYSTEM-PROMPT.md) |
 | **Conectar una IA (Claude, GPT, Gemini, una local…)** | [`06-CONE-XIONES.md`](06-CONE-XIONES.md) · [`03-INTEGRACION-API-KEY.md`](03-INTEGRACION-API-KEY.md) |
@@ -48,7 +49,8 @@ Si buscas **cómo usarlo**: empieza por [`MANUAL-LOCAL.md`](../MANUAL-LOCAL.md)
 | 17 | [Instalador local](17-INSTALADOR-LOCAL.md) | El `.exe` de Windows: qué lleva dentro, dónde viven los datos y cómo se compila. |
 | 18 | [IA ligera y acceso](18-IA-LIGERA-Y-ACCESO.md) | Por qué las credenciales son públicas (acceso con un clic) y cómo bajar una IA de 400 MB para usar la app local. |
 | 19 | [Rendimiento](19-RENDIMIENTO.md) | Por qué la app no se siente lenta: las mediciones antes/después y los 5 arreglos. |
-| 20 | Correo que si llega, una sola peticion y el correo como almacen | [`docs/20-CORREO-Y-RENDIMIENTO.md`](20-CORREO-Y-RENDIMIENTO.md) |
+| 20 | [Correo que sí llega, una sola petición y el correo como almacén](20-CORREO-Y-RENDIMIENTO.md) | El código de verificación por SMTP, la app abre en 1 viaje y el correo como almacén. |
+| 21 | [Revisión del log del servidor](20-CORREO-Y-RENDIMIENTO.md) | Los 3 bugs del log de Render y la lista de pendientes del despliegue. |
 
 ## Documentos fuera de `docs/`
 
@@ -57,6 +59,6 @@ Si buscas **cómo usarlo**: empieza por [`MANUAL-LOCAL.md`](../MANUAL-LOCAL.md)
 | [`README.md`](../README.md) | Resumen del proyecto, cómo arrancarlo y los enlaces a todo lo demás. |
 | [`MANUAL-LOCAL.md`](../MANUAL-LOCAL.md) | **El manual del sistema**: 5 formas de correrlo, dónde están los datos y qué hace cada archivo. |
 | [`LEEME.txt`](../LEEME.txt) | Arranque rápido en texto plano, para quien no usa Markdown. |
+| [`CHANGELOG.md`](../CHANGELOG.md) | **El historial de versiones**: qué hay en cada una y cómo se publica una nueva. |
+| [`VERSION`](../VERSION) | El número de versión del sistema, en un solo archivo (lo leen la API, la web y el `.exe`). |
 | [`LICENSE`](../LICENSE) | Licencia MIT. |
-
-| 21 | **Revision del log del servidor y lista de pendientes** | `GET /api/diagnostico` + el bloque *Estado del servidor* (que falta por configurar y como se arregla) | `docs/20-CORREO-Y-RENDIMIENTO.md` |

@@ -15,6 +15,7 @@ import {
   Sparkles, Tag, Trash2, User, X,
 } from 'lucide-react'
 import { useLifeAgente } from '../store/useLifeAgente'
+import { api } from '../lib/api'
 import type {
   Ajustes, OrdenEventos, OrdenGastos, OrdenTareas, TemaId,
 } from '../types'
@@ -62,6 +63,23 @@ export default function AjustesPanel({ onAbrirConexiones }: { onAbrirConexiones?
   const [etiquetaNueva, setEtiquetaNueva] = useState('')
   const [guardando, setGuardando] = useState(false)
   const [mensaje, setMensaje] = useState<string | null>(null)
+  /** Version que esta corriendo ahora mismo (la dice el servidor). */
+  const [version, setVersion] = useState('')
+
+  useEffect(() => {
+    let vivo = true
+    api
+      .health()
+      .then((r) => {
+        if (vivo) setVersion(r.version || '')
+      })
+      .catch(() => {
+        if (vivo) setVersion('')
+      })
+    return () => {
+      vivo = false
+    }
+  }, [])
 
   const aplicar = async (cambios: Partial<Ajustes>) => {
     setGuardando(true)
@@ -155,6 +173,21 @@ export default function AjustesPanel({ onAbrirConexiones }: { onAbrirConexiones?
               </span>
             </div>
           </div>
+        </div>
+        {/* Version: la misma que aparece en el instalador .exe y en la pagina */}
+        {/* de Releases de GitHub. Sirve para saber que tienes instalado.   */}
+        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-white/8 pt-3 text-[10px] text-slate-500">
+          <span className="rounded-md bg-white/5 px-2 py-0.5 font-mono text-slate-300">
+            LifeAgente AI v{version || '1.1.0'}
+          </span>
+          <a
+            href="https://github.com/brayanortiz906-lab/LifeSync-AI/releases"
+            target="_blank"
+            rel="noreferrer"
+            className="underline decoration-dotted underline-offset-2 hover:text-indigo-300"
+          >
+            Ver las novedades y descargar la ultima version
+          </a>
         </div>
       </Panel>
 

@@ -20,6 +20,7 @@ if RAIZ.name == "desktop":
 datas = [
     (str(RAIZ / "shared" / "system_prompt.txt"), "shared"),
     (str(RAIZ / "frontend" / "dist"), "frontend/dist"),
+    (str(RAIZ / "VERSION"), "."),
 ]
 
 binarios = []
@@ -39,6 +40,7 @@ hiddenimports = [
     "app.cuentas",
     "app.permisos",
     "app.paneles",
+    "app.ia_local",
     "app.routers.crud",
     "app.routers.agent",
     "app.routers.conexiones",
@@ -46,6 +48,7 @@ hiddenimports = [
     "app.routers.permisos",
     "app.routers.paneles",
     "app.routers.responsabilidad",
+    "app.routers.inicio",
     "uvicorn.logging",
     "uvicorn.loops.auto",
     "uvicorn.loops.asyncio",

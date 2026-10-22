@@ -63,6 +63,29 @@ DIR_DATOS = Path(
 PUERTO = int(os.environ.get("LIFEAGENTE_PUERTO", "8000"))
 URL = f"http://127.0.0.1:{PUERTO}"
 
+
+def _leer_version() -> str:
+    """Version de la app (archivo VERSION). La misma que ve la persona."""
+    candidatos = [
+        (Path(getattr(sys, "_MEIPASS", "")) / "VERSION") if FROZEN else None,
+        Path(__file__).resolve().parent.parent / "VERSION",
+        Path(__file__).resolve().parent / "VERSION",
+    ]
+    for ruta in candidatos:
+        if not ruta:
+            continue
+        try:
+            if ruta.exists():
+                texto = ruta.read_text(encoding="utf-8").strip()
+                if texto:
+                    return texto
+        except OSError:
+            continue
+    return "1.1.0"
+
+
+VERSION = _leer_version()
+
 # Modelo muy ligero para usar LifeAgente en el computador sin claves de IA.
 MODELO_LIGERO = "qwen2.5:0.5b"
 DIR_RESPALDOS = DIR_DATOS / "respaldos"
@@ -230,6 +253,10 @@ class Lanzador:
             cab, text="LifeAgente AI", bg=FONDO, fg=TEXTO,
             font=("Segoe UI", 22, "bold"),
         ).pack(side="left")
+        tk.Label(
+            cab, text=f"v{VERSION}", bg=FONDO, fg=TEXTO_TENUE,
+            font=("Segoe UI", 11),
+        ).pack(side="left", padx=(8, 0), pady=8)
         self.etiqueta_estado = tk.Label(
             cab, text="Listo", bg=FONDO, fg=TEXTO_TENUE,
             font=("Segoe UI", 11),
