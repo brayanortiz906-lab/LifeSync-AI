@@ -91,10 +91,11 @@ async def _call_openai(system: str, user: str, api_key: str, model: str, tempera
 
 async def _call_gemini(
     system: str, user: str, api_key: str, model: str, temperature: float,
-    es_token_cuenta: bool = False,
+    es_token_cuenta: bool = False, base_url: str | None = None,
 ) -> str:
     model_id = model or settings.default_gemini_model
-    url = f"{GEMINI_BASE}/{model_id}:generateContent"
+    raiz = (base_url or GEMINI_BASE).rstrip("/")
+    url = f"{raiz}/{model_id}:generateContent"
     payload = {
         "systemInstruction": {"parts": [{"text": system}]},
         "contents": [{"role": "user", "parts": [{"text": user}]}],
@@ -786,6 +787,11 @@ async def complete(
         if estilo == "anthropic":
             return await _call_anthropic(
                 system, user, api_key or "local", modelo or "local-model", temperature, destino
+            )
+        if estilo == "gemini":
+            return await _call_gemini(
+                system, user, api_key or "", modelo or "gemini-2.0-flash", temperature,
+                es_token_cuenta=False, base_url=destino,
             )
         return await _call_openai_compatible(
             system, user, api_key, modelo or "local-model", temperature, destino, "tu sistema"

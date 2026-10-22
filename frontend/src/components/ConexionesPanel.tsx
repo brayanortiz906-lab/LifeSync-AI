@@ -12,11 +12,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   ArrowRight, Check, ChevronDown, CircleAlert, Cpu, Eye, EyeOff, Loader2, LogIn,
-  Mail, Plug, RefreshCw, Search, Server, Settings, ShieldCheck, Sparkles, Trash2, Wifi,
+  Mail, MonitorSmartphone, Plug, RefreshCw, Search, Server, Settings, ShieldCheck, Sparkles,
+  Trash2, Wifi, Wrench,
 } from 'lucide-react'
 import { api, apiGuardadaEsEstatica, cuentas, guardarUrlApi, leerUrlApi, urlApiEnUso } from '../lib/api'
 import type {
-  AutorizacionCuenta, CatalogoModelos, Conexion, Diagnostico, EstadoGoogle, InfoEstiloUrl,
+  AgenteLocal, AutorizacionCuenta, CatalogoModelos, Conexion, Diagnostico, EstadoGoogle,
+  InfoEstiloUrl, ServicioIaGratis,
   ModeloCatalogo, MotorLocal, ProveedorCatalogo,
 } from '../types'
 import { Aviso, Boton, Campo, Chip, Modal } from './ui'
@@ -129,16 +131,62 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
   const [claveManual, setClaveManual] = useState('')
   const [estiloUrl, setEstiloUrl] = useState<InfoEstiloUrl | null>(null)
   const [probandoUrl, setProbandoUrl] = useState(false)
+  /** IA gratis con tu cuenta (v43). */
+  const [serviciosGratis, setServiciosGratis] = useState<ServicioIaGratis[]>([])
+  const [servicioAbierto, setServicioAbierto] = useState<string | null>(null)
+  const [claveServicio, setClaveServicio] = useState('')
+  /** Sistemas de IA con interfaz ya instalados en el equipo (v43). */
+  const [agentes, setAgentes] = useState<AgenteLocal[]>([])
+
+  /** Conecta un servicio de IA gratis con la clave que pegó la persona. */
+  const conectarServicioGratis = async (s: ServicioIaGratis) => {
+    if (s.requiere_cuenta && !claveServicio.trim()) {
+      setEstado({
+        ok: false,
+        texto: `Pega la clave de ${s.nombre} (la copias en ${s.donde_clave}).`,
+      })
+      return
+    }
+    setOcupado(true)
+    setEstado({ ok: false, texto: `Conectando con ${s.nombre}…` })
+    try {
+      const guardada = await api.guardarConexion({
+        proveedor: 'personalizado',
+        nombre: s.nombre,
+        modo: 'local',
+        base_url: s.base_url,
+        api_key: claveServicio.trim() || undefined,
+        modelo: s.modelo_sugerido || '',
+        estilo: s.estilo,
+      })
+      const verificada = await api.verificarConexion(guardada.id)
+      setEstado({
+        ok: verificada.estado === 'activa',
+        texto: verificada.detalle_estado ?? `Conectado con ${s.nombre}.`,
+      })
+      setClaveServicio('')
+      setServicioAbierto(null)
+      await cargar()
+    } catch (e) {
+      setEstado({ ok: false, texto: (e as Error).message })
+    } finally {
+      setOcupado(false)
+    }
+  }
 
   const cargar = async () => {
     try {
-      const [cat, cons, loc, google, diag] = await Promise.all([
+      const [cat, cons, loc, google, diag, gratis, ag] = await Promise.all([
         api.catalogoConexiones(),
         api.conexiones(),
         api.detectarLocales(),
         api.estadoGoogle(),
         api.diagnostico().catch(() => null),
+        api.iaGratis().catch(() => ({ servicios: [] as ServicioIaGratis[] })),
+        api.agentesLocales().catch(() => ({ agentes: [] as AgenteLocal[] })),
       ])
+      setServiciosGratis(gratis.servicios ?? [])
+      setAgentes(ag.agentes ?? [])
       setDiagnostico(diag)
       setCatalogo(cat.proveedores)
       setConexiones(cons)
@@ -520,12 +568,168 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
               )}
             </BloqueSeccion>
 
-            {/* ============ 2 · La IA de tu computador ============ */}
+            {/* ============ 2 Â· IA gratis con tu cuenta ============ */}
             <BloqueSeccion
               numero="2"
+              titulo="IA gratis con tu cuenta"
+              descripcion="Sin instalar nada y sin pagar: entra con la cuenta que ya tienes y empieza. Cada servicio dice exactamente donde pegar la clave."
+            >
+              {serviciosGratis.length === 0 ? (
+                <p className="text-[11px] text-slate-400">
+                  No pudimos leer el catalogo. Recarga el panel.
+                </p>
+              ) : (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {serviciosGratis.map((s) => (
+                    <div key={s.id} className="rounded-xl border border-white/10 bg-white/4 p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-xs font-bold text-white">
+                          {s.icono} {s.nombre}
+                        </div>
+                        {s.conectado && (
+                          <Chip className="bg-emerald-500/15 text-emerald-300 ring-emerald-500/30">
+                            conectado
+                          </Chip>
+                        )}
+                      </div>
+                      <p className="mt-1 text-[10px] leading-relaxed text-slate-300">{s.resumen}</p>
+                      <p className="mt-1 text-[10px] font-semibold text-emerald-300">{s.plan}</p>
+                      <ol className="mt-2 space-y-1">
+                        {s.pasos.map((paso, i) => (
+                          <li key={i} className="ls-paso">
+                            <span className="ls-paso-num">{i + 1}</span>
+                            <span>{paso}</span>
+                          </li>
+                        ))}
+                      </ol>
+                      <p className="mt-2 text-[10px] leading-relaxed text-slate-400">
+                        <span className="text-slate-500">Donde esta la clave: </span>
+                        {s.donde_clave}
+                      </p>
+                      {servicioAbierto === s.id ? (
+                        <div className="mt-2 space-y-1.5">
+                          {s.requiere_cuenta && (
+                            <input
+                              type="password"
+                              value={claveServicio}
+                              onChange={(e) => setClaveServicio(e.target.value)}
+                              placeholder="Pega aqui tu clave"
+                              className="ls-input font-mono"
+                            />
+                          )}
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <Boton
+                              variante="primario"
+                              onClick={() => void conectarServicioGratis(s)}
+                              disabled={ocupado}
+                            >
+                              <Plug size={12} />
+                              {s.requiere_cuenta ? 'Guardar y conectar' : 'Conectar'}
+                            </Boton>
+                            <a
+                              href={s.url_registro}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-semibold text-slate-300 transition hover:bg-white/12"
+                            >
+                              Abrir el sitio
+                            </a>
+                            <button
+                              onClick={() => setServicioAbierto(null)}
+                              className="rounded-lg px-2 py-1 text-[10px] font-semibold text-slate-400 transition hover:text-slate-200"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                          <Boton
+                            variante="secundario"
+                            onClick={() => {
+                              setServicioAbierto(s.id)
+                              setClaveServicio('')
+                            }}
+                          >
+                            <Plug size={12} />
+                            Conectar
+                          </Boton>
+                          <a
+                            href={s.url_registro}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-semibold text-slate-300 transition hover:bg-white/12"
+                          >
+                            Abrir el sitio
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </BloqueSeccion>
+
+            {/* ============ 2 · La IA de tu computador ============ */}
+            <BloqueSeccion
+              numero="3"
               titulo="Usa la IA de tu computador"
               descripcion="Gratis y privado: la IA se queda en tu equipo y nadie mas la ve."
             >
+              <div className="rounded-xl border border-white/10 bg-white/4 p-3">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
+                  <MonitorSmartphone size={13} />
+                  Sistemas de IA que ya tienes en este computador
+                </div>
+                <p className="mt-1 text-[10px] leading-relaxed text-slate-400">
+                  Miramos tu computador y vemos que programas de agentes y editores con IA tienes
+                  (Claude Code, OpenCode, Codex, Cursor...). Los que Admiten servidor se pueden
+                  conectar como motor de LifeAgente.
+                </p>
+                <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
+                  {agentes.map((a) => (
+                    <div
+                      key={a.id}
+                      className="flex items-center gap-2 rounded-lg border border-white/8 bg-black/20 px-2.5 py-1.5"
+                    >
+                      <span className="text-sm">{a.icono}</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-[11px] font-semibold text-slate-200">
+                          {a.nombre}
+                          {a.instalado && (
+                            <span className="ml-1 text-[9px] font-bold text-emerald-300">instalado</span>
+                          )}
+                        </div>
+                        <div className="truncate text-[9px] text-slate-500" title={a.que_es}>
+                          {a.instalado ? a.version || a.que_es : a.que_es}
+                        </div>
+                      </div>
+                      {a.servidor ? (
+                        <button
+                          onClick={() => {
+                            setUrlManual(a.servidor)
+                            setClaveManual('')
+                            void probarUrlManual()
+                          }}
+                          className="shrink-0 rounded-lg border border-white/10 bg-white/5 px-2 py-0.5 text-[9px] font-bold text-slate-300 transition hover:bg-white/12"
+                        >
+                          Conectar
+                        </button>
+                      ) : a.url ? (
+                        <a
+                          href={a.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="shrink-0 rounded-lg border border-white/10 bg-white/5 px-2 py-0.5 text-[9px] font-bold text-slate-300 transition hover:bg-white/12"
+                        >
+                          Abrir
+                        </a>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               {motoresDisponibles.length > 0 ? (
                 <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/8 p-3">
                   <div className="flex items-center gap-2 text-xs font-bold text-emerald-200">
@@ -634,7 +838,7 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
 
             {/* ============ 3 · Conectar una IA con clave ============ */}
             <BloqueSeccion
-              numero="3"
+              numero="4"
               titulo="Conecta una IA con clave"
               descripcion="Si ya tienes una clave de API (OpenAI, Anthropic, Gemini, OpenRouter...). Te digo donde conseguirla."
             >
@@ -660,9 +864,9 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
               </div>
             </BloqueSeccion>
 
-            {/* ============ 4 · Solo quiero ver como funciona ============ */}
+            {/* ============ 5 · Solo quiero ver como funciona ============ */}
             <BloqueSeccion
-              numero="4"
+              numero="5"
               titulo="Solo quiero ver como funciona"
               descripcion="El asistente de prueba, sin cuentas ni claves. Ideal para echar un vistazo."
             >

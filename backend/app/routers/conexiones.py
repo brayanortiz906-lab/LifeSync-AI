@@ -111,6 +111,46 @@ async def detectar_locales(db: Session = Depends(get_db, scope="function")):
     return {"motores": motores, "total": len(motores), "autoconectado": auto}
 
 
+@router.get("/ia-gratis")
+def listar_ia_gratis(db: Session = Depends(get_db, scope="function")):
+    """IA gratis o con plan gratuito: solo necesitas tu cuenta (o nada).
+
+    Cada servicio trae los pasos exactos, donde pegar la clave y la
+    direccion de su API, para que no haya que buscar nada.
+    """
+    from .. import ia_gratis
+
+    servicios = ia_gratis.catalogo_gratis()
+    # Marca los que ya estan conectados en esta instalacion.
+    try:
+        existentes = db.execute(select(ConexionIA)).scalars().all()
+        ya_conectados = {c.proveedor for c in existentes if c.activa}
+    except Exception:
+        ya_conectados = set()
+    for servicio in servicios:
+        servicio["conectado"] = servicio["id"] in ya_conectados
+    return {"ok": True, "servicios": servicios, "total": len(servicios)}
+
+
+@router.get("/agentes")
+def listar_agentes():
+    """Sistemas de IA con interfaz o de linea de comandos ya instalados.
+
+    Mira el PATH del computador y dice que hay (Claude Code, OpenCode,
+    Codex, Cursor...) con su version, y como conectarlo con LifeAgente.
+    """
+    from .. import ia_gratis
+
+    agentes = ia_gratis.detectar_agentes_instalados()
+    instalados = [a for a in agentes if a["instalado"]]
+    return {
+        "ok": True,
+        "agentes": agentes,
+        "total": len(agentes),
+        "instalados": len(instalados),
+    }
+
+
 async def _autoconectar(db: Session, motores: list[dict]) -> dict | None:
     """Conecta el motor local detectado si la app todavia no usa uno real."""
     activa = db.scalars(select(ConexionIA).where(ConexionIA.activa)).first()

@@ -1,5 +1,6 @@
 /** Cliente HTTP de la API de LifeAgente AI. */
-import type {
+import type { AgenteLocal, ServicioIaGratis,
+  
   Ajustes, Aprobacion, AutorizacionCuenta, CatalogoModelos, Conexion, Dashboard, DatosPanel,
   DescargaIA, EntradaAuditoria, EstadoGoogle, Diagnostico,
   EstadoPermisos, InfoClientesPublicos, InfoEstiloUrl, InfoModelosLigeros, InfoProveedores, Inicio, MiembroPanel,
@@ -425,6 +426,10 @@ export const api = {
   /** Credenciales publicas de las cuentas (se obtienen solas al iniciar sesion). */
   clientesPublicos: (forzar = false) =>
     request<InfoClientesPublicos>(`/conexiones/clientes-publicos?forzar=${forzar ? 1 : 0}`),
+  /** IA gratis o con plan gratuito: solo necesitas tu cuenta (o nada). */
+  iaGratis: () => request<{ ok: boolean; servicios: ServicioIaGratis[]; total: number }>('/conexiones/ia-gratis'),
+  /** Sistemas de IA con interfaz ya instalados en este computador. */
+  agentesLocales: () => request<{ ok: boolean; agentes: AgenteLocal[]; total: number; instalados: number }>('/conexiones/agentes'),
 }
 
 /** Endpoints de acceso y respaldo (v11). */
@@ -656,4 +661,5 @@ export const paneles = {
 
   /** Contenido del panel (403 si no tienes permiso). */
   datos: (id: number) => request<DatosPanel>(`/paneles/${id}/datos`),
+
 }

@@ -166,7 +166,7 @@ Para que el trabajo en la nube funcione, además, la API debe estar desplegada
 
 ## 8. Verificación
 
-`backend/smoke.py` (150  casos) incluye la sección **PERMISOS DE LA CUENTA**:
+`backend/smoke.py` (157  casos) incluye la sección **PERMISOS DE LA CUENTA**:
 
 ```
 [OK  ] [PERMISOS] el estado de permisos responde -> n=4

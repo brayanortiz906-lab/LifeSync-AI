@@ -672,3 +672,35 @@ export const ICONO_CATEGORIA: Record<string, string> = {
   trabajo: '💼', clase: '🎓', estudio: '📚', descanso: '☕',
   personal: '📌', salud: '🏥', social: '🎉', mantenimiento: '🔧',
 }
+
+/** Servicio de IA gratis (o con plan gratuito): solo necesitas tu cuenta. */
+export interface ServicioIaGratis {
+  id: string
+  nombre: string
+  icono: string
+  resumen: string
+  plan: string
+  limites: string
+  pasos: string[]
+  url_registro: string
+  donde_clave: string
+  base_url: string
+  estilo: string
+  modelo_sugerido: string
+  requiere_cuenta: boolean
+  conectado: boolean
+}
+
+/** Programa de IA con interfaz o de linea de comandos instalado en el equipo. */
+export interface AgenteLocal {
+  id: string
+  nombre: string
+  icono: string
+  instalado: boolean
+  version: string
+  ruta: string
+  que_es: string
+  como_se_conecta: string
+  servidor: string
+  url: string
+}

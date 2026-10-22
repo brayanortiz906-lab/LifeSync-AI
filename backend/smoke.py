@@ -1213,6 +1213,53 @@ def main() -> int:
         f"-> claves={len(r_ini) if isinstance(r_ini, dict) else 0}",
     )
 
+    # ------------------------------------------------------------------
+    # IA GRATIS CON TU CUENTA Y SISTEMAS CON INTERFAZ (v43)
+    # ------------------------------------------------------------------
+    print("\n--- IA gratis y agentes detectados (v43) ---")
+
+    cod_gratis, r_gratis = pedir_suave("GET", "/api/conexiones/ia-gratis")
+    servicios = (r_gratis.get("servicios") or []) if isinstance(r_gratis, dict) else []
+    check(
+        "[GRATIS] hay un catalogo de IA gratis para conectar",
+        cod_gratis == 200 and len(servicios) >= 8,
+        f"-> cod={cod_gratis} servicios={len(servicios)}",
+    )
+    check(
+        "[GRATIS] cada servicio dice donde pegar la clave y tiene direccion",
+        bool(servicios)
+        and all(s.get("donde_clave") and s.get("base_url") and s.get("pasos") for s in servicios),
+        f"-> completos={sum(1 for s in servicios if s.get('donde_clave') and s.get('base_url'))}",
+    )
+    check(
+        "[GRATIS] hay al menos un servicio que no necesita cuenta ni clave",
+        any(not s.get("requiere_cuenta") for s in servicios),
+        f"-> sin_cuenta={[s['id'] for s in servicios if not s.get('requiere_cuenta')]}",
+    )
+    check(
+        "[GRATIS] el OpenCode Zen y Google AI Studio estan en la lista",
+        {"opencode_zen", "google_ai_studio"}.issubset({s.get("id") for s in servicios}),
+        f"-> ids={[s.get('id') for s in servicios]}",
+    )
+
+    cod_agentes, r_agentes = pedir_suave("GET", "/api/conexiones/agentes")
+    agentes = (r_agentes.get("agentes") or []) if isinstance(r_agentes, dict) else []
+    check(
+        "[AGENTES] se detectan los sistemas de IA con interfaz",
+        cod_agentes == 200 and len(agentes) >= 8,
+        f"-> cod={cod_agentes} agentes={len(agentes)}",
+    )
+    check(
+        "[AGENTES] se sabe cuales estan instalados y como conectarlos",
+        bool(agentes) and all(a.get("que_es") and a.get("como_se_conecta") for a in agentes),
+        f"-> instalados={sum(1 for a in agentes if a.get('instalado'))}",
+    )
+    check(
+        "[AGENTES] Claude Code y OpenCode estan en la lista",
+        {"claude_code", "opencode"}.issubset({a.get("id") for a in agentes}),
+        f"-> ids={[a.get('id') for a in agentes]}",
+    )
+
     print("=" * 70)
     if fallos:
         print(f"RESULTADO: {len(fallos)} CASO(S) FALLIDO(S): {fallos}")
