@@ -261,6 +261,8 @@ def main() -> int:
         isinstance(_r, dict) and (
             "no tiene el acceso con" in _msg
             or "no esta activado en este servidor" in _msg
+            or "todavia no tiene activado el acceso" in _msg
+            or "no tiene activado el acceso" in _msg
             or "user_code" in _r
         ),
         f"respuesta={_msg[:80] or 'device flow listo'}",

@@ -193,7 +193,7 @@ export default function Bienvenida({
         )}
 
         {/* Opciones de acceso */}
-        {!pendiente && perfil !== 'local' && (
+        {!pendiente && (
           <div className="grid gap-3 sm:grid-cols-3">
             {OPCIONES.map((o) => {
               const estadoProv = info?.proveedores.find((p) => p.id === o.id)

@@ -967,3 +967,61 @@ def editar_usuario(
             "bloqueado": bool(getattr(cuenta, "bloqueado", False)),
         },
     }
+
+
+@router.get("/servidor/clientes")
+def ver_clientes_servidor(
+    db: Session = Depends(get_db, scope="function"), admin=Depends(usuario_admin)
+):
+    """Identificadores OAuth del SERVIDOR (son publicos) para entrar con Google, Outlook o GitHub."""
+    from ..models import ConfiguracionServidor
+
+    fila = db.scalars(select(ConfiguracionServidor).order_by(ConfiguracionServidor.id)).first()
+    google = (fila.google_client_id if fila else "") or ""
+    outlook = (fila.outlook_client_id if fila else "") or ""
+    github = (fila.github_client_id if fila else "") or ""
+    return {
+        "ok": True,
+        "google": google,
+        "outlook": outlook,
+        "github": github,
+        "listo": bool(google or outlook or github),
+        "mensaje": "Estos identificadores son publicos: no son tu contrasena ni un token privado.",
+    }
+
+
+@router.put("/servidor/clientes")
+def guardar_clientes_servidor(
+    payload: dict = Body(default={}),
+    db: Session = Depends(get_db, scope="function"),
+    admin=Depends(usuario_admin),
+):
+    """Guarda los identificadores OAuth del servidor: valen para TODOS los usuarios."""
+    from ..models import ConfiguracionServidor
+    fila = db.scalars(select(ConfiguracionServidor).order_by(ConfiguracionServidor.id)).first()
+    if fila is None:
+        fila = ConfiguracionServidor()
+        db.add(fila)
+    cambios = []
+    for clave, columna in (
+        ("google", "google_client_id"),
+        ("outlook", "outlook_client_id"),
+        ("github", "github_client_id"),
+    ):
+        if clave not in payload:
+            continue
+        valor = str(payload.get(clave) or "").strip()
+        setattr(fila, columna, valor)
+        cambios.append(clave if valor else f"{clave} (borrado)")
+    db.commit()
+    return {
+        "ok": True,
+        "mensaje": (
+            "Guardado. Ya toda la gente puede entrar con su cuenta."
+            if cambios
+            else "No se guardo nada: escribe al menos un identificador."
+        ),
+        "google": fila.google_client_id,
+        "outlook": fila.outlook_client_id,
+        "github": fila.github_client_id,
+    }

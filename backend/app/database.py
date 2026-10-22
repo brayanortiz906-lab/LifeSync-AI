@@ -130,7 +130,9 @@ def _migrar_sqlite() -> None:
                 "proveedor_correo": "VARCHAR(20) DEFAULT 'smtp'",
                 "api_key_cifrada": "TEXT DEFAULT NULL",
                 "remitente": "VARCHAR(160) DEFAULT ''",
-            },
+            "google_client_id": "VARCHAR(200) DEFAULT ''",
+            "outlook_client_id": "VARCHAR(200) DEFAULT ''",
+            "github_client_id": "VARCHAR(200) DEFAULT ''",},
         )
 
         filas = conn.exec_driver_sql("PRAGMA foreign_key_list(tasks)").fetchall()

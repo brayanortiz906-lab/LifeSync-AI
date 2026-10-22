@@ -8,6 +8,7 @@ import type { AgenteLocal, ServicioIaGratis,
   PerfilCuenta, Respaldo, ResultadoCodigo, ResultadoSesion, Usuario,
   Evento, HistorialMsg, Mantenimiento, MotorLocal, Politica, ProveedorCatalogo, Registro,
   ReporteCumplimiento, ResumenAuditoria, RespuestaAgente, ResultadoAutorizacion, Tarea,
+  ClientesServidor,
 } from '../types'
 
 // La URL de la API, en este orden de prioridad:
@@ -460,6 +461,12 @@ export const cuentas = {
       },
     ),
   /** ¿El servidor tiene el acceso con Google activado? (v19) */
+  clientesServidor: () => request<ClientesServidor>('/cuentas/servidor/clientes'),
+  guardarClientesServidor: (datos: { google?: string; outlook?: string; github?: string }) =>
+    request<{ ok: boolean; mensaje: string }>('/cuentas/servidor/clientes', {
+      method: 'PUT',
+      body: JSON.stringify(datos),
+    }),
   googleDisponible: () =>
     request<{ ok: boolean; disponible: boolean; mensaje: string }>('/cuentas/google/disponible'),
   /**

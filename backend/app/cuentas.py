@@ -27,7 +27,7 @@ from datetime import datetime, timedelta
 from email.message import EmailMessage
 
 from fastapi import Depends, Header, HTTPException
-from sqlalchemy import Boolean, Column, DateTime, Integer, String, event, select
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, event, select, func
 from sqlalchemy.orm import Session as SASession
 
 from .config import settings
@@ -428,6 +428,19 @@ background:#0f172a;border:1px solid #4338ca;border-radius:12px;padding:16px;colo
 # --------------------------------------------------------------------------- #
 # Alta, verificación e inicio de sesión
 # --------------------------------------------------------------------------- #
+def _hay_algun_admin(db) -> bool:
+    """Hay alguna cuenta con rol de administradora en esta instalacion?"""
+    try:
+        total = db.scalar(
+            select(func.count())
+            .select_from(Usuario)
+            .where(Usuario.rol == "admin")
+        )
+        return int(total or 0) > 0
+    except Exception:
+        return False
+
+
 def _buscar_o_crear(db: SASession, correo: str, nombre: str, metodo: str) -> Usuario:
     correo = correo.strip().lower()
     usuario = db.scalars(select(Usuario).where(Usuario.correo == correo)).first()
@@ -436,6 +449,12 @@ def _buscar_o_crear(db: SASession, correo: str, nombre: str, metodo: str) -> Usu
         # esta en la lista de administradores del despliegue (ADMIN_EMAILS).
         # Asi nadie puede auto-asignarse permisos por la API.
         rol = "admin" if correo in settings.lista_admins else "usuario"
+        # Primera cuenta de una instalacion nueva: queda como administradora si
+        # todavia no hay ninguna. Asi el dueno de la app puede activar Google,
+        # Outlook o GitHub PARA TODA LA GENTE desde la propia app, sin tener que
+        # tocar variables de entorno en el despliegue.
+        if rol == "usuario" and not _hay_algun_admin(db):
+            rol = "admin"
         usuario = Usuario(
             correo=correo,
             nombre=nombre.strip()[:80],
@@ -602,6 +621,25 @@ def client_id_de(db: SASession, proveedor: str = "google_cuenta") -> str:
     }.get(pid, "")
     if entorno.strip():
         return entorno.strip()
+    # 2) La configuracion DEL SERVIDOR (la que guarda el administrador de la
+    #    app). Es lo que hace que TODO EL MUNDO pueda entrar con Google,
+    #    Outlook o GitHub: el identificador es publico y se configura una vez.
+    try:
+        from .models import ConfiguracionServidor
+
+        servidor = db.scalars(
+            select(ConfiguracionServidor).order_by(ConfiguracionServidor.id)
+        ).first()
+        if servidor is not None:
+            del_servidor = {
+                "google_cuenta": servidor.google_client_id,
+                "outlook_cuenta": servidor.outlook_client_id,
+                "github_cuenta": servidor.github_client_id,
+            }.get(pid, "")
+            if str(del_servidor or "").strip():
+                return str(del_servidor).strip()
+    except Exception:
+        pass
     # Lo que la persona guardo desde la propia app (Conectar IA > configuracion
     # avanzada). Antes no se miraba aqui y el ID guardado no se usaba nunca.
     from .models import AppSettings
@@ -642,9 +680,10 @@ def client_id_de(db: SASession, proveedor: str = "google_cuenta") -> str:
     raise HTTPException(
         status_code=400,
         detail=(
-            "El acceso con esa cuenta todavia no esta activado en este servidor "
-            "(lo activa una sola vez quien lo instala). No te frena: entra con tu "
-            "correo y tu contrasena, o sigue en este equipo."
+"Este servidor todavia no tiene activado el acceso con esa cuenta. "
+            "Lo activa el dueno de la app en un solo paso (ayuda en 'Conectar IA > "
+            "Ajustes tecnicos > Entrar con Google, Outlook o GitHub'). No te frena: "
+            "entra con tu correo y tu contrasena, o sigue usando LifeAgente aqui."
         ),
     )
 

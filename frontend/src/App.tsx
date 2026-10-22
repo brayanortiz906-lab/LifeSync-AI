@@ -33,6 +33,7 @@ import PanelLocal from './components/PanelLocal'
 import PanelAlarmas from './components/PanelAlarmas'
 import ChatFlotante from './components/ChatFlotante'
 import ResumenMovil from './components/ResumenMovil'
+import PanelIaMovil from './components/PanelIaMovil'
 import MenuMovil from './components/MenuMovil'
 import { Boton, Panel } from './components/ui'
 import AccesoPanel from './components/AccesoPanel'
@@ -244,6 +245,7 @@ const eventosAgenda = useLifeAgente((s) => s.eventos)
             <div className="mx-auto flex w-full max-w-[1900px] flex-col gap-4">
               <CalendarPanel fecha={fecha} onCambiarFecha={setFecha} />
               <ResumenMovil onAbrirMas={() => setMenuMovilAbierto(true)} />
+                <PanelIaMovil alCambiar={() => void cargarTodo()} />
               <PanelLocal onAbrirConexiones={() => setConexionesAbiertas(true)} />
               <PanelAlarmas eventos={eventosAgenda} />
             </div>

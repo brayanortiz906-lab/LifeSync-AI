@@ -176,6 +176,12 @@ class ConfiguracionServidor(Base):
     api_key_cifrada: Mapped[str | None] = mapped_column(Text, default=None)
     #: Correo remitente (el que el proveedor tiene verificado) (v39).
     remitente: Mapped[str] = mapped_column(String(160), default="")
+    #: Identificadores de cliente OAuth (son PUBLICOS: no son secretos) para
+    #: que la gente pueda entrar con Google, Outlook o GitHub. Se guardan aqui
+    #: (una sola fila para toda la instalacion) y valen para TODOS los usuarios.
+    google_client_id: Mapped[str] = mapped_column(String(200), default="")
+    outlook_client_id: Mapped[str] = mapped_column(String(200), default="")
+    github_client_id: Mapped[str] = mapped_column(String(200), default="")
     actualizado_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
 

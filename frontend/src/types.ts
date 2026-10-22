@@ -708,3 +708,13 @@ export interface AgenteLocal {
   servidor: string
   url: string
 }
+
+/** Identificadores OAuth del servidor (publicos) para entrar con Google, Outlook o GitHub. */
+export interface ClientesServidor {
+  ok: boolean
+  google: string
+  outlook: string
+  github: string
+  listo: boolean
+  mensaje: string
+}

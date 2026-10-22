@@ -13,8 +13,10 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   ArrowRight, Check, ChevronDown, CircleAlert, Cpu, Eye, EyeOff, Loader2, LogIn,
   Mail, MonitorSmartphone, Plug, RefreshCw, Search, Server, Settings, ShieldCheck, Sparkles,
-  Trash2, Wifi, Wrench,
+  KeyRound, Trash2, Wifi, Wrench,
 } from 'lucide-react'
+import PanelIaMovil from './PanelIaMovil'
+import { detectarRecursosMovil } from '../lib/iaMovil'
 import { api, apiGuardadaEsEstatica, cuentas, guardarUrlApi, leerUrlApi, urlApiEnUso } from '../lib/api'
 import type {
   AgenteLocal, AutorizacionCuenta, CatalogoModelos, Conexion, Diagnostico, EstadoGoogle,
@@ -108,8 +110,14 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
   const [apiUrl, setApiUrl] = useState(() => leerUrlApi())
   /** Ajustes tecnicos plegados (solo para quien instala). */
   const [verAjustes, setVerAjustes] = useState(false)
+
+  /** v45: identificadores OAuth del servidor (publicos) para toda la gente. */
+  const [clientes, setClientes] = useState({ google: '', outlook: '', github: '' })
+  const [estadoClientes, setEstadoClientes] = useState<{ ok: boolean; texto: string } | null>(null)
   /** v44: en local no hay cuentas: solo IA de tu computador, clave o demo. */
   const perfil = useLifeAgente((s) => s.perfil)
+  /** v46: en el movil (o en el APK) solo se ofrecen IAs locales. */
+  const esMovil = useMemo(() => detectarRecursosMovil().esMovil, [])
   /** Envio de correo del servidor (v36): lo configura el administrador, una vez. */
   const [verCorreo, setVerCorreo] = useState(false)
   const [smtpInfo, setSmtpInfo] = useState<{
@@ -177,6 +185,28 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
     }
   }
 
+  const cargarClientes = async () => {
+    try {
+      const r = await cuentas.clientesServidor()
+      setClientes({ google: r.google ?? '', outlook: r.outlook ?? '', github: r.github ?? '' })
+    } catch {
+      /* no es el administrador: no puede verlos */
+    }
+  }
+
+  const guardarClientes = async () => {
+    try {
+      const r = await cuentas.guardarClientesServidor(clientes)
+      setEstadoClientes({ ok: true, texto: r.mensaje ?? 'Guardado.' })
+      void cargar()
+    } catch (e) {
+      setEstadoClientes({
+        ok: false,
+        texto: e instanceof Error ? e.message : 'No se pudo guardar.',
+      })
+    }
+  }
+
   const cargar = async () => {
     try {
       const [cat, cons, loc, google, diag, gratis, ag] = await Promise.all([
@@ -200,6 +230,11 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
       /* el panel muestra el estado vacio */
     }
   }
+
+  useEffect(() => {
+    void cargarClientes()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     if (abierto) {
@@ -737,7 +772,10 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
                 </div>
               </div>
 
-              {motoresDisponibles.length > 0 ? (
+              {esMovil && (
+            <PanelIaMovil alCambiar={() => void cargar()} />
+          )}
+          {motoresDisponibles.length > 0 ? (
                 <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/8 p-3">
                   <div className="flex items-center gap-2 text-xs font-bold text-emerald-200">
                     <Wifi size={13} />
@@ -951,6 +989,71 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
                     Esta parte es para quien instala LifeAgente en su servidor. Si solo quieres
                     usar la app, no tienes que tocar nada de aqui.
                   </p>
+
+                  {/* ---- Activar el acceso con Google / Outlook / GitHub para TODA la gente (v45) ---- */}
+                  <div className="rounded-xl border border-white/8 bg-black/20 p-3">
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
+                      <KeyRound size={13} />
+                      Entrar con Google, Outlook o GitHub
+                    </div>
+                    <p className="mt-1 text-[10px] leading-relaxed text-slate-400">
+                      El identificador de cliente es <strong className="text-slate-200">publico</strong>{' '}
+                      (no es tu contrasena ni un token privado). Lo pegas{' '}
+                      <strong className="text-slate-200">una sola vez</strong> y le funciona a toda la
+                      gente que use esta app: cada uno pulsa «Continuar con Google» y entra con su
+                      cuenta, sin configurar nada.
+                    </p>
+                    {(['google', 'outlook', 'github'] as const).map((k) => (
+                      <div key={k} className="mt-2">
+                        <div className="ls-label">
+                          {k === 'google' ? 'Google' : k === 'outlook' ? 'Outlook / Hotmail' : 'GitHub'}
+                        </div>
+                        <input
+                          value={clientes[k]}
+                          onChange={(e) => setClientes((c) => ({ ...c, [k]: e.target.value }))}
+                          placeholder="identificador de cliente (no es tu contrasena)"
+                          className="ls-input mt-1 font-mono text-[11px]"
+                        />
+                        <a
+                          href={
+                            k === 'google'
+                              ? 'https://console.cloud.google.com/apis/credentials'
+                              : k === 'outlook'
+                                ? 'https://portal.azure.com/'
+                                : 'https://github.com/settings/developers'
+                          }
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-1 inline-block text-[10px] text-indigo-300 underline"
+                        >
+                          {k === 'google'
+                            ? 'Crear el identificador en Google Cloud'
+                            : k === 'outlook'
+                              ? 'Crear la app en Microsoft Azure'
+                              : 'Crear la app OAuth en GitHub'}
+                        </a>
+                      </div>
+                    ))}
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <Boton variante="primario" onClick={() => void guardarClientes()}>
+                        Guardar y activarlo para todos
+                      </Boton>
+                      <Boton variante="fantasma" onClick={() => void cargarClientes()}>
+                        Recargar
+                      </Boton>
+                    </div>
+                    {estadoClientes && (
+                      <div
+                        className={`mt-2 rounded-lg border px-2.5 py-2 text-[10px] leading-relaxed ${
+                          estadoClientes.ok
+                            ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200'
+                            : 'border-amber-500/30 bg-amber-500/10 text-amber-200'
+                        }`}
+                      >
+                        {estadoClientes.texto}
+                      </div>
+                    )}
+                  </div>
 
                   {/* ---- Estado del servidor: que falta por configurar (v37) ---- */}
                   {diagnostico && diagnostico.pendientes.length > 0 && (
