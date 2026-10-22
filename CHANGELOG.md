@@ -8,6 +8,22 @@ La app, el instalador `.exe` y las Releases de GitHub muestran la misma.
 
 ---
 
+## v1.2.0 — Dos versiones (web y local) y la app en el celular
+
+| Que | Como |
+|---|---|
+| **Dos versiones bien separadas** | La pagina web es la de las cuentas y las conexiones (Google, Drive, calendario, correo). La que se descarga (`.exe`) es la version LOCAL: sin cuenta, con la base de datos en tu equipo y la IA de tu computador | 
+| **La version local no pide cuenta** | El backend dice en que perfil esta (`/api/health` -> `perfil`) y la interfaz se adapta: en local desaparecen las tarjetas de cuentas y Drive |
+| **La app en el celular** | Es una PWA: se instala desde el navegador (icono en el escritorio, pantalla completa) y abre sin internet |
+| **Boton de instalar** | Aparece en la barra superior cuando el navegador dice que se puede instalar |
+| **Mas modelos y agentes** | 28 proveedores de IA, 11 servicios gratis con tu cuenta y 12 sistemas de IA con interfaz detectados en tu computador |
+
+### Como se publica una version nueva
+1. Cambia el archivo `VERSION` (por ejemplo `1.2.0`).
+2. `publicar.ps1 -Mensaje "..."` (pruebas + commit + push + espera al CI).
+3. `git tag v1.2.0` y `git push upstream v1.2.0`.
+4. El workflow compila el `.exe`, arma el zip del sistema y publica la release.
+
 ## v1.1.1 — «El instalador arrancaba de verdad» (actual)
 
 ### El arreglo

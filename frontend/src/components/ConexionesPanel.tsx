@@ -21,6 +21,7 @@ import type {
   InfoEstiloUrl, ServicioIaGratis,
   ModeloCatalogo, MotorLocal, ProveedorCatalogo,
 } from '../types'
+import { useLifeAgente } from '../store/useLifeAgente'
 import { Aviso, Boton, Campo, Chip, Modal } from './ui'
 import BloqueIaLigera from './BloqueIaLigera'
 
@@ -107,6 +108,8 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
   const [apiUrl, setApiUrl] = useState(() => leerUrlApi())
   /** Ajustes tecnicos plegados (solo para quien instala). */
   const [verAjustes, setVerAjustes] = useState(false)
+  /** v44: en local no hay cuentas: solo IA de tu computador, clave o demo. */
+  const perfil = useLifeAgente((s) => s.perfil)
   /** Envio de correo del servidor (v36): lo configura el administrador, una vez. */
   const [verCorreo, setVerCorreo] = useState(false)
   const [smtpInfo, setSmtpInfo] = useState<{
@@ -509,6 +512,7 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
             </p>
 
             {/* ============ 1 · Entrar con tu cuenta ============ */}
+            {perfil !== 'local' && (
             <BloqueSeccion
               numero="1"
               titulo="Entra con tu cuenta"
@@ -568,7 +572,9 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
               )}
             </BloqueSeccion>
 
-            {/* ============ 2 Â· IA gratis con tu cuenta ============ */}
+                        )}
+{/* ============ 2 Â· IA gratis con tu cuenta ============ */}
+            {perfil !== 'local' && (
             <BloqueSeccion
               numero="2"
               titulo="IA gratis con tu cuenta"
@@ -670,9 +676,10 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
               )}
             </BloqueSeccion>
 
-            {/* ============ 2 · La IA de tu computador ============ */}
+                        )}
+{/* ============ 2 · La IA de tu computador ============ */}
             <BloqueSeccion
-              numero="3"
+              numero={perfil === 'local' ? '1' : '3'}
               titulo="Usa la IA de tu computador"
               descripcion="Gratis y privado: la IA se queda en tu equipo y nadie mas la ve."
             >
@@ -838,7 +845,7 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
 
             {/* ============ 3 · Conectar una IA con clave ============ */}
             <BloqueSeccion
-              numero="4"
+              numero={perfil === 'local' ? '2' : '4'}
               titulo="Conecta una IA con clave"
               descripcion="Si ya tienes una clave de API (OpenAI, Anthropic, Gemini, OpenRouter...). Te digo donde conseguirla."
             >
@@ -866,7 +873,7 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
 
             {/* ============ 5 · Solo quiero ver como funciona ============ */}
             <BloqueSeccion
-              numero="5"
+              numero={perfil === 'local' ? '3' : '5'}
               titulo="Solo quiero ver como funciona"
               descripcion="El asistente de prueba, sin cuentas ni claves. Ideal para echar un vistazo."
             >

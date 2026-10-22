@@ -1,0 +1,76 @@
+name: APK de Android
+
+# El APK es la version instalable de la web para Android.
+# Se compila con Capacitor (envuelve la web en una app nativa) y Gradle.
+# Cuando termine, el APK queda como artefacto de la descarga y, si el
+# workflow se lanzo con un tag, tambien se publica en la release.
+
+on:
+  workflow_dispatch:
+    inputs:
+      publicar:
+        description: "Publicar tambien en la release"
+        type: boolean
+        default: false
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apk
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Compilar la interfaz
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Preparar el proyecto de Android (Capacitor)
+        working-directory: frontend
+        run: |
+          npm install --no-save @capacitor/cli @capacitor/core @capacitor/android
+          npx cap init "LifeAgente AI" "ai.lifeagente.app" --web-dir dist
+          npx cap add android
+          npx cap sync android
+
+      - name: Construir el APK
+        working-directory: frontend
+        run: |
+          chmod +x android/gradlew
+          cd android
+          ./gradlew assembleDebug --no-daemon
+          cp app/build/outputs/apk/debug/app-debug.apk ../LifeAgente.apk
+
+      - name: Subir el APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: LifeAgente-apk
+          path: frontend/LifeAgente.apk
+          retention-days: 30
+
+      - name: Publicar el APK en la release
+        if: startsWith(github.ref, 'refs/tags/') && inputs.publicar != false
+        uses: softprops/action-gh-release@v2
+        with:
+          files: frontend/LifeAgente.apk
+          body: |
+            LifeAgente AI para Android.
+
+            Instala el archivo `LifeAgente.apk` (permite "instalar apps de origen desconocido").
+            Es la version local: sin cuenta, con los datos en tu telefono.

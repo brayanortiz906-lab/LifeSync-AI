@@ -10,6 +10,7 @@
  */
 import { useEffect, useState } from 'react'
 import { Check, CircleAlert, Download, HardDriveDownload, KeyRound, LogIn, LogOut, Mail, ShieldCheck, User } from 'lucide-react'
+import { useLifeAgente } from '../store/useLifeAgente'
 import { api, borrarToken, cuentas, guardarToken, permisos as apiPermisos } from '../lib/api'
 import type { InfoProveedores, Usuario } from '../types'
 import { Aviso, Boton, Campo, Modal } from './ui'
@@ -48,6 +49,8 @@ export default function AccesoPanel({
   const [info, setInfo] = useState<InfoProveedores | null>(null)
   const [proveedorActivo, setProveedorActivo] = useState<string | null>(null)
   const [estado, setEstado] = useState<{ ok: boolean; texto: string } | null>(null)
+  /** v44: en local no hay cuentas ni Drive. */
+  const perfil = useLifeAgente((s) => s.perfil)
 
   const cargar = async () => {
     try {
@@ -340,8 +343,12 @@ export default function AccesoPanel({
     <Modal
       abierto={abierto}
       onCerrar={onCerrar}
-      titulo="Tu cuenta de LifeAgente AI"
-      descripcion="Elige como quieres entrar. Puedes seguir usandolo en este equipo sin crear nada."
+      titulo={perfil === 'local' ? 'LifeAgente AI en este equipo' : 'Tu cuenta de LifeAgente AI'}
+      descripcion={
+        perfil === 'local'
+          ? 'Version local: tus datos se guardan en este computador. No hace falta cuenta ni conexion.'
+          : 'Elige como quieres entrar. Puedes seguir usandolo en este equipo sin crear nada.'
+      }
     >
       <div className="space-y-4">
         {/* Estado actual */}
@@ -351,10 +358,16 @@ export default function AccesoPanel({
           </span>
           <div className="min-w-0 flex-1">
             <div className="text-xs font-bold text-white">
-              {conectado ? usuario?.nombre || usuario?.correo : 'Modo local (en este equipo)'}
+              {perfil === 'local'
+                ? 'Version local (en este equipo)'
+                : conectado
+                  ? usuario?.nombre || usuario?.correo
+                  : 'Modo local (en este equipo)'}
             </div>
             <div className="truncate text-[11px] text-slate-400">
-              {conectado
+              {perfil === 'local'
+                ? 'Tus datos viven en la base de datos de este equipo. Nada sale de tu computador.'
+                : conectado
                 ? `${usuario?.correo} · tus datos estan separados de los de otras personas`
                 : 'Todo se guarda en tu computador. Nada se sube a ningun servidor.'}
             </div>
@@ -637,7 +650,7 @@ export default function AccesoPanel({
           </div>
         )}
 
-        {conectado && (
+        {conectado && perfil !== 'local' && (
           <div className="space-y-3">
             <div className="rounded-2xl border border-indigo-500/25 bg-indigo-500/8 p-4">
               <div className="flex items-start gap-3">

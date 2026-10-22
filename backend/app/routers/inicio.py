@@ -12,6 +12,7 @@ from datetime import date, timedelta
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from ..config import settings
 from ..cuentas import usuario_actual
 from ..database import get_db
 from . import crud, responsabilidad
@@ -43,6 +44,7 @@ def inicio(db: Session = Depends(get_db, scope="function"), usuario=Depends(usua
     registros = [LogOut.model_validate(r) for r in crud.listar_registros(mes=mes, db=db)]
     return {
         "ok": True,
+        "perfil": settings.perfil_efectivo,
         "dashboard": crud.dashboard(db=db),
         "eventos": eventos,
         "tareas": tareas,

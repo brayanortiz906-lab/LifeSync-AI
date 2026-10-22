@@ -163,6 +163,14 @@ class Settings(BaseSettings):
 
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
+    # --- Perfil de la app (v44) -------------------------------------- #
+    # "web" = la version de la pagina: se entra con una cuenta y se
+    # pueden conectar Google, Drive, calendario y correo.
+    # "local" = la version que se descarga (.exe): NO hace falta cuenta,
+    # los datos se guardan en la base de datos de este computador y todo
+    # lo de las cuentas se esconde.
+    perfil: str = "web"
+
     @property
     def cors_origin_list(self) -> list[str]:
         """Orígenes permitidos.
@@ -177,6 +185,22 @@ class Settings(BaseSettings):
             if propio not in lista:
                 lista.append(propio)
         return lista
+
+    @property
+    def perfil_efectivo(self) -> str:
+        """Perfil real: la variable de entorno manda sobre el ajuste.
+
+        El instalador (.exe) arranca con LIFEAGENTE_PERFILO=local para que
+        la app sea la version de escritorio: sin cuentas, sin Drive y con la
+        base de datos en este computador.
+        """
+        valor = os.environ.get("LIFEAGENTE_PERFILO", self.perfil).strip().lower()
+        return "local" if valor in ("local", "escritorio", "offline") else "web"
+
+    @property
+    def es_local(self) -> bool:
+        """True cuando esta es la version local (instalada en el equipo)."""
+        return self.perfil_efectivo == "local"
 
     @property
     def es_produccion(self) -> bool:

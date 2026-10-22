@@ -544,6 +544,9 @@ class Lanzador:
                 env = os.environ.copy()
                 env["LIFEAGENTE_DATA"] = str(DIR_DATOS)
                 env["LIFEAGENTE_PUERTO"] = str(PUERTO)
+    # v44: el instalador es la version LOCAL: sin cuentas, sin Drive y con
+    # la base de datos en este computador.
+    env["LIFEAGENTE_PERFILO"] = "local"
                 cwd = str(MEIPASS) if FROZEN else str(RAIZ_REPO / "backend")
                 self.proceso = subprocess.Popen(
                     cmd, cwd=cwd, env=env,

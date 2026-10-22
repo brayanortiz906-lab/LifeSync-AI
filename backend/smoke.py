@@ -63,6 +63,15 @@ def pedir_suave(metodo: str, ruta: str, cuerpo: dict | None = None, token: str =
             return exc.code, {"detail": crudo.decode("utf-8", "ignore")}
 
 
+def pedir_archivo(ruta_http: str) -> tuple[int, bytes]:
+    """Descarga un archivo (no JSON) y devuelve (codigo, contenido)."""
+    req = urllib.request.Request(f"{BASE}{ruta_http}", method="GET")
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r:
+            return r.status, r.read()
+    except urllib.error.HTTPError as exc:
+        return exc.code, exc.read()
+
 def chat(mensaje: str, token: str = "") -> dict:
     # Se fuerza el proveedor "mock" para que el test sea independiente de la
     # configuración guardada en la base de datos.
@@ -1258,6 +1267,40 @@ def main() -> int:
         "[AGENTES] Claude Code y OpenCode estan en la lista",
         {"claude_code", "opencode"}.issubset({a.get("id") for a in agentes}),
         f"-> ids={[a.get('id') for a in agentes]}",
+    )
+
+
+    # --- v44: perfiles (web/local) y la app en el celular ----------------- #
+    cod_salud, r_salud = pedir_suave("GET", "/api/health")
+    perfil = r_salud.get("perfil") if isinstance(r_salud, dict) else None
+    check(
+        "[PERFIL] el servidor dice en que version estamos",
+        cod_salud == 200 and perfil in ("web", "local"),
+        f"-> cod={cod_salud} perfil={perfil}",
+    )
+    cod_ini, r_ini = pedir_suave("GET", "/api/inicio")
+    check(
+        "[PERFIL] la carga inicial tambien lleva el perfil",
+        cod_ini == 200 and isinstance(r_ini, dict) and r_ini.get("perfil") in ("web", "local"),
+        f"-> perfil={(r_ini or {}).get('perfil') if isinstance(r_ini, dict) else None}",
+    )
+    cod_man, r_man = pedir_suave("GET", "/manifest.json")
+    check(
+        "[MOVIL] el manifiesto de la app se sirve",
+        cod_man == 200 and isinstance(r_man, dict) and bool(r_man.get("name")),
+        f"-> cod={cod_man} name={(r_man or {}).get('name') if isinstance(r_man, dict) else None}",
+    )
+    cod_sw, cuerpo_sw = pedir_archivo("/sw.js")
+    check(
+        "[MOVIL] el service worker se sirve",
+        cod_sw == 200 and b"install" in cuerpo_sw,
+        f"-> cod={cod_sw} bytes={len(cuerpo_sw)}",
+    )
+    cod_icono, cuerpo_icono = pedir_archivo("/icon-192.png")
+    check(
+        "[MOVIL] los iconos de la app se sirven",
+        cod_icono == 200 and cuerpo_icono[:4] == b"\x89PNG",
+        f"-> cod={cod_icono} bytes={len(cuerpo_icono)}",
     )
 
     print("=" * 70)

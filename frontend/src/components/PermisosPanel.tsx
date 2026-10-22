@@ -12,6 +12,7 @@
  */
 import { useEffect, useState } from 'react'
 import { Check, CloudUpload, Download, KeyRound, Loader2, Mail, RefreshCw, Sparkles, X } from 'lucide-react'
+import { useLifeAgente } from '../store/useLifeAgente'
 import { cuentas, permisos as apiPermisos } from '../lib/api'
 import type { EstadoPermisos } from '../types'
 import { Aviso, Boton, Panel, Stat } from './ui'
@@ -242,8 +243,40 @@ export default function PermisosPanel() {
     }
   }
 
+  /** v44: la version local no usa Drive ni calendario. */
+  const perfil = useLifeAgente((s) => s.perfil)
   const conectado = estado?.conectado ?? false
   const pilot = estado?.autopiloto
+
+  // v44: version local -> sin Drive, sin calendario, sin correo.
+  if (perfil === 'local') {
+    return (
+      <div className="mx-auto flex max-w-3xl flex-col gap-4">
+        <Panel
+          titulo="Tus datos en este equipo"
+          sub="Version local: sin cuentas, sin Drive y sin subir nada"
+          cuerpoClass="space-y-4"
+        >
+          <p className="text-[12px] leading-relaxed text-slate-300">
+            En la version local todo vive en la base de datos de tu computador. La app te
+            guarda una copia de respaldo cada vez que cierras, y si quieres llevarte una
+            copia a otro sitio, puedes descargarla como archivo desde el boton de abajo.
+          </p>
+          <div className="rounded-2xl border border-white/8 bg-white/3 p-4">
+            <div className="text-xs font-bold text-white">
+              Google Drive, calendario y correo son de la version web
+            </div>
+            <p className="mt-1.5 text-[11px] leading-relaxed text-slate-400">
+              Si quieres que LifeAgente te respalde en tu Drive, te avise por correo o te
+              importe tu agenda de Google, usa la version de la pagina web (la que esta
+              publicada en GitHub Pages) y entra con tu cuenta: ahi se autoriza una sola vez.
+            </p>
+          </div>
+          {aviso && <Aviso tono={aviso.ok ? 'ok' : 'error'}>{aviso.texto}</Aviso>}
+        </Panel>
+      </div>
+    )
+  }
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-4">

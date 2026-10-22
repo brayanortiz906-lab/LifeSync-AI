@@ -194,6 +194,7 @@ def health():
         "ok": True,
         "app": settings.app_name,
         "version": settings.version,
+        "perfil": settings.perfil_efectivo,
         "proveedor_por_defecto": settings.default_llm_provider,
         "modelo": settings.default_openai_model,
     }

@@ -107,7 +107,7 @@ el agente usa el estilo detectado (`ollama`, `openai` o `anthropic`) para hablar
 | LifeAgente averigua solo como hablarle a tu IA local | `ok: true`, estilo `ollama`, 6 modelos |
 | El estado del correo solo lo ve un administrador | 403 sin permisos |
 
-Smoke test completo: **157 casos, todos en verde**.
+Smoke test completo: **162 casos, todos en verde**.
 
 ## 5. Archivos
 

@@ -12,6 +12,7 @@ import { useEffect, useState } from 'react'
 import {
   Check, CircleAlert, Cpu, FlaskConical, LogIn, Mail, ShieldCheck, Sparkles, X,
 } from 'lucide-react'
+import { useLifeAgente } from '../store/useLifeAgente'
 import { cuentas, guardarToken } from '../lib/api'
 import { PLANTILLAS } from '../lib/plantillas'
 import type { InfoProveedores, Usuario } from '../types'
@@ -64,6 +65,8 @@ export default function Bienvenida({
   const [textoPegado, setTextoPegado] = useState('')
   /** Que cuentas estan activadas en este servidor (para no prometer lo que no hay). */
   const [info, setInfo] = useState<InfoProveedores | null>(null)
+  /** v44: en la version local no hay cuentas: todo vive en este equipo. */
+  const perfil = useLifeAgente((s) => s.perfil)
 
   useEffect(() => {
     if (!abierto) return
@@ -175,8 +178,22 @@ export default function Bienvenida({
           </div>
         )}
 
+        {/* v44: version local: primero la IA de tu computador, sin cuentas. */}
+        {perfil === 'local' && (
+          <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/8 p-5">
+            <div className="text-sm font-black text-emerald-100">
+              Version local: no necesitas crear cuenta
+            </div>
+            <p className="mt-2 text-[12px] leading-relaxed text-emerald-200/80">
+              LifeAgente guarda todo en la base de datos de este computador
+              (en la carpeta de datos de la app). No se sube nada a ningun servidor y
+              puedes usar la IA que ya tengas instalada.
+            </p>
+          </div>
+        )}
+
         {/* Opciones de acceso */}
-        {!pendiente && (
+        {!pendiente && perfil !== 'local' && (
           <div className="grid gap-3 sm:grid-cols-3">
             {OPCIONES.map((o) => {
               const estadoProv = info?.proveedores.find((p) => p.id === o.id)
@@ -220,6 +237,7 @@ export default function Bienvenida({
         {/* Más opciones */}
         {!pendiente && (
           <div className="grid gap-3 sm:grid-cols-3">
+            {perfil !== 'local' && (
             <button
               onClick={onAbrirAcceso}
               className="flex items-start gap-3 rounded-2xl border border-white/8 bg-white/3 p-4 text-left transition hover:bg-white/6"
@@ -235,6 +253,7 @@ export default function Bienvenida({
                 </span>
               </span>
             </button>
+            )}
 
             <button
               onClick={onContinuarLocal}

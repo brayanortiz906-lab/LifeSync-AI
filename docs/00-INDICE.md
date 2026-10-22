@@ -64,3 +64,4 @@ Si buscas **cómo usarlo**: empieza por [`MANUAL-LOCAL.md`](../MANUAL-LOCAL.md)
 | [`CHANGELOG.md`](../CHANGELOG.md) | **El historial de versiones**: qué hay en cada una y cómo se publica una nueva. |
 | [`VERSION`](../VERSION) | El número de versión del sistema, en un solo archivo (lo leen la API, la web y el `.exe`). |
 | [`LICENSE`](../LICENSE) | Licencia MIT. |
+| 24 | Dos versiones (web y local) y la app en el celular | [Ver](24-VERSIONES-Y-MOVIL.md) |

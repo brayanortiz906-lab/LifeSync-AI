@@ -416,8 +416,12 @@ export interface Diagnostico {
   listo?: boolean
 }
 
+/** Perfil de la app: 'web' (con cuentas y conexiones) o 'local' (en tu equipo). */
+export type PerfilApp = 'web' | 'local'
+
 export interface Inicio {
   ok: boolean
+  perfil?: PerfilApp
   dashboard: Dashboard | null
   eventos: Evento[]
   tareas: Tarea[]

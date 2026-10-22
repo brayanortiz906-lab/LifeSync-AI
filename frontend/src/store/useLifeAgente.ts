@@ -250,6 +250,8 @@ interface Estado {
   modoPrueba: boolean
   /** Modo local: la API no esta disponible; todo se guarda en este navegador. */
   modoLocal: boolean
+  /** v44: 'web' (con cuentas y conexiones) o 'local' (instalada en el equipo). */
+  perfil: 'web' | 'local'
 
   // --- Paneles (v19) --------------------------------------------------------
   /** Paneles propios y los que otras personas te compartieron. */
@@ -323,6 +325,7 @@ export const useLifeAgente = create<Estado>((set, get) => ({
   cargandoResponsable: false,
   modoPrueba: false,
   modoLocal: false,
+  perfil: 'web',
   paneles: [],
   panelId: null,
   mensajeSesion: '',
@@ -495,6 +498,8 @@ export const useLifeAgente = create<Estado>((set, get) => ({
       const enPanel = <T extends { panel_id?: number | null }>(filas: T[]): T[] =>
         pid ? filas.filter((f) => (f.panel_id ?? null) === pid) : filas
       set({
+        // v44: el servidor dice en que perfil estamos (web o local).
+        perfil: inicio.perfil === 'local' ? 'local' : 'web',
         dashboard, tareas: enPanel(tareas), registros: enPanel(registros),
         mantenimiento: enPanel(mantenimiento), eventos: enPanel(eventos), cargando: false,
         proveedor: ajustes.proveedor,
