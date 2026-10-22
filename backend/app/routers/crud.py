@@ -89,6 +89,17 @@ def crear_tarea(payload: TaskCreate, db: Session = Depends(get_db, scope="functi
     return tarea
 
 
+@router.delete("/tasks/{tarea_id}")
+def borrar_tarea(tarea_id: int, db: Session = Depends(get_db, scope="function"), usuario=Depends(usuario_verificado)):
+    """Borra una tarea. Se puede usar desde la interfaz o para limpiar pruebas."""
+    tarea = db.get(Task, tarea_id)
+    if tarea is None:
+        raise HTTPException(status_code=404, detail="Esa tarea no existe.")
+    db.delete(tarea)
+    db.commit()
+    return {"ok": True, "borrada": tarea_id}
+
+
 @router.patch("/tasks/{tarea_id}", response_model=TaskOut)
 def actualizar_tarea(tarea_id: int, payload: TaskUpdate, db: Session = Depends(get_db, scope="function"), usuario=Depends(usuario_verificado)):
     tarea = db.get(Task, tarea_id)

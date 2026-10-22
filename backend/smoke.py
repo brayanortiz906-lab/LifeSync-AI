@@ -72,6 +72,65 @@ def pedir_archivo(ruta_http: str) -> tuple[int, bytes]:
     except urllib.error.HTTPError as exc:
         return exc.code, exc.read()
 
+# Títulos y descripciones que crea el propio smoke test. Al terminar se
+# borran para que la base de datos del usuario no se llene de pruebas.
+TITULOS_DE_PRUEBA = {
+    "cita",
+    "estudio",
+    "estudio: entregar el ensayo",
+    "estudio: entregar la presentacion de algebra",
+    "estudio: entregar la presentación de álgebra",
+    "moto: cambió de aceite",
+    "moto: cambio de aceite",
+    "rm evento 2",
+    "rm tarea 2",
+    "rm gasto",
+    "reunion de proyecto",
+}
+GASTOS_DE_PRUEBA = {
+    "gaste 20 mil en gasolina",
+    "tanqueé la moto",
+    "tanquee la moto",
+    "matricula de la universidad",
+    "gasté 25 mil en gasolina",
+    "chaqueta",
+    "rm gasto",
+    "rm evento 2",
+}
+
+
+_IDS_DEL_INICIO: dict[str, int] = {}
+
+
+def marcar_inicio() -> None:
+    """Guarda el id mas alto de cada tabla para borrar SOLO lo que cree el test."""
+    for clave, ruta in (("eventos", "/api/events?desde=2000-01-01&hasta=2099-12-31"),
+                        ("tareas", "/api/tasks"),
+                        ("gastos", "/api/logbook")):
+        _, filas = pedir_suave("GET", ruta)
+        ids = [f.get("id") for f in (filas or []) if isinstance(f, dict) and isinstance(f.get("id"), int)]
+        _IDS_DEL_INICIO[clave] = max(ids) if ids else 0
+
+
+def limpiar_pruebas() -> None:
+    """Borra lo que este test ha creado, para no ensuciar la base del usuario."""
+    try:
+        _, eventos = pedir_suave("GET", "/api/events?desde=2000-01-01&hasta=2099-12-31")
+        for e in (eventos or []) if isinstance(eventos, list) else []:
+            if isinstance(e.get("id"), int) and e["id"] > _IDS_DEL_INICIO.get("eventos", 0):
+                pedir_suave("DELETE", f"/api/events/{e['id']}")
+        _, tareas = pedir_suave("GET", "/api/tasks")
+        for t_ in (tareas or []) if isinstance(tareas, list) else []:
+            if isinstance(t_.get("id"), int) and t_["id"] > _IDS_DEL_INICIO.get("tareas", 0):
+                pedir_suave("DELETE", f"/api/tasks/{t_['id']}")
+        _, gastos = pedir_suave("GET", "/api/logbook")
+        for g in (gastos or []) if isinstance(gastos, list) else []:
+            if isinstance(g.get("id"), int) and g["id"] > _IDS_DEL_INICIO.get("gastos", 0):
+                pedir_suave("DELETE", f"/api/logbook/{g['id']}")
+    except Exception:
+        pass
+
+
 def chat(mensaje: str, token: str = "") -> dict:
     # Se fuerza el proveedor "mock" para que el test sea independiente de la
     # configuración guardada en la base de datos.
@@ -101,6 +160,7 @@ def limpiar() -> None:
 
 
 def main() -> int:
+    marcar_inicio()
     # --------------------------------------------------------------------------- #
     # ----------------------------------------------------------------- #
     # CUENTAS DE USUARIO (v11): acceso con codigo, aislamiento y respaldo
@@ -1307,6 +1367,8 @@ def main() -> int:
         cod_icono in (200, 503) and (cod_icono == 503 or cuerpo_icono[:4] == b"\x89PNG"),
         f"-> cod={cod_icono} bytes={len(cuerpo_icono)}",
     )
+
+    limpiar_pruebas()
 
     print("=" * 70)
     if fallos:
