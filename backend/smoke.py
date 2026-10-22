@@ -115,14 +115,17 @@ def marcar_inicio() -> None:
 def limpiar_pruebas() -> None:
     """Borra lo que este test ha creado, para no ensuciar la base del usuario."""
     try:
-        _, eventos = pedir_suave("GET", "/api/events?desde=2000-01-01&hasta=2099-12-31")
-        for e in (eventos or []) if isinstance(eventos, list) else []:
-            if isinstance(e.get("id"), int) and e["id"] > _IDS_DEL_INICIO.get("eventos", 0):
-                pedir_suave("DELETE", f"/api/events/{e['id']}")
+        # Primero las tareas: los bloques de estudio apuntan a un evento
+        # (tasks.tarea_id -> events.id) y, si se borra el evento antes,
+        # la base rechaza el borrado por la llave foranea.
         _, tareas = pedir_suave("GET", "/api/tasks")
         for t_ in (tareas or []) if isinstance(tareas, list) else []:
             if isinstance(t_.get("id"), int) and t_["id"] > _IDS_DEL_INICIO.get("tareas", 0):
                 pedir_suave("DELETE", f"/api/tasks/{t_['id']}")
+        _, eventos = pedir_suave("GET", "/api/events?desde=2000-01-01&hasta=2099-12-31")
+        for e in (eventos or []) if isinstance(eventos, list) else []:
+            if isinstance(e.get("id"), int) and e["id"] > _IDS_DEL_INICIO.get("eventos", 0):
+                pedir_suave("DELETE", f"/api/events/{e['id']}")
         _, gastos = pedir_suave("GET", "/api/logbook")
         for g in (gastos or []) if isinstance(gastos, list) else []:
             if isinstance(g.get("id"), int) and g["id"] > _IDS_DEL_INICIO.get("gastos", 0):
