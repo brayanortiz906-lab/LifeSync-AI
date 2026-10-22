@@ -48,6 +48,7 @@ Si buscas **cómo usarlo**: empieza por [`MANUAL-LOCAL.md`](../MANUAL-LOCAL.md)
 | 17 | [Instalador local](17-INSTALADOR-LOCAL.md) | El `.exe` de Windows: qué lleva dentro, dónde viven los datos y cómo se compila. |
 | 18 | [IA ligera y acceso](18-IA-LIGERA-Y-ACCESO.md) | Por qué las credenciales son públicas (acceso con un clic) y cómo bajar una IA de 400 MB para usar la app local. |
 | 19 | [Rendimiento](19-RENDIMIENTO.md) | Por qué la app no se siente lenta: las mediciones antes/después y los 5 arreglos. |
+| 20 | Correo que si llega, una sola peticion y el correo como almacen | [`docs/20-CORREO-Y-RENDIMIENTO.md`](20-CORREO-Y-RENDIMIENTO.md) |
 
 ## Documentos fuera de `docs/`
 

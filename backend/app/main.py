@@ -23,6 +23,7 @@ from .routers import cuentas as cuentas_router
 from .routers import crud as crud_router
 from .routers import permisos as permisos_router
 from .routers import responsabilidad as responsabilidad_router
+from .routers import inicio as inicio_router
 from .seed import sembrar
 
 
@@ -168,6 +169,7 @@ app.include_router(conexiones_router.router)
 app.include_router(cuentas_router.router)
 app.include_router(permisos_router.router)
 app.include_router(paneles_router.router)
+app.include_router(inicio_router.router)
 
 
 @app.middleware("http")

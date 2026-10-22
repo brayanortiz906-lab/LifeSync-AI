@@ -217,7 +217,7 @@ def registrar_con_password(
     usuario.codigo_expira = datetime.now() + timedelta(minutes=15)
     usuario.intentos = 0
     db.flush()
-    modo = enviar_codigo(correo, codigo, usuario.nombre)
+    modo = enviar_codigo(correo, codigo, usuario.nombre, db=db)
     return usuario, codigo, modo
 
 
@@ -250,7 +250,15 @@ def entrar_con_password(
             usuario.codigo_expira = datetime.now() + timedelta(minutes=15)
             usuario.intentos = 0
             db.flush()
-            enviar_codigo(correo, codigo, usuario.nombre)
+            enviar_codigo(correo, codigo, usuario.nombre, db=db)
+        # v36: si la cuenta tiene contrasena, la persona YA demostro que es
+        # ella: entra igual. El codigo solo confirma el buzon (para el
+        # respaldo en Drive y los avisos). Si no tiene contrasena (entrada
+        # solo por codigo), hace falta el codigo y se queda esperando.
+        if (usuario.password_hash or "").strip():
+            usuario.ultimo_acceso = datetime.now()
+            db.flush()
+            return usuario, "ok_sin_confirmar"
         return usuario, "sin_verificar"
     usuario.ultimo_acceso = datetime.now()
     db.flush()
@@ -276,7 +284,56 @@ def generar_codigo() -> str:
     return f"{secrets.randbelow(1_000_000):06d}"
 
 
-def enviar_codigo(correo: str, codigo: str, nombre: str = "") -> str:
+def configuracion_smtp(db: SASession | None = None) -> dict[str, Any]:
+    """Ajustes de correo EFECTIVOS del servidor.
+
+    Primero mandan las variables del despliegue (SMTP_*); si no hay, se usan
+    las que quien instalo la app guardo desde la propia aplicacion
+    (tabla `configuracion_servidor`, clave cifrada).
+    """
+    datos: dict[str, Any] = {
+        "host": (settings.smtp_host or "").strip(),
+        "puerto": int(settings.smtp_port or 587),
+        "usuario": (settings.smtp_user or "").strip(),
+        "clave": settings.smtp_password or "",
+        "desde": (settings.smtp_desde or "").strip(),
+        "origen": "entorno" if (settings.smtp_host or "").strip() else "ninguno",
+    }
+    if datos["host"]:
+        return datos
+    if db is None:
+        return datos
+    try:
+        from .models import ConfiguracionServidor
+
+        fila = db.query(ConfiguracionServidor).order_by(ConfiguracionServidor.id).first()
+    except Exception:
+        return datos
+    if fila is None or not (fila.smtp_host or "").strip():
+        return datos
+    clave = ""
+    try:
+        from .security import descifrar
+
+        clave = descifrar(fila.smtp_password_cifrado) or ""
+    except Exception:
+        clave = ""
+    datos.update(
+        {
+            "host": (fila.smtp_host or "").strip(),
+            "puerto": int(fila.smtp_port or 587),
+            "usuario": (fila.smtp_user or "").strip(),
+            "clave": clave,
+            "desde": (fila.smtp_desde or "").strip(),
+            "origen": "app",
+        }
+    )
+    return datos
+
+
+def enviar_codigo(
+    correo: str, codigo: str, nombre: str = "", db: SASession | None = None
+) -> str:
     """Envía el código por correo. Devuelve 'smtp', 'consola' o 'ninguno'.
 
     El código NUNCA se guarda en claro: en la base de datos solo queda su
@@ -312,18 +369,19 @@ background:#0f172a;border:1px solid #4338ca;border-radius:12px;padding:16px;colo
     </p>
   </div>
 </body></html>"""
-    if settings.smtp_host:
+    smtp = configuracion_smtp(db)
+    if smtp["host"]:
         try:
             mensaje = EmailMessage()
             mensaje["Subject"] = asunto
-            mensaje["From"] = settings.smtp_desde or settings.smtp_user
+            mensaje["From"] = smtp["desde"] or smtp["usuario"]
             mensaje["To"] = correo
             mensaje.set_content(cuerpo)
             mensaje.add_alternative(html, subtype="html")
-            with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=20) as srv:
+            with smtplib.SMTP(smtp["host"], smtp["puerto"], timeout=20) as srv:
                 srv.starttls(context=ssl.create_default_context())
-                if settings.smtp_user:
-                    srv.login(settings.smtp_user, settings.smtp_password)
+                if smtp["usuario"]:
+                    srv.login(smtp["usuario"], smtp["clave"])
                 srv.send_message(mensaje)
             return "smtp"
         except Exception as exc:  # pragma: no cover - depende del SMTP
@@ -393,7 +451,7 @@ def solicitar_codigo(db: SASession, correo: str, nombre: str = "") -> tuple[Usua
     usuario.codigo_expira = datetime.now() + timedelta(minutes=settings.minutos_codigo)
     usuario.intentos = 0
     db.flush()
-    modo = enviar_codigo(correo, codigo, usuario.nombre)
+    modo = enviar_codigo(correo, codigo, usuario.nombre, db=db)
     return usuario, codigo, modo
 
 
@@ -640,12 +698,23 @@ def exigir_cuenta_verificada(usuario) -> None:
 
     El usuario local (el que usa la app en su equipo sin registrarse) siempre
     puede guardar: es su propio computador.
+
+    Excepcion (v36): una cuenta creada con CORREO Y CONTRASENA puede guardar
+    aunque el servidor no tenga correo configurado. La contrasena ya es la
+    prueba de que es la persona; el codigo solo sirve para confirmar que el
+    buzon es suyo y asi poder usar el respaldo en Drive y los avisos por
+    correo. Antes, sin servidor de correo, la cuenta quedaba bloqueada
+    para siempre: un callejon sin salida.
     """
     if usuario is None:
         return
     if int(getattr(usuario, "id", 0) or 0) == USUARIO_LOCAL:
         return
     if getattr(usuario, "verificado", False):
+        return
+    if (getattr(usuario, "password_hash", "") or "").strip():
+        # Tiene contrasena: puede usar la app. Solo faltan las funciones
+        # que necesitan su buzon (respaldo en Drive, avisos por correo).
         return
     raise HTTPException(
         status_code=403,

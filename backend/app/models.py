@@ -152,6 +152,27 @@ class AppSettings(Base):
     actualizado_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
 
+class ConfiguracionServidor(Base):
+    """Ajustes del SERVIDOR (una sola fila para toda la instalacion, v36).
+
+    Sirve para que quien instala la app pueda activar el envio de correos
+    (codigos de verificacion y avisos) desde la propia aplicacion, sin tener
+    que entrar al panel del despliegue. La clave del correo se guarda
+    CIFRADA con Fernet, nunca en claro.
+    """
+
+    __tablename__ = "configuracion_servidor"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    smtp_host: Mapped[str] = mapped_column(String(120), default="")
+    smtp_port: Mapped[int] = mapped_column(Integer, default=587)
+    smtp_user: Mapped[str] = mapped_column(String(160), default="")
+    #: Clave del correo (o clave de aplicacion), cifrada con Fernet.
+    smtp_password_cifrado: Mapped[str | None] = mapped_column(Text, default=None)
+    smtp_desde: Mapped[str] = mapped_column(String(160), default="")
+    actualizado_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
 # --------------------------------------------------------------------------- #
 # CONEXIONES DE IA (cuentas y proveedores)
 # --------------------------------------------------------------------------- #

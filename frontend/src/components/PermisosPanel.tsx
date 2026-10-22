@@ -11,7 +11,7 @@
  *   - el sistema solo pide lo que necesita para funcionar solo.
  */
 import { useEffect, useState } from 'react'
-import { Check, CloudUpload, Download, KeyRound, Loader2, RefreshCw, Sparkles, X } from 'lucide-react'
+import { Check, CloudUpload, Download, KeyRound, Loader2, Mail, RefreshCw, Sparkles, X } from 'lucide-react'
 import { cuentas, permisos as apiPermisos } from '../lib/api'
 import type { EstadoPermisos } from '../types'
 import { Aviso, Boton, Panel, Stat } from './ui'
@@ -181,6 +181,23 @@ export default function PermisosPanel() {
           : { ok: false, texto: r.mensaje ?? 'No se pudo guardar el respaldo.' },
       )
       await cargar()
+    } catch (e) {
+      setAviso({ ok: false, texto: (e as Error).message })
+    } finally {
+      setOcupado(false)
+    }
+  }
+
+  const respaldarACorreo = async () => {
+    setOcupado(true)
+    setAviso(null)
+    try {
+      const r = await apiPermisos.respaldoCorreo()
+      setAviso(
+        r.ok
+          ? { ok: true, texto: r.mensaje ?? 'Te mandamos el respaldo a tu correo.' }
+          : { ok: false, texto: r.mensaje ?? 'No se pudo enviar el respaldo a tu correo.' },
+      )
     } catch (e) {
       setAviso({ ok: false, texto: (e as Error).message })
     } finally {
@@ -439,6 +456,9 @@ export default function PermisosPanel() {
             </Boton>
             <Boton variante="fantasma" onClick={() => void respaldar()} disabled={ocupado}>
               <CloudUpload size={13} /> Respaldar ahora
+            </Boton>
+            <Boton variante="fantasma" onClick={() => void respaldarACorreo()} disabled={ocupado}>
+              <Mail size={13} /> Guardar una copia en tu correo
             </Boton>
             <Boton variante="fantasma" onClick={() => void importar()} disabled={ocupado}>
               Importar mi calendario

@@ -30,6 +30,7 @@ from ..permisos import (
     guardar_si_toca,
     importar_calendario,
     respaldar_drive,
+    respaldar_por_correo,
     enviar_resumen_diario,
     ejecutar_autopiloto_para_todos,
 )
@@ -173,6 +174,15 @@ def ejecutar(
 def respaldo(db: Session = Depends(get_db, scope="function"), usuario=Depends(usuario_actual)):
     """Guarda una copia de tu vida en tu Google Drive."""
     return respaldar_drive(db)
+
+
+@router.post("/respaldo/correo")
+def respaldo_correo(db: Session = Depends(get_db, scope="function"), usuario=Depends(usuario_actual)):
+    """Guarda una copia de tu vida en TU correo (adjunto JSON).
+
+    Es el almacen que ya tienes: tu buzon. No depende de Drive ni de disco.
+    """
+    return respaldar_por_correo(db)
 
 
 @router.post("/importar-calendario")

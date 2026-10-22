@@ -952,10 +952,15 @@ def main() -> int:
         {"correo": correo_v33, "password": clave_v33},
     )
     check(
-        "[CUENTA] si la cuenta aun no esta confirmada, te pide el codigo (no otro boton)",
+        # v36: una cuenta creada con contrasena YA demuestra que es la persona,
+        # asi que entra aunque el correo siga sin confirmar (antes se le pedia
+        # el codigo y podia quedarse atrapada esperando un correo que no
+        # llegaba).
+        "[CUENTA] si la cuenta aun no esta confirmada pero tiene contrasena, entra igual",
         cod_v33b == 200
         and isinstance(r_v33b, dict)
-        and r_v33b.get("accion") == "verificar",
+        and r_v33b.get("accion") in ("entrar", "verificar")
+        and (r_v33b.get("accion") == "entrar" or bool(r_v33b.get("token"))),
         f"-> cod={cod_v33b} accion={(r_v33b or {}).get('accion')}",
     )
     # Confirmamos el correo con el codigo que se devolvio y reintentamos:
@@ -1057,6 +1062,80 @@ def main() -> int:
         "[ERROR] una ruta inexistente dice cual fallo (no 500)",
         cod_v4 == 404 and "ruta-que-no-existe" in str(cuerpo_v4),
         f"-> cod={cod_v4} {str(cuerpo_v4)[:140]}",
+    )
+
+    # ------------------------------------------------------------------ #
+    # v36: CORREO HONESTO, UNA SOLA PETICION Y CORREO COMO ALMACEN
+    # ------------------------------------------------------------------ #
+    print("CORREO, RAPIDEZ Y ALMACEN (v36)")
+    print("=" * 70)
+
+    # 1. Todo en una sola peticion: la app abre con 1 viaje, no con 12.
+    cod_ini, r_ini = pedir_suave("GET", "/api/inicio")
+    claves_necesarias = (
+        "dashboard",
+        "eventos",
+        "tareas",
+        "registros",
+        "mantenimiento",
+        "ajustes",
+        "politica",
+        "permisos",
+        "aprobaciones",
+    )
+    check(
+        "[VELOCIDAD] /api/inicio trae todo en una sola peticion",
+        cod_ini == 200
+        and isinstance(r_ini, dict)
+        and all(k in r_ini for k in claves_necesarias),
+        f"-> cod={cod_ini} claves={sorted(k for k in claves_necesarias if isinstance(r_ini, dict) and k in r_ini)}",
+    )
+
+    # 2. El codigo NUNCA promete un correo que no se mando.
+    cod_cod, r_cod = pedir_suave("POST", "/api/cuentas/codigo", {"correo": f"smoke.v36.{int(time.time())}@example.com", "nombre": "V36"})
+    modo_cod = (r_cod or {}).get("modo") if isinstance(r_cod, dict) else None
+    texto_cod = str((r_cod or {}).get("mensaje") or "").lower() if isinstance(r_cod, dict) else ""
+    check(
+        "[CORREO] el codigo no promete un correo que no se manda",
+        cod_cod == 200
+        and modo_cod in ("smtp", "consola", "ninguno")
+        and not (modo_cod == "ninguno" and "te enviamos" in texto_cod),
+        f"-> cod={cod_cod} modo={modo_cod}",
+    )
+    check(
+        "[CORREO] si no se puede enviar, avisa y ofrece otras formas de entrar",
+        modo_cod != "ninguno"
+        or ("google" in texto_cod and "equipo" in texto_cod),
+        f"-> modo={modo_cod} mensaje={texto_cod[:90]}",
+    )
+
+    # 3. Una cuenta con CONTRASENA entra aunque el correo no este confirmado.
+    correo_v36 = f"smoke.v36.acceso+{int(time.time())}@example.com"
+    clave_v36 = "ClaveSegura123"
+    pedir("POST", "/api/cuentas/registro", {"correo": correo_v36, "nombre": "V36", "password": clave_v36})
+    cod_v36, r_v36 = pedir_suave("POST", "/api/cuentas/entrar", {"correo": correo_v36, "password": clave_v36})
+    check(
+        "[CORREO] con contrasena se entra aunque el correo no este confirmado",
+        cod_v36 == 200 and bool((r_v36 or {}).get("token")),
+        f"-> cod={cod_v36}",
+    )
+
+    # 4. El estado del correo del servidor no expone la clave.
+    cod_smtp, r_smtp = pedir_suave("GET", "/api/cuentas/smtp")
+    check(
+        "[CORREO] el estado del servidor de correo nunca muestra la clave",
+        cod_smtp in (200, 403)
+        and "password" not in str(r_smtp).lower().replace("smtp_password", "")
+        and "clave" not in str(r_smtp).lower().replace("tiene_clave", ""),
+        f"-> cod={cod_smtp} {str(r_smtp)[:110]}",
+    )
+
+    # 5. El respaldo por correo existe (no 404) y avisa con honestidad.
+    cod_correo, r_correo = pedir_suave("POST", "/api/permisos/respaldo/correo")
+    check(
+        "[CORREO] el respaldo por correo existe y responde",
+        cod_correo != 404 and cod_correo != 500,
+        f"-> cod={cod_correo} {str(r_correo)[:110]}",
     )
 
     print("=" * 70)

@@ -2,7 +2,7 @@
 import type {
   Ajustes, Aprobacion, AutorizacionCuenta, CatalogoModelos, Conexion, Dashboard, DatosPanel,
   DescargaIA, EntradaAuditoria, EstadoGoogle,
-  EstadoPermisos, InfoClientesPublicos, InfoModelosLigeros, InfoProveedores, MiembroPanel,
+  EstadoPermisos, InfoClientesPublicos, InfoModelosLigeros, InfoProveedores, Inicio, MiembroPanel,
   Panel, Permiso,
   PerfilCuenta, Respaldo, ResultadoCodigo, ResultadoSesion, Usuario,
   Evento, HistorialMsg, Mantenimiento, MotorLocal, Politica, ProveedorCatalogo, Registro,
@@ -227,6 +227,8 @@ export const api = {
   health: () => request<{ ok: boolean; proveedor_por_defecto: string }>('/health'),
 
   dashboard: () => request<Dashboard>('/dashboard'),
+  /** Todo lo de la pantalla inicial en UNA sola peticion (v36). */
+  inicio: () => request<Inicio>('/inicio'),
 
   eventos: (desde?: string, hasta?: string) => {
     const q = new URLSearchParams()
@@ -431,7 +433,7 @@ export const cuentas = {
    * Devuelve `accion`: 'entrar' | 'crear' | 'verificar'.
    */
   entrarOCrear: (correo: string, password: string, nombre = '') =>
-    request<ResultadoSesion & { accion?: string; modo?: string; codigo?: string }>(
+    request<ResultadoSesion & { accion?: string; modo?: string; codigo?: string; verificacion_pendiente?: boolean }>(
       '/cuentas/entrar-o-crear',
       {
         method: 'POST',
@@ -441,6 +443,30 @@ export const cuentas = {
   /** ¿El servidor tiene el acceso con Google activado? (v19) */
   googleDisponible: () =>
     request<{ ok: boolean; disponible: boolean; mensaje: string }>('/cuentas/google/disponible'),
+  /**
+   * Estado del envio de correo del servidor (v36). Solo para administradores:
+   * nunca devuelve la clave, solo si hay una configurada.
+   */
+  smtp: () =>
+    request<{
+      ok: boolean
+      configurado: boolean
+      origen: string
+      host?: string
+      puerto?: number
+      usuario?: string
+      desde?: string
+      mensaje?: string
+    }>('/cuentas/smtp'),
+  /** Configura el envio de correo (v36). La clave viaja cifrada al servidor. */
+  guardarSmtp: (datos: { host: string; puerto: number; usuario: string; password?: string; desde: string }) =>
+    request<{ ok: boolean; mensaje: string }>('/cuentas/smtp', {
+      method: 'PUT',
+      body: JSON.stringify(datos),
+    }),
+  /** Manda un correo de prueba para comprobar que el envio funciona (v36). */
+  probarSmtp: () =>
+    request<{ ok: boolean; mensaje: string }>('/cuentas/smtp/probar', { method: 'POST' }),
   /** Que cuentas se pueden usar para entrar y cuales estan activadas aqui (v24). */
   proveedores: () => request<InfoProveedores>('/cuentas/proveedores'),
   pedirCodigo: (correo: string, nombre = '') =>
@@ -555,6 +581,13 @@ export const permisos = {
     request<{ ok: boolean; mensaje?: string; archivo?: string; enlace?: string }>('/permisos/respaldo', {
       method: 'POST',
     }),
+
+  /** Respaldo en tu propio correo (adjunto JSON): el almacen que ya tienes. */
+  respaldoCorreo: () =>
+    request<{ ok: boolean; mensaje?: string; archivo?: string; bytes?: number }>(
+      '/permisos/respaldo/correo',
+      { method: 'POST' },
+    ),
 
   /** Importa tu agenda de Google Calendar. */
   importarCalendario: () =>

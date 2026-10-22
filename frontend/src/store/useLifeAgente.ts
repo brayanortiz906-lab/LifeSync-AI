@@ -484,18 +484,12 @@ export const useLifeAgente = create<Estado>((set, get) => ({
     }
     set({ cargando: true, error: null })
     try {
-      const [dashboard, tareas, registros, mantenimiento, ajustes, historial] = await Promise.all([
-        api.dashboard(),
-        api.tareas(),
-        api.registros(),
-        api.mantenimiento(),
-        api.ajustes(),
-        api.historial(),
-      ])
-      const eventos = await api.eventos(
-        aIso(new Date()),
-        aIso(new Date(Date.now() + 14 * 864e5)),
-      )
+      // v36: todo lo de la pantalla inicial llega en UNA sola peticion.
+      // Antes eran 11 viajes (agenda, tareas, bitacora, mantenimiento, paneles,
+      // ajustes, politica, auditoria, cumplimiento, permisos) y en una
+      // conexion lenta se notaba mucho.
+      const [inicio, historial] = await Promise.all([api.inicio(), api.historial()])
+      const { dashboard, tareas, registros, mantenimiento, ajustes, eventos } = inicio
       // Si hay un panel abierto, enseñamos solo lo de ese panel (v19).
       const pid = get().panelId
       const enPanel = <T extends { panel_id?: number | null }>(filas: T[]): T[] =>
@@ -506,6 +500,11 @@ export const useLifeAgente = create<Estado>((set, get) => ({
         proveedor: ajustes.proveedor,
         modelo: ajustes.modelo,
         ajustes,
+        paneles: inicio.paneles?.paneles ?? get().paneles,
+        politica: inicio.politica,
+        resumenAuditoria: inicio.resumen_auditoria,
+        cumplimiento: inicio.cumplimiento,
+        aprobaciones: inicio.aprobaciones ?? get().aprobaciones,
         mensajes: historial.map((h) => {
           const plan = (h.payload?.resumen_estado?.plan as Record<string, unknown>) ?? undefined
           return {
@@ -568,8 +567,13 @@ export const useLifeAgente = create<Estado>((set, get) => ({
       }))
       await get().cargarTodo()
       // El agente pudo dejar acciones en la bandeja de aprobaciones: refresca
-      // el panel de responsabilidad para que el badge y la lista no queden obsoletos.
-      await get().cargarResponsable()
+      // SOLO esa lista (antes se recargaban cinco cosas y hacia lento).
+      try {
+        const aprobaciones = await api.aprobaciones('pendiente')
+        set({ aprobaciones })
+      } catch {
+        /* sin API: seguimos igual */
+      }
     } catch (e) {
       const mensaje = (e as Error).message || ''
       // Sin IA disponible (ni servidor ni clave): el motor local de reglas responde.

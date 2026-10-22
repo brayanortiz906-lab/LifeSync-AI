@@ -625,6 +625,93 @@ def enviar_resumen_diario(db: Session) -> dict[str, Any]:
     return {"ok": True, "mensaje": f"Resumen enviado a {destinatario}.", "cuerpo": cuerpo}
 
 
+def respaldar_por_correo(db: Session) -> dict[str, Any]:
+    """Manda una copia completa de tus datos a TU correo (como adjunto).
+
+    Es la via que no depende de Drive: la persona recibe el respaldo en su
+    bandeja de entrada y por lo tanto lo tiene guardado en su correo (que es
+    el almacen que casi todas las cuentas de correo ya traen).
+    """
+    from .cuentas import snapshot
+
+    fila = _fila(db)
+    if fila is None or not fila.access_token_cifrado:
+        return {"ok": False, "mensaje": "Todavia no autorizaste el acceso a Google."}
+    if "gmail.send" not in (fila.scope or ""):
+        return {
+            "ok": False,
+            "mensaje": "Falta el permiso de correo. Autoriza 'Avisarte por correo'.",
+        }
+    destinatario = (fila.correo or "").strip()
+    if not destinatario:
+        return {"ok": False, "mensaje": "No tenemos tu correo para enviarte el respaldo."}
+    token = token_acceso(db)
+    if not token:
+        return {"ok": False, "mensaje": "Tu permiso de Google caduco. Vuelve a autorizar."}
+    try:
+        datos = snapshot(db)
+    except Exception as exc:  # pragma: no cover
+        return {"ok": False, "mensaje": f"No se pudo armar el respaldo: {exc}"}
+    adjunto = json.dumps(datos, ensure_ascii=False).encode("utf-8")
+    marca = datetime.utcnow().strftime("%Y-%m-%d %H:%M")
+    resumen = (
+        f"{len(datos.get('eventos') or [])} bloque(s), "
+        f"{len(datos.get('tareas') or [])} tarea(s), "
+        f"{len(datos.get('registros') or [])} gasto(s), "
+        f"{len(datos.get('mantenimiento') or [])} mantenimiento(s)"
+    )
+    lineas = [
+        "Hola,",
+        "",
+        "Aqui tienes una copia completa de tu LifeAgente AI.",
+        f"Fecha: {marca}",
+        f"Contenido: {resumen}.",
+        "",
+        "El archivo adjunto esta en formato JSON: puedes guardarlo donde quieras",
+        "(Drive, el computador, un pendrive) y devolverlo con 'Recuperar'.",
+        "",
+        "-- LifeAgente AI",
+    ]
+    frontera = "----lifeagente" + datetime.utcnow().strftime("%Y%m%d%H%M%S")
+    crudo = (
+        f"To: {destinatario}\r\n"
+        f"Subject: Tu respaldo de LifeAgente AI ({marca})\r\n"
+        f"Content-Type: multipart/mixed; boundary=\"{frontera}\"\r\n"
+        "\r\n"
+        f"--{frontera}\r\n"
+        "Content-Type: text/plain; charset=utf-8\r\n"
+        "\r\n"
+        + "\r\n".join(lineas)
+        + f"\r\n\r\n--{frontera}\r\n"
+        "Content-Type: application/json; charset=utf-8; name=\"lifeagente-respaldo.json\"\r\n"
+        "Content-Disposition: attachment; filename=\"lifeagente-respaldo.json\"\r\n"
+        "Content-Transfer-Encoding: base64\r\n"
+        "\r\n"
+        + base64.b64encode(adjunto).decode("ascii")
+        + f"\r\n--{frontera}--\r\n"
+    )
+    try:
+        r = httpx.post(
+            "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"raw": base64.urlsafe_b64encode(crudo.encode("utf-8")).decode("ascii")},
+            timeout=45.0,
+        )
+    except Exception as exc:  # pragma: no cover - depende de la red
+        return {"ok": False, "mensaje": f"No se pudo enviar el correo: {exc}"}
+    if r.status_code >= 400:
+        return {
+            "ok": False,
+            "mensaje": "Gmail no acepto el correo. Revisa el permiso 'Avisarte por correo'.",
+        }
+    return {
+        "ok": True,
+        "mensaje": f"Respaldo enviado a {destinatario} (adjunto JSON).",
+        "archivo": "lifeagente-respaldo.json",
+        "bytes": len(adjunto),
+    }
+
+
 def ejecutar_autopiloto_para_todos() -> dict[str, Any]:
     """Ejecuta el trabajo automatico de todas las personas (tarea diaria)."""
     from .cuentas import Usuario, establecer_usuario

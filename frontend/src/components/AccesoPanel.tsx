@@ -41,6 +41,8 @@ export default function AccesoPanel({
   const [modoCorreo, setModoCorreo] = useState<'crear' | 'entrar'>('entrar')
   const [codigo, setCodigo] = useState('')
   const [codigoDePrueba, setCodigoDePrueba] = useState('')
+  /** Como se mando el codigo: "smtp", "consola" o "ninguno" (v36). */
+  const [modoEnvio, setModoEnvio] = useState('')
   const [ocupado, setOcupado] = useState(false)
   const [googleDisponible, setGoogleDisponible] = useState<boolean | null>(null)
   const [info, setInfo] = useState<InfoProveedores | null>(null)
@@ -139,6 +141,7 @@ export default function AccesoPanel({
       const r = await cuentas.pedirCodigo(correo, nombre)
       setEstado({ ok: true, texto: r.mensaje })
       if (r.codigo) setCodigoDePrueba(r.codigo)
+      setModoEnvio(r.modo || '')
       setPaso('codigo')
     } catch (e) {
       setEstado({ ok: false, texto: (e as Error).message })
@@ -155,6 +158,7 @@ export default function AccesoPanel({
       const r = await cuentas.registrar(correo, nombre, password)
       setEstado({ ok: true, texto: r.mensaje })
       if (r.codigo) setCodigoDePrueba(r.codigo)
+      setModoEnvio(r.modo || '')
       setPaso('codigo')
     } catch (e) {
       setEstado({ ok: false, texto: (e as Error).message })
@@ -170,6 +174,7 @@ export default function AccesoPanel({
     try {
       const r = await cuentas.reenviarCodigo(correo)
       if (r.codigo) setCodigoDePrueba(r.codigo)
+      setModoEnvio(r.modo || '')
       setEstado({ ok: true, texto: r.mensaje || 'Te mandamos un codigo nuevo.' })
     } catch (e) {
       setEstado({ ok: false, texto: (e as Error).message })
@@ -209,10 +214,14 @@ export default function AccesoPanel({
       const r = await cuentas.entrarOCrear(correo, password, nombre)
       if (r.accion === 'entrar' && r.token) {
         entrar(r.token, r.usuario)
+        if (r.verificacion_pendiente) {
+          setEstado({ ok: true, texto: r.mensaje ?? 'Entraste, pero tu correo sigue sin confirmar.' })
+        }
         return
       }
       // La cuenta es nueva o falta confirmar: seguimos al paso del codigo.
       if (r.codigo) setCodigo(r.codigo)
+      if (r.modo) setModoEnvio(r.modo)
       setEstado({ ok: true, texto: r.mensaje ?? 'Revisa tu correo.' })
       setPaso('codigo')
     } catch (e) {
@@ -597,14 +606,22 @@ export default function AccesoPanel({
                 className="ls-input text-center font-mono text-lg tracking-[0.4em]"
               />
             </Campo>
-            {codigoDePrueba ? (
+            {modoEnvio === 'ninguno' ? (
+              <Aviso tono="error">
+                <strong>No pudimos enviarte el correo.</strong> Este servidor todavia no esta
+                configurado para enviar correos, asi que el codigo no llego. Puedes: entrar con
+                Google, Outlook o GitHub (un clic, sin codigo), entrar con tu correo y contrasena,
+                o seguir en este equipo. Si eres quien instala LifeAgente, activa el correo en
+                &laquo;Conectar IA &rarr; Ajustes tecnicos&raquo;.
+              </Aviso>
+            ) : codigoDePrueba ? (
               <Aviso tono="aviso">
-                Este servidor todavia no envia correos: usa el codigo <strong>{codigoDePrueba}</strong> para probar.
+                Este servidor todavia no envia correos: usa el codigo <strong>{codigoDePrueba}</strong> para entrar.
               </Aviso>
             ) : (
               <Aviso tono="info">
                 Te enviamos el codigo a <strong>{correo}</strong>. Revisa tambien la carpeta de
-                correo no deseado. El codigo vale {15} minutos.
+                correo no deseado. El codigo vale 15 minutos.
               </Aviso>
             )}
             <Boton onClick={() => void verificar()} disabled={ocupado || codigo.length < 6}>

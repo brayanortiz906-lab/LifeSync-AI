@@ -397,6 +397,23 @@ export interface ResultadoCodigo {
   codigo?: string
 }
 
+/** Todo lo que la app necesita al abrirse, en una sola peticion (v36). */
+export interface Inicio {
+  ok: boolean
+  dashboard: Dashboard | null
+  eventos: Evento[]
+  tareas: Tarea[]
+  registros: Registro[]
+  mantenimiento: Mantenimiento[]
+  paneles: { ok: boolean; paneles: Panel[] }
+  ajustes: Ajustes
+  politica: Politica
+  resumen_auditoria: ResumenAuditoria
+  cumplimiento: ReporteCumplimiento
+  permisos: EstadoPermisos
+  aprobaciones: Aprobacion[]
+}
+
 export interface ResultadoSesion {
   ok: boolean
   token?: string

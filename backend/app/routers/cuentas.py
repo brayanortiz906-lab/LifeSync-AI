@@ -111,6 +111,29 @@ def _perfil(usuario) -> dict:
 # --------------------------------------------------------------------------- #
 # Acceso
 # --------------------------------------------------------------------------- #
+def _mensaje_envio(modo: str) -> str:
+    """Dice la verdad sobre como se envio (o no) el codigo.
+
+    Antes la interfaz decia siempre "te enviamos el codigo a tu correo" y en
+    realidad el servidor no lo habia enviado: la persona se quedaba esperando
+    un correo que nunca llegaba.
+    """
+    if modo == "smtp":
+        return "Te enviamos un codigo de 6 digitos a tu correo. Escribelo aqui abajo."
+    if modo == "gmail":
+        return "Te enviamos un codigo de 6 digitos con tu propio Gmail. Escribelo aqui abajo."
+    if modo == "consola":
+        return (
+            "Este servidor todavia no esta configurado para enviar correos, asi que te "
+            "mostramos el codigo aqui. Funciona igual: escribelo y entras."
+        )
+    return (
+        "No pudimos enviarte el correo: este servidor todavia no esta configurado para "
+        "enviar correos. Entra con Google, Outlook o GitHub (un clic, sin codigo) o sigue "
+        "en este equipo."
+    )
+
+
 @router.post("/codigo")
 def pedir_codigo(payload: CodigoIn, db: Session = Depends(get_db, scope="function")):
     """Crea la cuenta y manda el código de verificación."""
@@ -118,17 +141,7 @@ def pedir_codigo(payload: CodigoIn, db: Session = Depends(get_db, scope="functio
     respuesta = {
         "ok": True,
         "modo": modo,
-        "mensaje": (
-            "Te enviamos un código de 6 dígitos a tu correo. Escribelo aquí abajo."
-            if modo == "smtp"
-            else (
-                "Tu servidor todavía no tiene configurado el envío de correos, así que te "
-                "mostramos el código aquí (modo desarrollo)."
-                if modo == "consola"
-                else "No pudimos enviar el correo. Escribe al administrador de LifeAgente "
-                "o prueba con otra forma de entrar."
-            )
-        ),
+        "mensaje": _mensaje_envio(modo),
         "correo": usuario.correo,
     }
     if modo == "consola" and not settings.es_produccion:
@@ -223,7 +236,7 @@ def reenviar_codigo(payload: CodigoIn, db: Session = Depends(get_db, scope="func
         "mensaje": (
             "Te enviamos un codigo nuevo a tu correo. Vale por 15 minutos."
             if modo == "smtp"
-            else "Este servidor todavia no envia correos, asi que te mostramos el codigo aqui."
+            else _mensaje_envio(modo)
         ),
     }
     # El codigo solo se devuelve en desarrollo: en produccion NUNCA sale
@@ -260,7 +273,7 @@ def registro(payload: RegistroIn, db: Session = Depends(get_db, scope="function"
         "mensaje": (
             "Cuenta creada. Te enviamos un codigo de 6 digitos para confirmar tu correo."
             if modo == "smtp"
-            else "Cuenta creada. Este servidor todavia no envia correos: te mostramos el codigo aqui."
+            else _mensaje_envio(modo)
         ),
     }
     # El codigo solo se devuelve en desarrollo: en produccion NUNCA sale
@@ -292,6 +305,20 @@ def entrar(payload: EntrarIn, db: Session = Depends(get_db, scope="function")):
             ),
         )
     token = crear_sesion(db, usuario, "correo")
+    if situacion == "ok_sin_confirmar":
+        # Entra igual: la contrasena ya demuestra que es la persona. Lo que
+        # falta es confirmar el buzon (para el respaldo en Drive y los avisos).
+        return {
+            "ok": True,
+            "token": token,
+            "usuario": _perfil(usuario),
+            "accion": "entrar",
+            "verificacion_pendiente": True,
+            "mensaje": (
+                "Entraste, pero tu correo sigue sin confirmar. Puedes usar la app igual; "
+                "el codigo solo hace falta para el respaldo en Drive y los avisos."
+            ),
+        }
     return {"ok": True, "token": token, "usuario": _perfil(usuario)}
 
 
@@ -312,6 +339,21 @@ def entrar_o_crear(payload: EntrarIn, db: Session = Depends(get_db, scope="funct
             "token": token,
             "usuario": _perfil(usuario),
             "mensaje": f"Hola de nuevo, {usuario.nombre or 'bienvenido'}.",
+        }
+    if situacion == "ok_sin_confirmar":
+        # Entra igual (la contrasena demuestra que es la persona); lo unico
+        # pendiente es confirmar el buzon para el Drive y los avisos.
+        token = crear_sesion(db, usuario, "correo")
+        return {
+            "ok": True,
+            "accion": "entrar",
+            "token": token,
+            "usuario": _perfil(usuario),
+            "verificacion_pendiente": True,
+            "mensaje": (
+                "Entraste, pero tu correo sigue sin confirmar. Puedes usar la app igual; "
+                "el codigo solo hace falta para el respaldo en Drive y los avisos."
+            ),
         }
     if situacion == "mal_password":
         raise HTTPException(
@@ -341,7 +383,7 @@ def entrar_o_crear(payload: EntrarIn, db: Session = Depends(get_db, scope="funct
             "mensaje": (
                 "Te reenviamos el codigo a tu correo. Escribelo para entrar."
                 if modo == "smtp"
-                else "Este servidor todavia no envia correos: te mostramos el codigo aqui."
+                else _mensaje_envio(modo)
             ),
         }
         if modo == "consola" and not settings.es_produccion:
@@ -358,7 +400,7 @@ def entrar_o_crear(payload: EntrarIn, db: Session = Depends(get_db, scope="funct
         "mensaje": (
             "Cuenta creada. Te enviamos un codigo de 6 digitos para confirmar tu correo."
             if modo == "smtp"
-            else "Cuenta creada. Este servidor todavia no envia correos: te mostramos el codigo aqui."
+            else _mensaje_envio(modo)
         ),
     }
     if modo == "consola" and not settings.es_produccion:
@@ -457,6 +499,85 @@ def salir(
         token = authorization[7:].strip()
     cerrar_sesion(db, token)
     return {"ok": True}
+
+
+# --------------------------------------------------------------------------- #
+# Correo del servidor (solo administradores) - v36
+# --------------------------------------------------------------------------- #
+@router.get("/smtp")
+def ver_smtp(usuario=Depends(usuario_admin)):
+    """Como esta configurado el correo del servidor (nunca la clave)."""
+    from ..models import ConfiguracionServidor
+
+    fila = db_smtp_fila()
+    guardada = bool(fila and (fila.smtp_host or "").strip())
+    return {
+        "ok": True,
+        "configurado": bool((settings.smtp_host or "").strip()) or guardada,
+        "origen": "entorno" if (settings.smtp_host or "").strip() else ("app" if guardada else "nada"),
+        "host": (settings.smtp_host or "").strip() if settings.smtp_host else (fila.smtp_host if fila else ""),
+        "puerto": int(settings.smtp_port or 587) if settings.smtp_host else (int(fila.smtp_port or 587) if fila else 587),
+        "usuario": (settings.smtp_user or "").strip() if settings.smtp_host else (fila.smtp_user if fila else ""),
+        "desde": (settings.smtp_desde or "").strip() if settings.smtp_host else (fila.smtp_desde if fila else ""),
+        "tiene_clave": bool((settings.smtp_password or "").strip()) if settings.smtp_host else bool(fila and fila.smtp_password_cifrado),
+    }
+
+
+@router.put("/smtp")
+def guardar_smtp(payload: dict, db: Session = Depends(get_db, scope="function"), usuario=Depends(usuario_admin)):
+    """Guarda el servidor de correo (clave cifrada) para que el codigo SI llegue."""
+    from ..models import ConfiguracionServidor
+    from ..security import cifrar
+
+    host = str(payload.get("host") or "").strip()
+    usuario_smtp = str(payload.get("usuario") or payload.get("user") or "").strip()
+    # La clave puede venir como "clave" o como "password".
+    clave = str(payload.get("clave") or payload.get("password") or "")
+    fila = db.query(ConfiguracionServidor).order_by(ConfiguracionServidor.id).first()
+    if fila is None:
+        fila = ConfiguracionServidor()
+        db.add(fila)
+    if host:
+        fila.smtp_host = host[:120]
+    if payload.get("puerto"):
+        try:
+            fila.smtp_port = int(payload.get("puerto"))
+        except Exception:
+            fila.smtp_port = 587
+    fila.smtp_user = usuario_smtp[:160]
+    fila.smtp_desde = str(payload.get("desde") or "").strip()[:160]
+    if clave:
+        fila.smtp_password_cifrado = cifrar(clave)
+    db.commit()
+    return {
+        "ok": True,
+        "configurado": bool(fila.smtp_host),
+        "origen": "app",
+        "mensaje": "Correo configurado. A partir de ahora el codigo de verificacion si llega.",
+    }
+
+
+@router.post("/smtp/probar")
+def probar_smtp(db: Session = Depends(get_db, scope="function"), usuario=Depends(usuario_admin)):
+    """Envia un correo de prueba para confirmar que el servidor de correo sirve."""
+    from ..cuentas import configuracion_smtp, enviar_codigo
+
+    smtp = configuracion_smtp(db)
+    if not smtp["host"]:
+        raise HTTPException(status_code=400, detail="Todavia no hay ningun servidor de correo configurado.")
+    modo = enviar_codigo(str(smtp["desde"] or smtp["usuario"] or "prueba@localhost"), "123456", "Prueba de LifeAgente", db=db)
+    if modo == "smtp":
+        return {"ok": True, "mensaje": f"Correo de prueba enviado a {smtp['desde'] or smtp['usuario']}."}
+    raise HTTPException(status_code=502, detail="El servidor de correo no pudo enviar el mensaje. Revisa host, puerto y clave.")
+
+
+def db_smtp_fila():
+    """Fila de configuracion del servidor (la primera)."""
+    from ..database import SessionLocal
+    from ..models import ConfiguracionServidor
+
+    with SessionLocal() as sesion:
+        return sesion.query(ConfiguracionServidor).order_by(ConfiguracionServidor.id).first()
 
 
 # --------------------------------------------------------------------------- #

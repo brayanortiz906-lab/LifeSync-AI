@@ -13,7 +13,7 @@ reorganiza tu agenda ante imprevistos y registra lo que te pasa en lenguaje natu
 | | |
 |---|---|
 | **Versión** | `v1.0.0` (release con el instalador y el código completo) |
-| **Pruebas** | 134 comprobaciones automáticas (`backend/smoke.py`) + build TypeScript |
+| **Pruebas** | 140 comprobaciones autom.ticas (`backend/smoke.py`) + build TypeScript |
 | **Documentación** | 18 documentos (`docs/00-INDICE.md` es el índice) |
 | **Interfaz** | React 19 · Vite 7 · TypeScript · Tailwind CSS v4 · Zustand 5 |
 | **API** | FastAPI · SQLAlchemy 2 · SQLite · Pydantic v2 |
@@ -258,7 +258,7 @@ Detalle completo en [`docs/06-CONE-XIONES.md`](docs/06-CONE-XIONES.md).
 
 ### Verificación automática
 
-Con el backend corriendo, `backend/smoke.py` comprueba los 134 casos de uso contra la
+Con el backend corriendo, `backend/smoke.py` comprueba los 140 casos de uso contra la
 base de datos real (calendario, bitácora, tareas, mantenimiento, multi-intención,
 cascadas de registro automático, el sistema de IA responsable, el centro de conexiones
 y los permisos con piloto automático):
@@ -323,6 +323,49 @@ Tres checks del smoke test vigilan que no vuelva a pasar:
 `[VELOCIDAD] la deteccion completa (sin cache) tambien es rapida` (< 5 s) y
 `[VELOCIDAD] el tablero de la agenda responde rapido` (< 1,5 s).
 Detalle en `docs/19-RENDIMIENTO.md`.
+
+### El codigo de verificacion ahora si llega (o te lo dicen de verdad)
+
+Antes la app **prometia** un correo que a veces no existia: decia siempre
+«Te enviamos el codigo a tu correo» aunque el servidor no tuviera ningun
+correo configurado. Ahora dice la verdad:
+
+| Modo | Que ve la persona |
+|---|---|
+| `smtp` | «Te enviamos el codigo a tu correo» (y llega) |
+| `consola` | el codigo en pantalla (solo en desarrollo) |
+| `ninguno` | «No pudimos enviarte el correo: entra con **Google, Outlook o GitHub** (un clic, sin codigo) o sigue en este equipo» |
+
+Y para que el correo **si** llegue, el administrador lo configura **una sola
+vez** desde *Conectar IA > Ajustes tecnicos > Envio de correo* (host, puerto,
+usuario, clave de aplicacion y remitente; **la clave se guarda cifrada**).
+Tambien se puede con las variables `SMTP_*` de Render.
+
+Ademas, **una cuenta creada con contrasena ya no queda atrapada** esperando un
+codigo: la contrasena demuestra que es la persona, asi que entra y trabaja
+igual, y el buzon se confirma despues. Y con **Google, Outlook o GitHub** la
+cuenta se crea **verificada** en un clic, sin codigo y sin SMTP.
+
+### De 12 peticiones a 1: la app abre Mucho mas rapido
+
+Al abrir, la app hacia **12 viajes** al servidor (agenda, tareas, gastos,
+mantenimiento, paneles, permisos, politica, auditoria, cumplimiento...). Ahora
+hay **un endpoint, `GET /api/inicio`, que trae todo**:
+
+| | Antes | Ahora |
+|---|---:|---:|
+| Peticiones al abrir | 12 | **1** (+ el historial del chat) |
+| Tiempo medido (local) | 3 042 ms en serie | **198 ms** |
+| Tras un mensaje del agente | 5 peticiones | **1** (solo las aprobaciones) |
+
+### Tu correo tambien es un almacen
+
+Ademas de Drive, LifeAgente puede **mandarte una copia completa a tu buzon**
+(adjunto JSON) con el boton **«Guardar una copia en tu correo»** (Permisos >
+Piloto automatico). No depende de Drive ni del disco del servidor: el archivo
+llega a tu correo, que es un almacen que ya tienes.
+
+Detalle de todo esto en `docs/20-CORREO-Y-RENDIMIENTO.md`.
 
 ### El chat: habla y se registra todo
 
@@ -516,7 +559,7 @@ imagen de Python 3.12 que corre la API. La base SQLite vive en el volumen `/data
 
 ### 1-bis.4 Automatización (CI)
 
-`.github/workflows/ci.yml` corre en cada push: levanta la API, ejecuta los **134 casos** de
+`.github/workflows/ci.yml` corre en cada push: levanta la API, ejecuta los **140 casos** de
 `backend/smoke.py` (que incluyen el chat multi-intención, las cascadas, el sistema responsable,
 el centro de conexiones y los permisos con piloto automático) y compila el frontend con
 `tsc -b && vite build`. La insignia de arriba refleja el estado real del último push.
@@ -528,7 +571,7 @@ el centro de conexiones y los permisos con piloto automático) y compila el fron
 ```
 .
 ├── .github/workflows/
-│   ├── ci.yml                   ← CI: 134 casos del smoke test + build del frontend
+│   ├── ci.yml                   ← CI: 140 casos del smoke test + build del frontend
 │   ├── daily.yml                ← Tarea diaria (respaldo + resumen por correo)
 │   └── deploy-pages.yml         ← Publica la interfaz en GitHub Pages
 ├── .devcontainer/               ← Codespaces: Python 3.12 + Node 20 preinstalados
@@ -561,12 +604,13 @@ el centro de conexiones y los permisos con piloto automático) y compila el fron
 │   │       ├── agent.py         ← /api/agent/chat, /ingest, /settings
 │   │       ├── conexiones.py    ← /api/conexiones/* (catálogo, locales, activar, verificar)
 │   │       ├── permisos.py      ← /api/permisos/* (autorizar, piloto, respaldo, calendario)
+│   │       ├── inicio.py        ← /api/inicio: todo en UNA peticion (la app abre rapido)
 │   │   │       ├── paneles.py       ← /api/paneles/* (crear, compartir, miembros, datos)
 │   │       └── responsabilidad.py ← /api/responsabilidad/* (política, auditoría,
 │   │                                 aprobaciones, redacción, cumplimiento)
 │   ├── requirements.txt
 │   ├── run.py
-│   └── smoke.py                 ← 104 verificaciones end-to-end contra la BD real
+│   └── smoke.py                 ← 140 verificaciones end-to-end contra la BD real
 ├── frontend/
 │   └── src/
 │       ├── App.tsx              ← Layout: agenda (vista inicial) + responsabilidad +
@@ -634,6 +678,7 @@ el centro de conexiones y los permisos con piloto automático) y compila el fron
 | [docs/17-INSTALADOR-LOCAL.md](docs/17-INSTALADOR-LOCAL.md) | El instalador `.exe` de Windows: qué lleva dentro, dónde viven los datos y cómo se compila |
 | [docs/18-IA-LIGERA-Y-ACCESO.md](docs/18-IA-LIGERA-Y-ACCESO.md) | Credenciales públicas (acceso en un clic) y descarga de una IA super ligera |
 | [docs/19-RENDIMIENTO.md](docs/19-RENDIMIENTO.md) | Por qué la app no se siente lenta: mediciones antes/después y los 5 arreglos |
+| [docs/20-CORREO-Y-RENDIMIENTO.md](docs/20-CORREO-Y-RENDIMIENTO.md) | El código de verificación que sí llega, la app en 1 sola petición y el correo como almacén |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Cómo contribuir: reglas del proyecto, qué comprobar antes de un PR y dónde tocar cada cosa |
 | [SECURITY.md](SECURITY.md) | Política de seguridad: qué datos se cifran, qué **no** pegar en un issue y cómo reportar un problema |
 
@@ -937,7 +982,7 @@ Detalle tecnico: `docs/13-MOTOR-LOCAL.md`.
 
 | Pieza | Dónde | Qué hace |
 |---|---|---|
-| **CI** | `.github/workflows/ci.yml` | en cada push: levanta la API, corre los **134 casos** del smoke test, valida el System Prompt y compila la interfaz |
+| **CI** | `.github/workflows/ci.yml` | en cada push: levanta la API, corre los **140 casos** del smoke test, valida el System Prompt y compila la interfaz |
 | **Publicación de la web** | `.github/workflows/deploy-pages.yml` | compila la interfaz y la publica en la rama `gh-pages` (que es la que sirve GitHub Pages) |
 | **Tarea diaria** | `.github/workflows/daily.yml` | despierta la API, guarda el respaldo en Drive y manda el resumen por correo |
 | **Instalador** | `.github/workflows/build-installer.yml` | compila el `.exe` de Windows y lo publica como descarga en cada release |
@@ -961,7 +1006,7 @@ Detalle tecnico: `docs/13-MOTOR-LOCAL.md`.
 
 | Workflow | Cuándo se dispara | Qué hace |
 |---|---|---|
-| `CI` | push y pull request en `main` | 134 comprobaciones + build de TypeScript |
+| `CI` | push y pull request en `main` | 140 comprobaciones + build de TypeScript |
 | `Publicar la interfaz` | push en `main` | publica en GitHub Pages |
 | `Instalador de Windows` | a mano o al crear un tag `v*` | compila el `.exe` y lo sube al release |
 | `Tarea diaria` | todos los días a las 06:00 (Colombia) | respaldo + resumen por correo |

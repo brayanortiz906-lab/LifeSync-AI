@@ -12,9 +12,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   ArrowRight, Check, ChevronDown, CircleAlert, Cpu, Eye, EyeOff, Loader2, LogIn,
-  Plug, RefreshCw, Search, Server, Settings, Sparkles, Trash2, Wifi,
+  Mail, Plug, RefreshCw, Search, Server, Settings, Sparkles, Trash2, Wifi,
 } from 'lucide-react'
-import { api, apiGuardadaEsEstatica, guardarUrlApi, leerUrlApi, urlApiEnUso } from '../lib/api'
+import { api, apiGuardadaEsEstatica, cuentas, guardarUrlApi, leerUrlApi, urlApiEnUso } from '../lib/api'
 import type {
   AutorizacionCuenta, CatalogoModelos, Conexion, EstadoGoogle, ModeloCatalogo, MotorLocal,
   ProveedorCatalogo,
@@ -105,6 +105,19 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
   const [apiUrl, setApiUrl] = useState(() => leerUrlApi())
   /** Ajustes tecnicos plegados (solo para quien instala). */
   const [verAjustes, setVerAjustes] = useState(false)
+  /** Envio de correo del servidor (v36): lo configura el administrador, una vez. */
+  const [verCorreo, setVerCorreo] = useState(false)
+  const [smtpInfo, setSmtpInfo] = useState<{
+    ok: boolean
+    configurado: boolean
+    origen: string
+    host?: string
+    puerto?: number
+    usuario?: string
+    desde?: string
+    mensaje?: string
+  } | null>(null)
+  const [smtpForm, setSmtpForm] = useState({ host: '', puerto: 587, usuario: '', clave: '', desde: '' })
   const [modelos, setModelos] = useState<ModeloCatalogo[]>([])
   const [familias, setFamilias] = useState<{ familia: string; modelos: number }[]>([])
   const [filtroModelo, setFiltroModelo] = useState('')
@@ -666,6 +679,133 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
                     <Settings size={13} />
                     Configuracion avanzada (activar el acceso con una cuenta)
                   </Boton>
+
+                  {/* ---- Envio de correo del servidor (v36) ---- */}
+                  <div className="rounded-2xl border border-white/8 bg-white/3 p-4">
+                    <button
+                      onClick={async () => {
+                        const abierto = !verCorreo
+                        setVerCorreo(abierto)
+                        if (abierto) {
+                          try {
+                            const info = await cuentas.smtp()
+                            setSmtpInfo(info)
+                            setSmtpForm({
+                              host: info.host ?? '',
+                              puerto: info.puerto ?? 587,
+                              usuario: info.usuario ?? '',
+                              clave: '',
+                              desde: info.desde ?? '',
+                            })
+                          } catch (e) {
+                            setEstado({ ok: false, texto: (e as Error).message })
+                          }
+                        }
+                      }}
+                      className="flex w-full items-center gap-2 text-left"
+                    >
+                      <Mail size={14} className="text-slate-400" />
+                      <span className="text-[11px] font-bold text-slate-200">
+                        Envio de correo (para que llegue el codigo de verificacion)
+                      </span>
+                      {smtpInfo?.configurado && (
+                        <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[9px] font-bold text-emerald-200">
+                          ya configurado
+                        </span>
+                      )}
+                    </button>
+                    {verCorreo && (
+                      <div className="mt-3 space-y-2.5">
+                        <p className="ls-hint">
+                          Con esto el servidor puede enviar el codigo de verificacion al correo de
+                          quien se registra. Usa una clave de aplicacion, no tu contrasena. Si no lo
+                          configuras, la persona puede entrar con Google, Outlook, GitHub o seguir
+                          en su equipo.
+                        </p>
+                        <input
+                          className="ls-input"
+                          placeholder="Servidor SMTP (smtp.gmail.com)"
+                          value={smtpForm.host}
+                          onChange={(e) => setSmtpForm({ ...smtpForm, host: e.target.value })}
+                        />
+                        <input
+                          className="ls-input"
+                          placeholder="Puerto (587)"
+                          type="number"
+                          value={smtpForm.puerto}
+                          onChange={(e) => setSmtpForm({ ...smtpForm, puerto: Number(e.target.value) })}
+                        />
+                        <input
+                          className="ls-input"
+                          placeholder="Usuario del correo"
+                          value={smtpForm.usuario}
+                          onChange={(e) => setSmtpForm({ ...smtpForm, usuario: e.target.value })}
+                        />
+                        <input
+                          className="ls-input"
+                          placeholder="Clave de aplicacion"
+                          type="password"
+                          value={smtpForm.clave}
+                          onChange={(e) => setSmtpForm({ ...smtpForm, clave: e.target.value })}
+                        />
+                        <input
+                          className="ls-input"
+                          placeholder="Correo que aparece como remitente"
+                          value={smtpForm.desde}
+                          onChange={(e) => setSmtpForm({ ...smtpForm, desde: e.target.value })}
+                        />
+                        <div className="flex flex-wrap gap-2">
+                          <Boton
+                            variante="secundario"
+                            disabled={ocupado}
+                            onClick={async () => {
+                              setOcupado(true)
+                              try {
+                                const r = await cuentas.guardarSmtp({
+                                  host: smtpForm.host,
+                                  puerto: smtpForm.puerto,
+                                  usuario: smtpForm.usuario,
+                                  password: smtpForm.clave || undefined,
+                                  desde: smtpForm.desde,
+                                })
+                                setEstado({ ok: r.ok, texto: r.mensaje })
+                                if (r.ok) setSmtpInfo({ ...(smtpInfo ?? ({} as never)), ok: true, configurado: true, origen: 'app' })
+                              } catch (e) {
+                                setEstado({ ok: false, texto: (e as Error).message })
+                              } finally {
+                                setOcupado(false)
+                              }
+                            }}
+                          >
+                            Guardar
+                          </Boton>
+                          <Boton
+                            variante="fantasma"
+                            disabled={ocupado}
+                            onClick={async () => {
+                              setOcupado(true)
+                              try {
+                                const r = await cuentas.probarSmtp()
+                                setEstado({ ok: r.ok, texto: r.mensaje })
+                              } catch (e) {
+                                setEstado({ ok: false, texto: (e as Error).message })
+                              } finally {
+                                setOcupado(false)
+                              }
+                            }}
+                          >
+                            Mandar un correo de prueba
+                          </Boton>
+                        </div>
+                        {smtpInfo?.origen === 'servidor' && (
+                          <Aviso tono="ok">
+                            Este servidor ya tiene el correo configurado por variable de entorno
+                            (SMTP_HOST). No hace falta hacer nada aqui.
+                          </Aviso>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

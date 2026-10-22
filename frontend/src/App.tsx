@@ -75,14 +75,10 @@ export default function App() {
   const cargarPaneles = useLifeAgente((s) => s.cargarPaneles)
 
   useEffect(() => {
+    // v36: una sola peticion trae agenda, tareas, bitacora, mantenimiento,
+    // paneles, ajustes, politica, auditoria, cumplimiento y aprobaciones.
     cargarTodo()
-    // El badge de aprobaciones pendientes debe ser correcto aunque el usuario
-    // nunca abra el panel de Responsabilidad.
-    void cargarResponsable()
-    // Los paneles (v19) se cargan siempre: el selector de la barra superior
-    // los necesita aunque la persona no abra la vista de Paneles.
-    void useLifeAgente.getState().cargarPaneles()
-  }, [cargarTodo, cargarResponsable])
+  }, [cargarTodo])
 
   // Aviso de "el servidor esta tardando" (v34): en la nube el servicio puede
   // estar dormido y la primera peticion tarda medio minuto. Mejor decirlo que
