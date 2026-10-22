@@ -104,7 +104,10 @@ jobs:
           retention-days: 30
 
       - name: Publicar el APK en la release
-        if: startsWith(github.ref, 'refs/tags/') && inputs.publicar != false
+        # Ojo: en un evento "push" la entrada "publicar" viene vacia, y
+        # "vacia != false" da falso -> el paso se saltaba y el APK nunca
+        # llegaba a la release. Aqui solo se mira la etiqueta.
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: frontend/LifeAgente.apk
@@ -112,4 +115,6 @@ jobs:
             LifeAgente AI para Android.
 
             Instala el archivo `LifeAgente.apk` (permite "instalar apps de origen desconocido").
-            Es la version local: sin cuenta, con los datos en tu telefono.
+            Es la version web: entra con tu cuenta (Google, Outlook, GitHub o tu correo)
+            o sigue en este equipo. La direccion del servidor ya va dentro del APK,
+            asi que no hay que configurar nada.
