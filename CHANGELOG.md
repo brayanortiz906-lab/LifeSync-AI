@@ -8,7 +8,38 @@ La app, el instalador `.exe` y las Releases de GitHub muestran la misma.
 
 ---
 
-## v1.1.0 — «Todo en un clic, y que no vaya lento» (actual)
+## v1.1.1 — «El instalador arrancaba de verdad» (actual)
+
+### El arreglo
+El `.exe` **no arrancaba** y mostraba este error:
+
+```
+AttributeError: 'NoneType' object has no attribute 'isatty'
+ValueError: Unable to configure formatter 'default'
+```
+
+**Por que pasaba**: una app de Windows abierta en modo ventana (sin consola) deja
+`sys.stdout` y `sys.stderr` en `None`. Uvicorn, al preparar el log, hace
+`sys.stdout.isatty()` y ahi se caia.
+
+**Como se arreglo** (`desktop/launcher.py`): antes de arrancar el servidor se
+comprueba que la salida existe; si no, se manda a la nada en vez de reventar.
+Ademas el servidor ahora escribe su log en `%APPDATA%\LifeAgente\servidor.log`,
+asi la ventana del lanzador puede mostrarte que paso si algo falla.
+
+**Verificado**: se reprodujo el fallo exacto (servidor caido) y se comprobo el
+arranque correcto (`/api/health` -> 200 con la version 1.1.1) con la salida nula.
+
+### Como se publica una version nueva
+1. Cambiar el archivo **`VERSION`** de la raiz (por ejemplo `1.1.1`).
+2. `publicar.ps1 -Mensaje "..."` (pruebas + commit + push + espera al CI).
+3. `git tag v1.1.1` y `git push upstream v1.1.1`.
+4. El workflow **«Instalador de Windows»** compila el `.exe`, arma el zip del
+   sistema completo y publica la release en GitHub.
+
+---
+
+## v1.1.0 — «Todo en un clic, y que no vaya lento»
 
 ### Instalar y usar
 | Qué | Cómo |

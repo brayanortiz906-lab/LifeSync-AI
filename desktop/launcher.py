@@ -26,6 +26,29 @@ from datetime import datetime
 from pathlib import Path
 from shutil import which as shutil_which
 
+
+def _asegurar_salida() -> None:
+    """En una app de ventana (sin consola) Python deja stdout y stderr en None.
+
+    Con eso uvicorn revienta al configurar el log ('NoneType' object has no
+    attribute 'isatty' -> "Unable to configure formatter 'default'") y el
+    servidor no arranca nunca. Lo que arreglamos: mandamos la salida a la
+    nada, pero sin que el proceso se caiga.
+    """
+    if sys.stdout is None:
+        try:
+            sys.stdout = open(os.devnull, "w", encoding="utf-8")
+        except Exception:
+            pass
+    if sys.stderr is None:
+        try:
+            sys.stderr = open(os.devnull, "w", encoding="utf-8")
+        except Exception:
+            pass
+
+
+_asegurar_salida()
+
 # --------------------------------------------------------------------------- #
 # Modo SERVIDOR: el .exe se relanza a si mismo con --servidor.
 # --------------------------------------------------------------------------- #
@@ -40,11 +63,38 @@ if getattr(sys, "frozen", False) and "--servidor" in sys.argv:
 
     from app.main import app
 
+    # El log del servidor va a un archivo: en una app de ventana no hay consola
+    # y asi la ventana del lanzador puede mostrarlo si algo falla.
+    _log = _datos / "servidor.log"
+    _config_log = None
+    try:
+        import copy
+
+        from uvicorn.config import LOGGING_CONFIG
+
+        _config_log = copy.deepcopy(LOGGING_CONFIG)
+        _config_log.setdefault("handlers", {})["archivo"] = {
+            "class": "logging.FileHandler",
+            "filename": str(_log),
+            "formatter": "default",
+            "encoding": "utf-8",
+        }
+        for _nombre in ("uvicorn", "uvicorn.error", "uvicorn.access"):
+            _logger = _config_log.get("loggers", {}).get(_nombre)
+            if _logger is not None:
+                _manejadores = list(_logger.get("handlers", []))
+                if "archivo" not in _manejadores:
+                    _manejadores.append("archivo")
+                _logger["handlers"] = _manejadores
+    except Exception:
+        _config_log = None
+
     uvicorn.run(
         app,
         host="127.0.0.1",
         port=int(os.environ.get("LIFEAGENTE_PUERTO", "8000")),
         log_level="warning",
+        log_config=_config_log,
     )
     raise SystemExit(0)
 
@@ -90,6 +140,20 @@ VERSION = _leer_version()
 MODELO_LIGERO = "qwen2.5:0.5b"
 DIR_RESPALDOS = DIR_DATOS / "respaldos"
 ARCHIVO_DB = DIR_DATOS / "lifesync.db"
+RUTA_LOG = DIR_DATOS / "servidor.log"
+
+
+def leer_log_servidor(lineas: int = 25) -> str:
+    """Ultimas lineas del log del servidor (util cuando se para sin consola)."""
+    try:
+        if not RUTA_LOG.exists():
+            return ""
+        texto = RUTA_LOG.read_text(encoding="utf-8", errors="replace").strip()
+        if not texto:
+            return ""
+        return "\n".join(texto.splitlines()[-lineas:])
+    except Exception:
+        return ""
 
 # Raíz del proyecto cuando NO estamos empaquetados (desarrollo / repo).
 RAIZ_REPO = Path(__file__).resolve().parent.parent if not FROZEN else None
@@ -502,6 +566,10 @@ class Lanzador:
                             salida = self.proceso.stdout.read() or ""
                         except Exception:
                             salida = ""
+                    if not salida.strip():
+                        # En modo ventana el servidor no escribe en la consola:
+                        # su log esta en un archivo (servidor.log).
+                        salida = leer_log_servidor()
                     self.escribir("El servidor se detuvo:\n" + (salida or "(sin detalles)"))
                     self.estado("Error", ROJO)
                     self.raiz.after(0, lambda: self.boton_iniciar.configure(state="normal"))

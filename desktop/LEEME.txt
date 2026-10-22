@@ -1,7 +1,7 @@
 =====================================================================
   LifeAgente AI  -  Asistente Integral de Vida y Productividad
   INSTALADOR LOCAL PARA WINDOWS
-  Version 1.1.0
+  Version 1.1.1
 =====================================================================
 
 QUE VAS A HACER
@@ -17,7 +17,10 @@ El archivo .exe ya lleva dentro el motor de LifeAgente, la base de datos
 y la interfaz. Si algo falta (Docker, Node) la ventana te lo dice y te
 ofrece un boton "Instalar" que lo hace por ti.
 
-LO NUEVO EN ESTA VERSION (v1.1.0)
+LO NUEVO EN ESTA VERSION (v1.1.1)
+- Arreglado: el programa ahora arranca siempre. Antes, en algunos equipos, el
+  servidor se caia al abrir la ventana (error "Unable to configure formatter").
+
 ---------------------------------
 * Entrar es UN SOLO BOTON: "Entrar o crear mi cuenta".
 * El codigo de verificacion ahora si llega al correo (o te lo dicen de
@@ -35,11 +38,18 @@ DONDE QUEDAN TUS DATOS
    |- lifesync.db          <- tu agenda, tareas, gastos y mantenimiento
    |- secreto.txt          <- clave de cifrado de tus credenciales
    |- respaldos\           <- copias automaticas de tu base de datos
+   |- servidor.log         <- si algo falla, aqui queda escrito que paso
    `- logs\
 
 Puedes respaldar esa carpeta completa cuando quieras.
 Ojo: al actualizar el programa (bajar un .exe nuevo) TUS DATOS NO SE
 PIERDEN: siguen en esa carpeta.
+
+SI ALGO NO ARRANCA
+------------------
+Abre el archivo servidor.log de esa carpeta: ahi esta escrito el problema.
+Tambien puedes arrancar la app con otra direccion:
+   LifeAgente.exe --servidor   (solo la API, sin ventana)
 
 CUANDO CIERRAS LA VENTANA
 -------------------------

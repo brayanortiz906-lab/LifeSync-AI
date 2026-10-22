@@ -12,7 +12,7 @@ reorganiza tu agenda ante imprevistos y registra lo que te pasa en lenguaje natu
 
 | | |
 |---|---|
-| **Versión** | `v1.1.0` (release con el instalador `.exe` y el código completo) · el número vive en el archivo [`VERSION`](VERSION) |
+| **Versión** | `v1.1.1` (release con el instalador `.exe` y el código completo) · el número vive en el archivo [`VERSION`](VERSION) |
 | **Pruebas** | 150  comprobaciones automáticas (`backend/smoke.py`) + build TypeScript |
 | **Documentación** | 20 documentos (`docs/00-INDICE.md` es el índice) + [`CHANGELOG.md`](CHANGELOG.md) |
 | **Interfaz** | React 19 · Vite 7 · TypeScript · Tailwind CSS v4 · Zustand 5 |
@@ -28,7 +28,7 @@ versión**, con los archivos para descargar y las novedades escritas.
 | Qué | Enlace |
 |---|---|
 | **Releases (todas las versiones)** | <https://github.com/brayanortiz906-lab/LifeSync-AI/releases> |
-| **Última versión (v1.1.0)** | <https://github.com/brayanortiz906-lab/LifeSync-AI/releases/latest> |
+| **Última versión (v1.1.1)** | <https://github.com/brayanortiz906-lab/LifeSync-AI/releases/latest> |
 | **Novedades completas** | [`CHANGELOG.md`](CHANGELOG.md) |
 
 **Qué hay en cada release**
@@ -41,12 +41,12 @@ versión**, con los archivos para descargar y las novedades escritas.
 
 **Cómo se publica una versión nueva** (ya está automatizado):
 1. Se sube el código a `main` (con `publicar.ps1`).
-2. Se crea la etiqueta `v1.1.0` → GitHub Actions compila el `.exe` y **crea la release** con los archivos.
+2. Se crea la etiqueta `v1.1.1` → GitHub Actions compila el `.exe` y **crea la release** con los archivos.
 3. La web (Pages) se republica sola y Render reconstruye el servicio.
 
 ```powershell
-git tag v1.1.0
-git push upstream v1.1.0
+git tag v1.1.1
+git push upstream v1.1.1
 ```
 
 > La **versión es una sola**: el archivo `VERSION` de la raíz. La app (Ajustes), el `.exe` y las

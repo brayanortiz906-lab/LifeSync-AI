@@ -21,6 +21,7 @@ tenga que instalar Python, Node ni Docker: un solo archivo `.exe`.
 |- lifesync.db        <- agenda, tareas, gastos, mantenimiento
 |- secreto.txt        <- clave de cifrado (estable entre ejecuciones)
 |- respaldos\         <- copias automaticas al cerrar
+|- servidor.log       <- log del servidor (lo usa la ventana del lanzador)
 `- logs\
 ```
 
@@ -36,6 +37,27 @@ carpeta del usuario. Por eso `backend/app/config.py` ahora calcula:
 Ademas, la clave de cifrado (`APP_SECRET_KEY`) se guarda en `secreto.txt`: si
 cambiara en cada arranque, las credenciales de las IA guardadas dejarian de
 poder descifrarse.
+
+### La trampa de la app sin consola (v1.1.1)
+
+Una app de Windows abierta en **modo ventana** (sin consola) deja
+`sys.stdout` y `sys.stderr` en **None**. Uvicorn, al preparar el log, hace
+`sys.stdout.isatty()` y ahi se cae:
+
+```
+AttributeError: 'NoneType' object has no attribute 'isatty'
+ValueError: Unable to configure formatter 'default'
+```
+
+El `.exe` de la v1.0.0 sufria de esto y **no arrancaba**. El arreglo esta en
+`desktop/launcher.py`: la funcion `_asegurar_salida()` comprueba que la salida
+exista y, si no, la manda a la nada en vez de reventar. Ademas el servidor
+escribe su log en `servidor.log`, para que la ventana del lanzador te pueda
+ensenar que paso si algo falla.
+
+Como el modo ventana no deja escribir en la consola, **el puerto se cambia con
+la variable de entorno `LIFEAGENTE_PUERTO`** (un argumento en la linea de
+comandos no sirve).
 
 ## 3. Como se compila
 
@@ -74,9 +96,9 @@ El archivo **`VERSION`** (raiz del repositorio) es la fuente unica. Lo leen:
 | Quien | Como |
 |---|---|
 | La API | `settings.version` (`backend/app/config.py`) → `GET /api/health` |
-| La interfaz | *Ajustes > Sobre ti* (chip `LifeAgente AI v1.1.0` + enlace a Releases) |
-| El instalador | la cabecera de la ventana (`LifeAgente AI  v1.1.0`) |
-| Las releases | la etiqueta `v1.1.0` y el cuerpo de la release |
+| La interfaz | *Ajustes > Sobre ti* (chip `LifeAgente AI v1.1.1` + enlace a Releases) |
+| El instalador | la cabecera de la ventana (`LifeAgente AI  v1.1.1`) |
+| Las releases | la etiqueta `v1.1.1` y el cuerpo de la release |
 
 > **Ojo**: el archivo se escribe **sin BOM** (UTF-8 puro). Con BOM, la API
 > reportaba `"version": "\ufeff1.1.0"` y el `VERSION` de PyInstaller tambien
@@ -95,7 +117,7 @@ la interfaz, levanta el sistema, abre el navegador y apaga todo al cerrar.
 | Evento | Que hace |
 |---|---|
 | *Run workflow* (manual) | compila y deja el `.exe` como artefacto descargable |
-| Tag `v*` (por ejemplo `v1.1.0`) | ademas crea una **Release** con el `.exe` **y** el `.zip` del sistema completo, y un cuerpo con las novedades |
+| Tag `v*` (por ejemplo `v1.1.1`) | ademas crea una **Release** con el `.exe` **y** el `.zip` del sistema completo, y un cuerpo con las novedades |
 
 Es **gratis** en repositorios publicos. La descarga directa queda en
 `https://github.com/brayanortiz906-lab/LifeSync-AI/releases`.
@@ -106,8 +128,8 @@ El flujo completo para sacar una version nueva:
 # 1. pruebas + commit + push + espera al CI
 powershell -ExecutionPolicy Bypass -File publicar.ps1 -Mensaje "feat: mi cambio"
 # 2. etiqueta (esto dispara la release con el .exe)
-git tag v1.1.0
-git push upstream v1.1.0
+git tag v1.1.1
+git push upstream v1.1.1
 ```
 
 Lo que se publica en cada release:
