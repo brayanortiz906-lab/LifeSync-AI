@@ -223,15 +223,15 @@ export default function App() {
 
                 <ContextoLateral fecha={fecha} />
 
+                <AcademicPanel />
+              </div>
+
+              {/* Columna 3: lo local y la bitacora y los gastos. */}
+              <div className="ls-col-dinero ls-scroll flex min-h-0 flex-col gap-4 pr-0.5">
                 {/* Lo local, a mano en la pagina normal: motor de reglas, IA
                     del computador, plantillas y pegar texto de otro chat. */}
                 <PanelLocal onAbrirConexiones={() => setConexionesAbiertas(true)} />
 
-                <AcademicPanel />
-              </div>
-
-              {/* Columna 3: la bitacora y los gastos. */}
-              <div className="ls-col-dinero ls-scroll flex min-h-0 flex-col gap-4 pr-0.5">
                 <LogbookPanel />
               </div>
             </div>

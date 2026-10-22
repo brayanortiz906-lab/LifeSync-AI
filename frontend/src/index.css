@@ -222,6 +222,15 @@ body {
   gap: 1rem;
   grid-template-columns: minmax(0, 1fr);
 }
+
+/* Nada se aplasta dentro de una columna con scroll.
+   Los bloques conservan su alto natural y lo que no cabe se alcanza
+   desplazando la columna. Sin esto los paneles se comprimian (flex-shrink)
+   y su overflow-hidden los recortaba a medias: botones cortados, textos a
+   medias y el textarea del chat partido en dos. */
+.ls-scroll > * {
+  flex-shrink: 0;
+}
 @media (min-width: 1024px) {
   .ls-agenda {
     grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);

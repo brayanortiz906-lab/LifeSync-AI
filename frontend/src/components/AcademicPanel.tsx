@@ -81,7 +81,7 @@ export default function AcademicPanel() {
           Importar
         </Boton>
       }
-      cuerpoClass="overflow-y-auto"
+      cuerpoClass="max-h-[520px] overflow-y-auto"
     >
       <div className="flex gap-1 border-b border-white/8 px-4 py-2.5">
         {(['pendientes', 'todas', 'completadas'] as const).map((f) => (

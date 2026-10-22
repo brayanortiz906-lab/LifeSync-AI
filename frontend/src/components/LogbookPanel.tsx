@@ -81,7 +81,7 @@ export default function LogbookPanel() {
           {monto(total, moneda)}
         </Chip>
       }
-      cuerpoClass="overflow-y-auto"
+      cuerpoClass="max-h-[520px] overflow-y-auto"
     >
       {/* Registro rápido */}
       <div className="space-y-2.5 border-b border-white/8 p-4">
