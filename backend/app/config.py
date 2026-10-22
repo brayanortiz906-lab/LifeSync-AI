@@ -18,6 +18,12 @@ SHARED_DIR = PROJECT_DIR / "shared"
 ORIGENES_PROPIOS = (
     "https://brayanortiz906-lab.github.io",
     "https://underlanded4.github.io",
+    # El APK de Android (Capacitor) y la PWA abierta desde el telefono
+    # llegan con estos origenes: sin ellos el navegador los bloquea.
+    "capacitor://localhost",
+    "http://localhost",
+    "https://localhost",
+    "http://localhost:8100",
 )
 
 # --- App empaquetada (instalador .exe) ----------------------------------- #

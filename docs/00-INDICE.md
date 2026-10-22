@@ -65,3 +65,4 @@ Si buscas **cómo usarlo**: empieza por [`MANUAL-LOCAL.md`](../MANUAL-LOCAL.md)
 | [`VERSION`](../VERSION) | El número de versión del sistema, en un solo archivo (lo leen la API, la web y el `.exe`). |
 | [`LICENSE`](../LICENSE) | Licencia MIT. |
 | 24 | Dos versiones (web y local) y la app en el celular | [Ver](24-VERSIONES-Y-MOVIL.md) |
+| 25 | Avisos del celular, el APK de Android y los pendientes por prioridad | [Ver](25-AVISOS-Y-APK.md) |

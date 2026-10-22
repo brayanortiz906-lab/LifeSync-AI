@@ -1243,4 +1243,17 @@ Y si el tuyo vive en otro puerto (o es un agente tuyo), **pides la direccion a m
 
 Tambien puedes pegar la URL desde la **agenda**, en la tarjeta **Cosas de local**.
 
+---
 
+### 🔔 Avisos del celular y el APK de Android
+
+| Pieza | Que hace |
+|---|---|
+| **Avisos del celular** | Panel en la agenda para encender las notificaciones, ver y quitar las alarmas |
+| **La campana del calendario** | al tocar un bloque, un clic programa el aviso (al empezar, 10 min, 30 min, 1 h o 1 dia antes) |
+| **Las alarmas sobreviven** | se guardan en el navegador y se vuelven a armar al abrir la app |
+| **APK de Android** | se instala y ya funciona: la direccion de la API va dentro, no hay que configurar nada |
+| **PWA** | en el celular: *Chrome -> menu -> Anadir a pantalla de inicio* |
+
+Las pendientes por prioridad (lo que falta y quien lo resuelve) estan en
+[`docs/25-AVISOS-Y-APK.md`](docs/25-AVISOS-Y-APK.md).

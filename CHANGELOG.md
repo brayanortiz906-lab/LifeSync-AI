@@ -8,6 +8,23 @@ La app, el instalador `.exe` y las Releases de GitHub muestran la misma.
 
 ---
 
+## v1.3.0 - Avisos del celular, APK de Android y lista de pendientes
+
+- **Avisos y alarmas del celular**: nueva pestana "Avisos del celular" para encender las
+  notificaciones, ver y quitar las alarmas; la campana en cada bloque del calendario
+  programa el aviso (al empezar, 10 min, 30 min, 1 hora o 1 dia antes). Las alarmas se
+  guardan en el navegador y se vuelven a armar al abrir la app. En el APK usan la alarma
+  nativa de Android (plugin LocalNotifications de Capacitor).
+- **APK de Android**: el workflow "APK de Android" compila la app para Android con la
+  direccion de la API ya dentro, asi que **se instala y ya funciona** (sin configurar
+  nada). La API acepta el origen del APK (`capacitor://localhost`).
+- **Se acabo la basura de las pruebas**: el smoke test borra solo lo que crea (233 tareas,
+  27 eventos y 7 gastos de prueba que se habian acumulado en tu base) y ya no rompe
+  la limpieza por la llave foranea.
+- **Pendientes por prioridad**: documentados en `docs/25-AVISOS-Y-APK.md`.
+
+---
+
 ## v1.2.0 — Dos versiones (web y local) y la app en el celular
 
 | Que | Como |

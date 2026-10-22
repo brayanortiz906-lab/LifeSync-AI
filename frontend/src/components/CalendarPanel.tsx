@@ -13,8 +13,9 @@
  * visuales); la vista Mes es un calendario con puntos de color por dia.
  */
 import { useMemo, useState } from 'react'
+import { alarmaDe, cancelar as cancelarAlarma, pedirPermiso as pedirPermisoAlarma, programar as programarAlarma } from '../lib/alarmas'
 import {
-  AlarmClock, CalendarRange, Clock, Info, LayoutGrid, List, Rows3,
+  AlarmClock, Bell, CalendarRange, Clock, Info, LayoutGrid, List, Rows3,
   TriangleAlert, Trash2, X,
 } from 'lucide-react'
 import { useLifeAgente } from '../store/useLifeAgente'
@@ -614,6 +615,19 @@ function DetalleEvento({
   onEliminar: () => void
 }) {
   const color = COLOR_EVENTO[evento.categoria] ?? COLOR_EVENTO.personal
+  const [alarma, setAlarma] = useState(() => alarmaDe(evento.id))
+
+  /** Avisa 10 minutos antes del bloque (o quita el aviso si ya estaba). */
+  const alternarAlarma = () => {
+    if (alarma) {
+      cancelarAlarma(alarma.id)
+      setAlarma(undefined)
+      return
+    }
+    const nueva = programarAlarma(evento.id, evento.titulo, evento.inicio, 10)
+    setAlarma(nueva)
+    void pedirPermisoAlarma()
+  }
   return (
     <div className="absolute inset-x-0 bottom-0 z-30 border-t border-white/10 bg-slate-900/95 p-4 backdrop-blur">
       <div className="flex items-start gap-3">
@@ -640,6 +654,13 @@ function DetalleEvento({
           )}
         </div>
         <div className="flex items-center gap-1">
+          <Boton
+            variante={alarma ? 'secundario' : 'fantasma'}
+            onClick={alternarAlarma}
+            titulo={alarma ? 'Quitar el aviso' : 'Avisarme 10 minutos antes'}
+          >
+            <Bell size={13} />
+          </Boton>
           <Boton variante="peligro" onClick={onEliminar} titulo="Eliminar bloque">
             <Trash2 size={13} />
           </Boton>

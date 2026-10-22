@@ -35,8 +35,13 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
+      # El APK se instala y ya funciona: la direccion de la API de la nube
+      # queda horneada en la app, asi que no hay que configurar nada.
       - name: Compilar la interfaz
         working-directory: frontend
+        env:
+          VITE_API_URL: ${{ vars.VITE_API_URL || 'https://lifesync-ai-qs5t.onrender.com/api' }}
+          VITE_BASE: './'
         run: |
           npm ci
           npm run build
@@ -44,7 +49,7 @@ jobs:
       - name: Preparar el proyecto de Android (Capacitor)
         working-directory: frontend
         run: |
-          npm install --no-save @capacitor/cli @capacitor/core @capacitor/android
+          npm install --no-save @capacitor/cli @capacitor/core @capacitor/android @capacitor/local-notifications
           npx cap init "LifeAgente AI" "ai.lifeagente.app" --web-dir dist
           npx cap add android
           npx cap sync android
@@ -72,7 +77,9 @@ jobs:
                   "dependencies {\n"
                   "    configurations.all {\n"
                   "        resolutionStrategy {\n"
+                  "            force 'org.jetbrains.kotlin:kotlin-stdlib:1.8.22'\n"
                   "            exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk8'\n"
+                  "            exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk7'\n"
                   "        }\n"
                   "    }",
                   1,

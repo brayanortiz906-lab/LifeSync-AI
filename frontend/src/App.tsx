@@ -30,6 +30,7 @@ import PermisosPanel from './components/PermisosPanel'
 import PanelesPanel from './components/PanelesPanel'
 import ContextoLateral from './components/ContextoLateral'
 import PanelLocal from './components/PanelLocal'
+import PanelAlarmas from './components/PanelAlarmas'
 import ChatFlotante from './components/ChatFlotante'
 import ResumenMovil from './components/ResumenMovil'
 import MenuMovil from './components/MenuMovil'
@@ -73,6 +74,7 @@ export default function App() {
   const importarTexto = useLifeAgente((s) => s.importarTexto)
   const modoLocal = useLifeAgente((s) => s.modoLocal)
   const cargarPaneles = useLifeAgente((s) => s.cargarPaneles)
+const eventosAgenda = useLifeAgente((s) => s.eventos)
 
   useEffect(() => {
     // v36: una sola peticion trae agenda, tareas, bitacora, mantenimiento,
@@ -232,6 +234,9 @@ export default function App() {
                     del computador, plantillas y pegar texto de otro chat. */}
                 <PanelLocal onAbrirConexiones={() => setConexionesAbiertas(true)} />
 
+                {/* Avisos del celular: alarma antes de un bloque. */}
+                <PanelAlarmas eventos={eventosAgenda} />
+
                 <LogbookPanel />
               </div>
             </div>
@@ -240,6 +245,7 @@ export default function App() {
               <CalendarPanel fecha={fecha} onCambiarFecha={setFecha} />
               <ResumenMovil onAbrirMas={() => setMenuMovilAbierto(true)} />
               <PanelLocal onAbrirConexiones={() => setConexionesAbiertas(true)} />
+              <PanelAlarmas eventos={eventosAgenda} />
             </div>
           )}
         </main>
