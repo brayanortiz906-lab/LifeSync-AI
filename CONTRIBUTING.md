@@ -38,7 +38,7 @@ Más opciones (instalador `.exe`, Docker, Codespaces) en
 ## 3. Antes de abrir un PR: comprueba
 
 ```powershell
-# 1. Las 162  comprobaciones del sistema
+# 1. Las 165  comprobaciones del sistema
 backend\.venv\Scripts\python.exe backend\smoke.py
 
 # 2. Que la interfaz compila sin errores de tipos

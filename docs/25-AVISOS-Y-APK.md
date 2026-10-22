@@ -1,6 +1,6 @@
 # Avisos del celular, APK de Android y lo que queda pendiente
 
-Este documento explica las tres cosas nuevas de la version **1.3.0** y
+Este documento explica las tres cosas nuevas de la version **1.4.0** y
 **la lista de pendientes por prioridad** (lo que falta para que todo
 funcione de punta a punta).
 

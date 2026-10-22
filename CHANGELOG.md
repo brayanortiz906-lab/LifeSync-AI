@@ -8,6 +8,39 @@ La app, el instalador `.exe` y las Releases de GitHub muestran la misma.
 
 ---
 
+## v1.4.0 - Entrar con Google, Outlook o GitHub (para toda la gente) + IA del movil
+
+### Las cuentas de verdad, activables desde la app
+
+- Nuevo bloque **"Entrar con Google, Outlook o GitHub"** en *Conectar IA > Ajustes tecnicos*: tres campos, enlace directo a la consola de cada proveedor y un boton **"Guardar y activarlo para todos"**.
+- Los identificadores son **publicos** (no son secretos) y se guardan en la configuracion del servidor: valen para toda la gente que use el sistema.
+- **La primera cuenta de una instalacion nueva nace administradora**, asi el dueno puede activarlo sin tocar variables de entorno.
+- El mensaje de error ya no culpa al usuario: "Lo activa el dueno de la app en un solo paso... No te frena: entra con tu correo y tu contrasena, o sigue usando LifeAgente aqui".
+- Las tarjetas de Google / Outlook / GitHub **tambien** se ven en la version local.
+
+### Drive siempre tiene salida
+
+- Si Drive no esta autorizado, el panel de cuenta **no muestra un error seco**: ofrece **"Descargar y subir a Drive"** (descarga el respaldo y abre el uploader de Google: dos toques) y **"Activar el acceso a Google"**.
+
+### IA para el celular, segun sus recursos
+
+- Nuevo panel **"IA de tu movil"**: detecta la RAM y los nucleos y **recomienda siempre un modelo primero**.
+  - menos de 3 GB -> `qwen2.5:0.5b` (400 MB, solo texto, el que mejor gasta la bateria)
+  - 3 a 6 GB -> `llama3.2:1b` (1,3 MB -> 1,3 GB, equilibrio)
+  - 6 GB o mas -> `gemma3:1b` (815 MB, la mas capaz que cabe)
+- Barra de progreso real de la descarga, aviso honesto del **permiso de notificaciones** y la nota: solo IAs que corren en tu propio aparato (no gastan datos, no dependen de internet).
+
+### El movil, mas amigable
+
+- La vista del celular empieza por **"Tu dia de un vistazo"** (las 3 lineas) y luego calendario, IA del movil, cosas de local y avisos.
+
+### Limpieza y arreglos
+
+- Se borraron de tu base de datos **550 cuentas de prueba** y **80 paneles de prueba** que habian dejado los tests automaticos.
+- El test automatico **ahora se limpia solo** lo que crea (y borra las tareas antes que los eventos, porque la llave foranea impedia limpiarlos).
+- Arreglo del import de `Usuario` (vive en `cuentas.py`, no en `models.py`) y del bloque del administrador nuevo (500 al arrancar).
+- Se corrigieron caracteres mal escritos y se paso de 162 a 165 verificaciones automaticas.
+
 ## v1.3.0 - Avisos del celular, APK de Android y lista de pendientes
 
 - **Avisos y alarmas del celular**: nueva pestana "Avisos del celular" para encender las

@@ -1373,6 +1373,26 @@ def main() -> int:
         f"-> cod={cod_icono} bytes={len(cuerpo_icono)}",
     )
 
+    # --- Cuentas para toda la gente, IA gratis y agentes (v1.4.0) ---
+    cod_clientes, cuerpo_clientes = pedir_suave("GET", "/api/cuentas/servidor/clientes")
+    check(
+        "[CUENTAS] la activacion de cuentas esta protegida (solo un administrador)",
+        cod_clientes in (200, 403),
+        f"-> cod={cod_clientes}",
+    )
+    cod_gratis, cuerpo_gratis = pedir_suave("GET", "/api/conexiones/ia-gratis")
+    check(
+        "[CUENTAS] hay IAs gratis con solo tu cuenta",
+        cod_gratis == 200 and isinstance(cuerpo_gratis, dict) and len(cuerpo_gratis.get("servicios", [])) >= 5,
+        f"-> cod={cod_gratis} servicios={len(cuerpo_gratis.get('servicios', [])) if isinstance(cuerpo_gratis, dict) else 0}",
+    )
+    cod_agentes, cuerpo_agentes = pedir_suave("GET", "/api/conexiones/agentes")
+    check(
+        "[CUENTAS] se listan los sistemas de IA del computador",
+        cod_agentes == 200 and isinstance(cuerpo_agentes, dict) and len(cuerpo_agentes.get("agentes", [])) >= 5,
+        f"-> cod={cod_agentes} agentes={len(cuerpo_agentes.get('agentes', [])) if isinstance(cuerpo_agentes, dict) else 0}",
+    )
+
     limpiar_pruebas()
 
     print("=" * 70)

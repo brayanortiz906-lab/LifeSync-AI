@@ -260,7 +260,7 @@ Documentación completa de cada área en `docs/`.
 | Archivo | Para qué |
 |---|---|
 | `run.py` | arranque rápido de la API |
-| `smoke.py` | **162  comprobaciones automáticas** de todo el sistema (`python smoke.py`) |
+| `smoke.py` | **165  comprobaciones automáticas** de todo el sistema (`python smoke.py`) |
 | `requirements.txt` | dependencias de Python |
 | `.env.example` | plantilla de configuración |
 
@@ -339,7 +339,7 @@ Documentación completa de cada área en `docs/`.
 ## 8. Mantenimiento
 
 ```powershell
-# 1. Comprobar que todo sigue bien (162  casos)
+# 1. Comprobar que todo sigue bien (165  casos)
 backend\.venv\Scripts\python.exe backend\smoke.py
 
 # 2. Compilar la interfaz
