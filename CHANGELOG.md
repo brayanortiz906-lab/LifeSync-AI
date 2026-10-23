@@ -8,6 +8,44 @@ La app, el instalador `.exe` y las Releases de GitHub muestran la misma.
 
 ---
 
+## v2.1.1 - Configuración completa deploy + CI/CD + Migraciones (23 oct 2026)
+
+### 🚀 Deploy automatizado end-to-end ($0/mes)
+
+- **Render Blueprint** (`render.yaml`): Backend FastAPI + Docker + autoDeploy + health checks
+- **Vercel Config** (`vercel.json`): Frontend React 19 + rewrites API + headers seguridad + cache
+- **GitHub Actions Secrets** (`GITHUB_SECRETS.md`): 15+ secrets documentados para CI/CD + deploy
+- **Setup Guide** (`SETUP.md`): Guía completa 30-45 min (Supabase + Render + Vercel + Capacitor)
+- **Docker Compose** (`docker-compose.yml`): Dev local con PostgreSQL + Redis + Backend + Frontend
+- **Capacitor APK** (`capacitor-build.ps1`): Build nativo Android automatizado
+
+### 🗄️ Supabase Migraciones Completas (4 bloques SQL)
+
+| Archivo | Qué hace |
+|---------|----------|
+| `001_schema.sql` | 15 tablas: usuarios, eventos, tareas, paneles, permisos, backups, chats, mensajes, alarmas, conexiones_ia, descargas, auditoria, cumplimiento |
+| `002_rls.sql` | Row Level Security en 13 tablas + función `current_user_id()` + políticas owner/shared/public |
+| `003_storage.sql` | Bucket `backups` privado + 4 políticas RLS (SELECT/INSERT/UPDATE/DELETE) |
+| `004_triggers.sql` | Auto-perfil al registrarse, updated_at auto, limpieza backups, stats, búsqueda, triggers |
+
+### 🐳 Docker + CI/CD
+- `docker-compose.yml`: Backend + Frontend + PostgreSQL + Redis (dev local)
+- `Dockerfile.frontend`: Vite dev server en contenedor
+- `vercel.json`: Rewrites `/api/*` → Render, SPA fallback, headers seguridad, cache assets
+- `render.yaml`: Blueprint Render con autoDeploy, health checks, env vars desde secrets
+
+### 📱 Capacitor APK
+- `capacitor.config.json`: Config completa (plugins, permissions, splash, icons)
+- `capacitor-build.ps1`: Script build completo (npm → build → cap sync → gradle assembleRelease)
+- `package.json`: Capacitor 6.1 + plugins (notifications, splash, keyboard, storage, etc.)
+
+### 📚 Documentación
+- `SETUP.md`: Guía paso a paso 30-45 min (Supabase + Render + Vercel + Google OAuth + Capacitor)
+- `GITHUB_SECRETS.md`: 15+ secrets con enlaces directos a dashboards
+- `backend/.env.example` + `frontend/.env.example`: Plantillas listas para copiar
+
+---
+
 ## v2.1.0 - Fusión completa v1.x + v2.x + APK/EXE automáticos (23 oct 2026)
 
 ### 🎯 Fusión total: Lo mejor de v1.x + v2.x en una sola arquitectura
