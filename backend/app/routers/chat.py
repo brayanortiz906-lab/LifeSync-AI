@@ -10,7 +10,7 @@ from datetime import datetime
 
 from app.auth.dependencies import get_current_user_id
 from app.services.gemini import gemini_service, SYSTEM_PROMPTS, get_user_gemini_key
-from app.database import get_db_session
+from app.database import get_db, get_db_session
 from app.models import Chat, MensajeChat
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select

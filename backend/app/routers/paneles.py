@@ -36,7 +36,7 @@ from ..paneles import (
     revocar,
 )
 
-router = APIRouter(prefix="/api/paneles", tags=["paneles"])
+router = APIRouter(prefix="/paneles", tags=["paneles"])
 
 
 # --------------------------------------------------------------------------- #

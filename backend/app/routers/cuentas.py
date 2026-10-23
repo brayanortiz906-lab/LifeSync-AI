@@ -42,7 +42,7 @@ from .. import connections as con
 from ..config import settings
 from ..database import get_db
 
-router = APIRouter(prefix="/api/cuentas", tags=["cuentas"])
+router = APIRouter(prefix="/cuentas", tags=["cuentas"])
 
 
 # --------------------------------------------------------------------------- #

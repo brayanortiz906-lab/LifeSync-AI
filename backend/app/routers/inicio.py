@@ -17,7 +17,7 @@ from ..cuentas import usuario_actual
 from ..database import get_db
 from . import crud, responsabilidad
 
-router = APIRouter(prefix="/api/inicio", tags=["inicio"])
+router = APIRouter(prefix="/inicio", tags=["inicio"])
 
 
 @router.get("")

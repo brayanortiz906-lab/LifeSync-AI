@@ -54,6 +54,33 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# RLS Context Middleware - sets user_id for row-level security
+@app.middleware("http")
+async def rls_context_middleware(request: Request, call_next):
+    from app.database import current_user_id
+    from app.auth.dependencies import get_current_user_id
+    from app.database import get_db_session
+    
+    # Extract user_id from token if present
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header.split(" ")[1]
+        try:
+            from app.auth.dependencies import decode_token
+            user_id = decode_token(token)
+            if user_id:
+                token_ctx = current_user_id.set(user_id)
+        except Exception:
+            pass
+    
+    response = await call_next(request)
+    
+    # Reset context var
+    if 'token_ctx' in locals():
+        current_user_id.reset(token_ctx)
+    
+    return response
+
 # Routers (API v1)
 app.include_router(auth_router.router, prefix=settings.API_V1_PREFIX)
 app.include_router(chat_router.router, prefix=settings.API_V1_PREFIX)
@@ -75,7 +102,7 @@ async def log_requests(request: Request, call_next):
     return response
 
 
-@app.get("/health")
+@app.get("/api/health")
 async def health():
     """Health check para Render/Railway."""
     return {

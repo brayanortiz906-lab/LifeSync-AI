@@ -23,7 +23,7 @@ from ..schemas import (
     TaskUpdate,
 )
 
-router = APIRouter(prefix="/api", tags=["datos"])
+router = APIRouter(prefix="", tags=["datos"])
 
 
 # --------------------------------------------------------------------------- #

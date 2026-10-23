@@ -21,7 +21,7 @@ from ..schemas import (
     RedactRequest,
 )
 
-router = APIRouter(prefix="/api/responsabilidad", tags=["responsabilidad"])
+router = APIRouter(prefix="/responsabilidad", tags=["responsabilidad"])
 
 
 # --------------------------------------------------------------------------- #

@@ -29,7 +29,7 @@ _PROVEEDORES_SIN_CLAVE = {
     "ollama", "lmstudio", "jan", "gpt4all", "llamacpp", "textgen", "kobold", "claude_local",
 }
 
-router = APIRouter(prefix="/api", tags=["agente"])
+router = APIRouter(prefix="/agent", tags=["agente"])
 
 
 # --------------------------------------------------------------------------- #

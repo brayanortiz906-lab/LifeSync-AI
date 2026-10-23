@@ -23,9 +23,14 @@ fallos: list[str] = []
 
 
 def pedir(metodo: str, ruta: str, cuerpo: dict | None = None, token: str = "") -> object:
+    # All routes are under /api/... health is at /api/health, others at /api/v1/...
+    if ruta.startswith("/api/v1/"):
+        base = "http://127.0.0.1:8000"
+    else:
+        base = "http://127.0.0.1:8000"
     datos = json.dumps(cuerpo).encode("utf-8") if cuerpo is not None else None
     req = urllib.request.Request(
-        f"{BASE}{ruta}",
+        f"{base}{ruta}",
         data=datos,
         method=metodo,
         headers={"Content-Type": "application/json; charset=utf-8"},
@@ -42,9 +47,10 @@ def pedir(metodo: str, ruta: str, cuerpo: dict | None = None, token: str = "") -
 
 def pedir_suave(metodo: str, ruta: str, cuerpo: dict | None = None, token: str = "") -> tuple[int, object]:
     """Igual que `pedir`, pero sin lanzar error: devuelve (codigo, cuerpo)."""
+    base = "http://127.0.0.1:8000"
     datos = json.dumps(cuerpo).encode("utf-8") if cuerpo is not None else None
     req = urllib.request.Request(
-        f"{BASE}{ruta}",
+        f"{base}{ruta}",
         data=datos,
         method=metodo,
         headers={"Content-Type": "application/json; charset=utf-8"},
@@ -104,9 +110,9 @@ _IDS_DEL_INICIO: dict[str, int] = {}
 
 def marcar_inicio() -> None:
     """Guarda el id mas alto de cada tabla para borrar SOLO lo que cree el test."""
-    for clave, ruta in (("eventos", "/api/events?desde=2000-01-01&hasta=2099-12-31"),
-                        ("tareas", "/api/tasks"),
-                        ("gastos", "/api/logbook")):
+    for clave, ruta in (("eventos", "/api/v1/events?desde=2000-01-01&hasta=2099-12-31"),
+                        ("tareas", "/api/v1/tasks"),
+                        ("gastos", "/api/v1/logbook")):
         _, filas = pedir_suave("GET", ruta)
         ids = [f.get("id") for f in (filas or []) if isinstance(f, dict) and isinstance(f.get("id"), int)]
         _IDS_DEL_INICIO[clave] = max(ids) if ids else 0
@@ -118,18 +124,18 @@ def limpiar_pruebas() -> None:
         # Primero las tareas: los bloques de estudio apuntan a un evento
         # (tasks.tarea_id -> events.id) y, si se borra el evento antes,
         # la base rechaza el borrado por la llave foranea.
-        _, tareas = pedir_suave("GET", "/api/tasks")
+        _, tareas = pedir_suave("GET", "/api/v1/tasks")
         for t_ in (tareas or []) if isinstance(tareas, list) else []:
             if isinstance(t_.get("id"), int) and t_["id"] > _IDS_DEL_INICIO.get("tareas", 0):
-                pedir_suave("DELETE", f"/api/tasks/{t_['id']}")
-        _, eventos = pedir_suave("GET", "/api/events?desde=2000-01-01&hasta=2099-12-31")
+                pedir_suave("DELETE", f"/api/v1/tasks/{t_['id']}")
+        _, eventos = pedir_suave("GET", "/api/v1/events?desde=2000-01-01&hasta=2099-12-31")
         for e in (eventos or []) if isinstance(eventos, list) else []:
             if isinstance(e.get("id"), int) and e["id"] > _IDS_DEL_INICIO.get("eventos", 0):
-                pedir_suave("DELETE", f"/api/events/{e['id']}")
-        _, gastos = pedir_suave("GET", "/api/logbook")
+                pedir_suave("DELETE", f"/api/v1/events/{e['id']}")
+        _, gastos = pedir_suave("GET", "/api/v1/logbook")
         for g in (gastos or []) if isinstance(gastos, list) else []:
             if isinstance(g.get("id"), int) and g["id"] > _IDS_DEL_INICIO.get("gastos", 0):
-                pedir_suave("DELETE", f"/api/logbook/{g['id']}")
+                pedir_suave("DELETE", f"/api/v1/logbook/{g['id']}")
     except Exception:
         pass
 
@@ -138,7 +144,7 @@ def chat(mensaje: str, token: str = "") -> dict:
     # Se fuerza el proveedor "mock" para que el test sea independiente de la
     # configuración guardada en la base de datos.
     return pedir(  # type: ignore[return-value]
-        "POST", "/api/agent/chat", {"mensaje": mensaje, "proveedor": "mock"}, token
+        "POST", "/api/v1/agent/chat", {"mensaje": mensaje, "proveedor": "mock"}, token
     )
 
 
@@ -155,11 +161,17 @@ def limpiar() -> None:
     Borra las "citas" creadas por corridas anteriores (mismo título que genera
     el agente), de modo que el caso CALENDARIO comprueba si realmente crea.
     """
-    eventos = pedir("GET", "/api/events")
-    for e in eventos or []:  # type: ignore[union-attr]
-        titulo = str(e.get("titulo") or "").lower()  # type: ignore[union-attr]
-        if titulo.startswith("cita"):
-            pedir("DELETE", f"/api/events/{e['id']}")  # type: ignore[index]
+    try:
+        eventos = pedir("GET", "/api/v1/events")
+        for e in eventos or []:  # type: ignore[union-attr]
+            titulo = str(e.get("titulo") or "").lower()  # type: ignore[union-attr]
+            if titulo.startswith("cita"):
+                pedir("DELETE", f"/api/v1/events/{e['id']}")  # type: ignore[index]
+    except RuntimeError as e:
+        if "401" in str(e):
+            print("[limpiar] No autenticado, saltando limpieza de eventos")
+        else:
+            raise
 
 
 def main() -> int:
@@ -189,14 +201,14 @@ def main() -> int:
 
     _correo = f"smoke.lifesync+{int(_time.time())}@example.com"
 
-    _r = pedir_tok("/api/cuentas/yo")
+    _r = pedir_tok("/api/v1/cuentas/yo")
     check(
         "[CUENTA] sin cuenta se usa el usuario local",
         isinstance(_r, dict) and _r.get("usuario", {}).get("es_local") is True,
         f"usuario={(_r or {}).get('usuario')}",
     )
 
-    _r = pedir_tok("/api/cuentas/codigo", "POST", {"correo": _correo, "nombre": "Prueba"})
+    _r = pedir_tok("/api/v1/cuentas/codigo", "POST", {"correo": _correo, "nombre": "Prueba"})
     _codigo = (_r or {}).get("codigo", "")
     check(
         "[CUENTA] se pide un codigo de verificacion",
@@ -204,14 +216,14 @@ def main() -> int:
         f"modo={(_r or {}).get('modo')}",
     )
 
-    _r = pedir_tok("/api/cuentas/verificar", "POST", {"correo": _correo, "codigo": "000000"})
+    _r = pedir_tok("/api/v1/cuentas/verificar", "POST", {"correo": _correo, "codigo": "000000"})
     check(
         "[CUENTA] un codigo incorrecto se rechaza",
         isinstance(_r, dict) and _r.get("__error__") == 400,
         f"http={(_r or {}).get('__error__')}",
     )
 
-    _r = pedir_tok("/api/cuentas/verificar", "POST", {"correo": _correo, "codigo": _codigo})
+    _r = pedir_tok("/api/v1/cuentas/verificar", "POST", {"correo": _correo, "codigo": _codigo})
     _token = (_r or {}).get("token", "")
     check(
         "[CUENTA] el codigo correcto abre sesion",
@@ -219,42 +231,42 @@ def main() -> int:
         f"token={'si' if _token else 'no'}",
     )
 
-    _r = pedir_tok("/api/cuentas/yo", token=_token)
+    _r = pedir_tok("/api/v1/cuentas/yo", token=_token)
     check(
         "[CUENTA] el token identifica a la persona",
         isinstance(_r, dict) and (_r.get("usuario", {}).get("correo") == _correo),
         f"correo={(_r or {}).get('usuario', {}).get('correo')}",
     )
 
-    _evs = pedir_tok("/api/events?desde=2020-01-01&hasta=2030-12-31", token=_token)
+    _evs = pedir_tok("/api/v1/events?desde=2020-01-01&hasta=2030-12-31", token=_token)
     check(
         "[CUENTA] la cuenta nueva no ve los datos del usuario local",
         isinstance(_evs, list) and len(_evs) == 0,
         f"eventos={len(_evs) if isinstance(_evs, list) else 'error'}",
     )
 
-    _r = pedir_tok("/api/cuentas/respaldo", token=_token)
+    _r = pedir_tok("/api/v1/cuentas/respaldo", token=_token)
     check(
         "[CUENTA] el respaldo se puede descargar",
         isinstance(_r, dict) and "eventos" in _r,
         f"claves={sorted(_r.keys())[:4] if isinstance(_r, dict) else '-'}",
     )
 
-    _r = pedir_tok("/api/cuentas/salir", "POST", token=_token)
+    _r = pedir_tok("/api/v1/cuentas/salir", "POST", token=_token)
     check(
         "[CUENTA] se puede cerrar sesion",
         isinstance(_r, dict) and _r.get("ok") is True,
         f"ok={(_r or {}).get('ok')}",
     )
 
-    _r = pedir_tok("/api/cuentas/yo", token=_token)
+    _r = pedir_tok("/api/v1/cuentas/yo", token=_token)
     check(
         "[CUENTA] tras salir, el token ya no vale",
         isinstance(_r, dict) and _r.get("usuario", {}).get("es_local") is True,
         f"usuario={(_r or {}).get('usuario')}",
     )
 
-    _r = pedir_tok("/api/cuentas/google/iniciar", "POST", {})
+    _r = pedir_tok("/api/v1/cuentas/google/iniciar", "POST", {})
     _msg = str((_r or {}).get("detail", ""))
     check(
         "[CUENTA] el acceso con Google pide configuracion solo si falta (nunca al usuario final)",
@@ -268,7 +280,7 @@ def main() -> int:
         f"respuesta={_msg[:80] or 'device flow listo'}",
     )
 
-    _r = pedir_tok("/api/cuentas/google/terminar", "POST", {"device_code": "codigo-de-prueba"})
+    _r = pedir_tok("/api/v1/cuentas/google/terminar", "POST", {"device_code": "codigo-de-prueba"})
     _msg2 = str((_r or {}).get("mensaje", "") or ( _r or {}).get("detail", ""))
     check(
         "[CUENTA] si aun no autorizaste, te lo dice sin error",
@@ -297,7 +309,7 @@ def main() -> int:
 
     # Replica la misma petición: no debe duplicar el evento.
     r2 = chat("Tengo una cita hoy a las 3 PM")
-    eventos = pedir("GET", "/api/events")
+    eventos = pedir("GET", "/api/v1/events")
     citas = [e for e in eventos if e["titulo"].lower().startswith("cita")]  # type: ignore[index]
     check("anti-duplicado: 1 sola cita tras 2 pedidos identicos", len(citas) == 1, f"encontradas={len(citas)}")
     check(
@@ -310,7 +322,7 @@ def main() -> int:
     r = chat("Hoy tanqueé la moto por $20.000")
     ag = r["agente"]
     check("[BITACORA_GASTO] clasifica bien", ag["categoria"] == "BITACORA_GASTO", ag["categoria"])
-    registros = pedir("GET", "/api/logbook")
+    registros = pedir("GET", "/api/v1/logbook")
     tanqueos = [x for x in registros if "tanque" in x["descripcion"].lower()]  # type: ignore[index]
     ok_monto = any(abs(x["monto"] - 20000.0) < 0.01 for x in tanqueos)  # type: ignore[index]
     check("[BITACORA_GASTO] monto 20000 correcto", ok_monto, f"valores={[x['monto'] for x in tanqueos]}")  # type: ignore[index]
@@ -321,7 +333,7 @@ def main() -> int:
     r = chat("Tengo que entregar el ensayo el viernes")
     ag = r["agente"]
     check("[TAREA_ACADEMICA] clasifica bien", ag["categoria"] == "TAREA_ACADEMICA", ag["categoria"])
-    tareas = pedir("GET", "/api/tasks")
+    tareas = pedir("GET", "/api/v1/tasks")
     ensayos = [t for t in tareas if "ensayo" in t["titulo"].lower()]  # type: ignore[index]
     check("[TAREA_ACADEMICA] crea la tarea", len(ensayos) >= 1, f"titulo={ensayos[0]['titulo'] if ensayos else '-'}")
 
@@ -329,7 +341,7 @@ def main() -> int:
     r = chat("me toca cambiar el aceite de la moto")
     ag = r["agente"]
     check("[MANTENIMIENTO] clasifica bien", ag["categoria"] == "MANTENIMIENTO", ag["categoria"])
-    mants = pedir("GET", "/api/maintenance")
+    mants = pedir("GET", "/api/v1/maintenance")
     aceite = [m for m in mants if "aceite" in m["tarea"].lower()]  # type: ignore[index]
     check("[MANTENIMIENTO] programa el servicio", len(aceite) >= 1, f"tarea={aceite[0]['tarea'] if aceite else '-'}")
 
@@ -347,7 +359,7 @@ def main() -> int:
     check("[MULTI] genera acciones de ambas", {"crear_evento", "registrar_gasto"} <= tipos, f"tipos={sorted(tipos)}")
     check(
         "[MULTI] el gasto queda en la bitacora",
-        any(abs(x["monto"] - 25000.0) < 0.01 for x in pedir("GET", "/api/logbook")),  # type: ignore[index]
+        any(abs(x["monto"] - 25000.0) < 0.01 for x in pedir("GET", "/api/v1/logbook")),  # type: ignore[index]
     )
     detalle = ag["resumen_estado"].get("registros_detallados") or []
     check("[MULTI] reporta lo registrado (registros_detallados)", len(detalle) >= 2, f"n={len(detalle)}")
@@ -362,7 +374,7 @@ def main() -> int:
     ag = r["agente"]
     tipos = {a["tipo"] for a in ag["acciones"]}
     check("[CASCADA] tarea genera bloque de estudio", "programar_estudio" in tipos, f"tipos={sorted(tipos)}")
-    eventos = pedir("GET", "/api/events")
+    eventos = pedir("GET", "/api/v1/events")
     hay_estudio = any("estudio" in (e["titulo"] or "").lower() for e in eventos)  # type: ignore[index]
     check("[CASCADA] el bloque de estudio existe en el calendario", hay_estudio)
 
@@ -373,7 +385,7 @@ def main() -> int:
     check("[CASCADA] gasto de mantenimiento actualiza el mantenimiento", "registrar_mantenimiento" in tipos, f"tipos={sorted(tipos)}")
 
     # ------------------------------------------------------------------ DASHBOARD
-    dash = pedir("GET", "/api/dashboard")
+    dash = pedir("GET", "/api/v1/dashboard")
     check("dashboard responde", isinstance(dash, dict) and "eventos_hoy" in dash, f"claves={list(dash.keys()) if isinstance(dash, dict) else '-'}")  # type: ignore[union-attr]
 
     # ==================================================================
@@ -384,18 +396,18 @@ def main() -> int:
     print("-" * 70)
 
     # --------------------------------------------------------- POLITICA Y UMBRALES
-    pol = pedir("GET", "/api/responsabilidad/politica")
+    pol = pedir("GET", "/api/v1/responsabilidad/politica")
     check("[RESP] la política es accesible", bool(pol) and "umbral_confianza" in pol, f"umbral={pol.get('umbral_confianza') if pol else '-'}")  # type: ignore[union-attr]
 
     # Se baja el umbral de gasto para forzar el flujo de aprobación.
     pol_bajo = dict(pol)  # type: ignore[arg-type]
     pol_bajo["gasto_max_autonomo"] = 1000.0
-    pedir("PUT", "/api/responsabilidad/politica", pol_bajo)
+    pedir("PUT", "/api/v1/responsabilidad/politica", pol_bajo)
 
     # ----------------------------------------------------- GASTO SOBRE UMBRAL
     # Conteo previo: el test es repetible, así que puede haber gastos iguales
     # de corridas anteriores (ya aprobados). Se compara el delta, no el total.
-    previos = sum(1 for x in pedir("GET", "/api/logbook") if abs(x["monto"] - 800000.0) < 0.01)  # type: ignore[index]
+    previos = sum(1 for x in pedir("GET", "/api/v1/logbook") if abs(x["monto"] - 800000.0) < 0.01)  # type: ignore[index]
     r = chat("Pagué la matricula de la universidad por 800 mil")
     ag = r["agente"]
     pendientes = ag["resumen_estado"].get("aprobaciones_pendientes") or []
@@ -405,7 +417,7 @@ def main() -> int:
         bool(pendientes) and bool(pendientes[0].get("regla")) and bool(pendientes[0].get("motivo")),
         f"regla={pendientes[0].get('regla') if pendientes else '-'}",
     )
-    despues = sum(1 for x in pedir("GET", "/api/logbook") if abs(x["monto"] - 800000.0) < 0.01)  # type: ignore[index]
+    despues = sum(1 for x in pedir("GET", "/api/v1/logbook") if abs(x["monto"] - 800000.0) < 0.01)  # type: ignore[index]
     check(
         "[RESP] el gasto NO se ejecuto sin permiso",
         despues == previos,
@@ -418,7 +430,7 @@ def main() -> int:
     )
 
     # ---------------------------------------------------------- APROBAR Y EJECUTAR
-    aprobaciones = pedir("GET", "/api/responsabilidad/aprobaciones?estado=pendiente")
+    aprobaciones = pedir("GET", "/api/v1/responsabilidad/aprobaciones?estado=pendiente")
     check("[RESP] la aprobación llega a la bandeja", len(aprobaciones or []) >= 1, f"n={len(aprobaciones or [])}")  # type: ignore[arg-type]
     # Se toma la petición que corresponde a ESTE gasto (no una de corridas previas).
     objetivo = next(
@@ -427,10 +439,10 @@ def main() -> int:
     )
     if objetivo:
         pid = objetivo["id"]  # type: ignore[index]
-        antes_aprobar = sum(1 for x in pedir("GET", "/api/logbook") if abs(x["monto"] - 800000.0) < 0.01)  # type: ignore[index]
-        pedido = pedir("POST", f"/api/responsabilidad/aprobaciones/{pid}/decidir", {"aprobar": True, "nota": "Aprobado en la prueba", "actor": "usuario"})  # type: ignore[arg-type]
+        antes_aprobar = sum(1 for x in pedir("GET", "/api/v1/logbook") if abs(x["monto"] - 800000.0) < 0.01)  # type: ignore[index]
+        pedido = pedir("POST", f"/api/v1/responsabilidad/aprobaciones/{pid}/decidir", {"aprobar": True, "nota": "Aprobado en la prueba", "actor": "usuario"})  # type: ignore[arg-type]
         check("[RESP] aprobar cambia el estado", bool(pedido) and pedido.get("estado") == "aprobada", f"estado={pedido.get('estado') if pedido else '-'}")  # type: ignore[union-attr]
-        log = pedir("GET", "/api/logbook")
+        log = pedir("GET", "/api/v1/logbook")
         despues_aprobar = sum(1 for x in log if abs(x["monto"] - 800000.0) < 0.01)  # type: ignore[index]
         check(
             "[RESP] tras aprobar, el gasto SI queda registrado",
@@ -439,9 +451,9 @@ def main() -> int:
         )
 
     # ------------------------------------------------------------------ RECHAZAR
-    antes_rechazar = sum(1 for x in pedir("GET", "/api/logbook") if abs(x["monto"] - 3000000.0) < 0.01)  # type: ignore[index]
+    antes_rechazar = sum(1 for x in pedir("GET", "/api/v1/logbook") if abs(x["monto"] - 3000000.0) < 0.01)  # type: ignore[index]
     r = chat("Compré un computador de 3 millones")
-    aprobaciones = pedir("GET", "/api/responsabilidad/aprobaciones?estado=pendiente")
+    aprobaciones = pedir("GET", "/api/v1/responsabilidad/aprobaciones?estado=pendiente")
     # Se busca la petición del computador (no una de corridas previas).
     objetivo = next(
         (a for a in (aprobaciones or []) if "computador" in (a.get("resumen") or "").lower()),  # type: ignore[union-attr]
@@ -449,9 +461,9 @@ def main() -> int:
     )
     if objetivo:
         pid = objetivo["id"]  # type: ignore[index]
-        pedido = pedir("POST", f"/api/responsabilidad/aprobaciones/{pid}/decidir", {"aprobar": False, "nota": "Fuera de presupuesto", "actor": "usuario"})  # type: ignore[arg-type]
+        pedido = pedir("POST", f"/api/v1/responsabilidad/aprobaciones/{pid}/decidir", {"aprobar": False, "nota": "Fuera de presupuesto", "actor": "usuario"})  # type: ignore[arg-type]
         check("[RESP] rechazar cambia el estado", bool(pedido) and pedido.get("estado") == "rechazada", f"estado={pedido.get('estado') if pedido else '-'}")  # type: ignore[union-attr]
-        log = pedir("GET", "/api/logbook")
+        log = pedir("GET", "/api/v1/logbook")
         despues_rechazar = sum(1 for x in log if abs(x["monto"] - 3000000.0) < 0.01)  # type: ignore[index]
         check(
             "[RESP] tras rechazar, el gasto NO se registra",
@@ -461,9 +473,9 @@ def main() -> int:
 
     # ---------------------------------------------------------------- REDACCION PII
     # Se restaura la política para que este gasto normal pase de forma autónoma.
-    pedir("PUT", "/api/responsabilidad/politica", pol)
+    pedir("PUT", "/api/v1/responsabilidad/politica", pol)
 
-    red = pedir("POST", "/api/responsabilidad/redactar", {"texto": "Mi correo es ana@correo.com, mi cedula 1234567890 y la tarjeta 4111111111111111"})
+    red = pedir("POST", "/api/v1/responsabilidad/redactar", {"texto": "Mi correo es ana@correo.com, mi cedula 1234567890 y la tarjeta 4111111111111111"})
     check("[RESP] la redaction detecta PII", bool(red) and int(red.get("total_encontrados", 0)) >= 3, f"encontrados={red.get('total_encontrados') if red else '-'}")  # type: ignore[union-attr]
     check(
         "[RESP] la redaction enmascara los datos",
@@ -471,16 +483,16 @@ def main() -> int:
     )
 
     # Regresion: un MONTO de 6+ digitos no debe confundirse con una cedula.
-    red_monto = pedir("POST", "/api/responsabilidad/redactar", {"texto": "Pague 800000 por el arreglo"})
+    red_monto = pedir("POST", "/api/v1/responsabilidad/redactar", {"texto": "Pague 800000 por el arreglo"})
     check(
         "[RESP] un monto no se confunde con una cedula",
         bool(red_monto) and "800000" in red_monto.get("texto_redactado", ""),  # type: ignore[union-attr]
         red_monto.get("texto_redactado", "") if red_monto else "",  # type: ignore[union-attr]
     )
 
-    antes_pii = sum(1 for x in pedir("GET", "/api/logbook") if abs(x["monto"] - 90000.0) < 0.01)  # type: ignore[index]
+    antes_pii = sum(1 for x in pedir("GET", "/api/v1/logbook") if abs(x["monto"] - 90000.0) < 0.01)  # type: ignore[index]
     r = chat("Compre una chaqueta por 90 mil con mi cedula 1234567890")
-    log = pedir("GET", "/api/logbook")
+    log = pedir("GET", "/api/v1/logbook")
     nuevos_pii = [x for x in log if abs(x["monto"] - 90000.0) < 0.01][antes_pii:]  # type: ignore[index]
     registro = nuevos_pii[0] if nuevos_pii else None
     check(
@@ -490,7 +502,7 @@ def main() -> int:
     )
 
     # -------------------------------------------------------------------- AUDITORIA
-    aud = pedir("GET", "/api/responsabilidad/auditoria?limite=200")
+    aud = pedir("GET", "/api/v1/responsabilidad/auditoria?limite=200")
     check("[RESP] la auditoría registra decisiones", len(aud or []) >= 1, f"entradas={len(aud or [])}")  # type: ignore[arg-type]
     tipos_aud = {a["tipo"] for a in (aud or [])}  # type: ignore[union-attr]
     check("[RESP] la auditoría tipa los eventos", "accion" in tipos_aud, f"tipos={sorted(tipos_aud)}")
@@ -498,46 +510,46 @@ def main() -> int:
         "[RESP] la auditoría conserva el motivo",
         all("motivo" in a for a in (aud or [])),  # type: ignore[union-attr]
     )
-    res_aud = pedir("GET", "/api/responsabilidad/auditoria/resumen")
+    res_aud = pedir("GET", "/api/v1/responsabilidad/auditoria/resumen")
     check("[RESP] el resumen de auditoría responde", bool(res_aud) and "total" in res_aud, f"total={res_aud.get('total') if res_aud else '-'}")  # type: ignore[union-attr]
 
     # ----------------------------------------------------------------- CUMPLIMIENTO
-    comp = pedir("GET", "/api/responsabilidad/cumplimiento")
+    comp = pedir("GET", "/api/v1/responsabilidad/cumplimiento")
     check("[RESP] el reporte de cumplimiento responde", bool(comp) and "controles" in comp, f"puntaje={comp.get('puntaje') if comp else '-'}")  # type: ignore[union-attr]
     check("[RESP] el reporte tiene controles", bool(comp) and len(comp.get("controles", [])) >= 6, f"controles={len(comp.get('controles', [])) if comp else 0}")  # type: ignore[union-attr]
-    inv = pedir("GET", "/api/responsabilidad/inventario")
+    inv = pedir("GET", "/api/v1/responsabilidad/inventario")
     check("[RESP] el inventario de datos responde", bool(inv) and "derechos" in inv, f"claves={list(inv.keys()) if isinstance(inv, dict) else '-'}")  # type: ignore[union-attr]
 
     # ---------------------------------------------------------- CONEXIONES DE IA
-    cat = pedir("GET", "/api/conexiones/catalogo")
+    cat = pedir("GET", "/api/v1/conexiones/catalogo")
     proveedores = (cat or {}).get("proveedores", []) if isinstance(cat, dict) else []
     check("[CONEX] el catálogo tiene proveedores", len(proveedores) >= 5, f"n={len(proveedores)}")
     modos = {p.get("modo") for p in proveedores}
     check("[CONEX] hay caminos sin clave (cuenta/local/demo)", {"cuenta", "local", "demo"} & modos == {"cuenta", "local", "demo"}, f"modos={sorted(modos)}")  # type: ignore[union-attr]
-    locales = pedir("GET", "/api/conexiones/locales")
+    locales = pedir("GET", "/api/v1/conexiones/locales")
     motores = (locales or {}).get("motores", []) if isinstance(locales, dict) else []
     check("[CONEX] la deteccion de motores locales responde", isinstance(motores, list), f"motores={[m.get('id') for m in motores]}")  # type: ignore[union-attr]
 
     # Conectar el proveedor "demo" (nunca falla) y verificar que queda activo.
-    demo = pedir("POST", "/api/conexiones", {"proveedor": "demo", "nombre": "Asistente demo", "modelo": "motor-local"})
+    demo = pedir("POST", "/api/v1/conexiones", {"proveedor": "demo", "nombre": "Asistente demo", "modelo": "motor-local"})
     check("[CONEX] se puede guardar una conexión", bool(demo) and demo.get("id") is not None, f"id={demo.get('id') if isinstance(demo, dict) else '-'}")  # type: ignore[union-attr]
     cid = demo.get("id") if isinstance(demo, dict) else None
     if cid is not None:
-        ver = pedir("POST", f"/api/conexiones/{cid}/verificar")
+        ver = pedir("POST", f"/api/v1/conexiones/{cid}/verificar")
         check("[CONEX] la verificación responde", bool(ver) and ver.get("estado") in {"activa", "error"}, f"estado={ver.get('estado') if isinstance(ver, dict) else '-'}")  # type: ignore[union-attr]
-        act = pedir("POST", f"/api/conexiones/{cid}/activar")
+        act = pedir("POST", f"/api/v1/conexiones/{cid}/activar")
         check("[CONEX] se puede activar la conexión", bool(act) and act.get("activa") is True, f"activa={act.get('activa') if isinstance(act, dict) else '-'}")  # type: ignore[union-attr]
-        lista = pedir("GET", "/api/conexiones")
+        lista = pedir("GET", "/api/v1/conexiones")
         check("[CONEX] la conexión aparece en la lista", any(c.get("id") == cid for c in (lista or [])), f"n={len(lista) if isinstance(lista, list) else 0}")  # type: ignore[union-attr]
         # La credencial nunca debe salir por la API.
         check("[CONEX] la API no expone la credencial", all("api_key" not in (c or {}) and not (c or {}).get("credenciales_cifradas") for c in (lista or [])), "sin secretos en la respuesta")  # type: ignore[union-attr]
         # Se devuelve al motor demo para no alterar el resto del test.
-        pedir("DELETE", f"/api/conexiones/{cid}")
+        pedir("DELETE", f"/api/v1/conexiones/{cid}")
 
     # ------------------------------------------- CONEXIONES: CAMINO CON GOOGLE
     con_google = [p for p in proveedores if p.get("permite_google")]
     check("[CONEX] el catálogo marca el camino con Google", len(con_google) >= 5, f"n={len(con_google)}")
-    catalogo_ias = pedir("GET", "/api/conexiones/modelos?proveedor=openrouter")
+    catalogo_ias = pedir("GET", "/api/v1/conexiones/modelos?proveedor=openrouter")
     total_ias = (catalogo_ias or {}).get("total", 0) if isinstance(catalogo_ias, dict) else 0
     check("[CONEX] el catálogo de IAs devuelve cientos de modelos", total_ias >= 100, f"total={total_ias}")
     familias_ias = (catalogo_ias or {}).get("familias", []) if isinstance(catalogo_ias, dict) else []
@@ -546,7 +558,7 @@ def main() -> int:
     check("[CONEX] hay un proveedor donde elegir cualquier IA", len(con_seleccion) >= 1, f"n={len(con_seleccion)}")
 
     # ------------------- CONEXIONES: EL ACCESO CON GOOGLE SE PUEDE ACTIVAR
-    est_google = pedir("GET", "/api/conexiones/google/estado")
+    est_google = pedir("GET", "/api/v1/conexiones/google/estado")
     check(
         "[CONEX] el estado del acceso con Google responde",
         isinstance(est_google, dict) and "configurado" in est_google,
@@ -554,20 +566,20 @@ def main() -> int:
     )
     # Se guarda un ID de cliente público de prueba y se comprueba que queda activo.
     id_prueba = "1234567890-prueba-smoke.apps.googleusercontent.com"
-    guardado = pedir("PUT", "/api/conexiones/google/estado", {"client_id": id_prueba})
+    guardado = pedir("PUT", "/api/v1/conexiones/google/estado", {"client_id": id_prueba})
     check(
         "[CONEX] se puede activar el acceso con Google",
         isinstance(guardado, dict) and guardado.get("configurado") is True,
         f"origen={(guardado or {}).get('origen') if isinstance(guardado, dict) else '-'}",
     )
-    est_google2 = pedir("GET", "/api/conexiones/google/estado")
+    est_google2 = pedir("GET", "/api/v1/conexiones/google/estado")
     check(
         "[CONEX] el acceso con Google queda guardado",
         isinstance(est_google2, dict) and est_google2.get("configurado") is True,
         f"origen={(est_google2 or {}).get('origen') if isinstance(est_google2, dict) else '-'}",
     )
     # Se devuelve el estado original (el ID de prueba no debe quedarse).
-    pedido_olvidar = pedir("PUT", "/api/conexiones/google/estado", {"client_id": ""})
+    pedido_olvidar = pedir("PUT", "/api/v1/conexiones/google/estado", {"client_id": ""})
     check(
         "[CONEX] se puede olvidar el ID de cliente de Google",
         isinstance(pedido_olvidar, dict) and pedido_olvidar.get("ok") is True,
@@ -579,7 +591,7 @@ def main() -> int:
     # --------------------------------------------------------------------------- #
     print("-" * 70)
     print("PERMISOS DE LA CUENTA")
-    perm = pedir("GET", "/api/permisos")
+    perm = pedir("GET", "/api/v1/permisos")
     lista_permisos = (perm or {}).get("permisos", []) if isinstance(perm, dict) else []
     check(
         "[PERMISOS] el estado de permisos responde",
@@ -593,7 +605,7 @@ def main() -> int:
     )
     aut = pedir(
         "POST",
-        "/api/permisos/autopiloto",
+        "/api/v1/permisos/autopiloto",
         {"activo": True, "respaldo_auto": True, "importar_calendario": True},
     )
     check(
@@ -601,14 +613,14 @@ def main() -> int:
         isinstance(aut, dict) and (aut.get("autopiloto") or {}).get("activo") is True,
         f"activo={(aut or {}).get('autopiloto', {}).get('activo') if isinstance(aut, dict) else '-'}",
     )
-    ejec = pedir("POST", "/api/permisos/autopiloto/ejecutar")
+    ejec = pedir("POST", "/api/v1/permisos/autopiloto/ejecutar")
     resumen = (ejec or {}).get("resumen", {}) if isinstance(ejec, dict) else {}
     check(
         "[PERMISOS] el autopilot explica que falta el permiso",
         isinstance(resumen, dict) and isinstance(resumen.get("respaldo"), dict),
         f"respaldo={(resumen.get('respaldo') or {}).get('mensaje', '-') if isinstance(resumen, dict) else '-'}",
     )
-    codigo_perm, cuerpo_perm = pedir_suave("POST", "/api/permisos/autorizar", {"proveedor": "google_cuenta"})
+    codigo_perm, cuerpo_perm = pedir_suave("POST", "/api/v1/permisos/autorizar", {"proveedor": "google_cuenta"})
     detalle_perm = ""
     if isinstance(cuerpo_perm, dict):
         detalle_perm = str(cuerpo_perm.get("detail") or "")
@@ -628,7 +640,7 @@ def main() -> int:
     # v21: guardado con retardo + restauracion que fusiona + tarea diaria
     # ------------------------------------------------------------------ #
     print("\nGUARDADO AUTOMATICO Y RESTAURACION (v21)")
-    aut21 = pedir("GET", "/api/permisos")
+    aut21 = pedir("GET", "/api/v1/permisos")
     piloto21 = (aut21 or {}).get("autopiloto", {}) if isinstance(aut21, dict) else {}
     check(
         "[GUARDADO] el estado avisa si hay cambios por guardar",
@@ -637,26 +649,26 @@ def main() -> int:
     )
     # Un cambio real (el chat registra un evento) debe marcar "pendiente".
     chat("Tengo una cita manana a las 3 PM para revisar el proyecto")
-    aut21b = pedir("GET", "/api/permisos")
+    aut21b = pedir("GET", "/api/v1/permisos")
     piloto21b = (aut21b or {}).get("autopiloto", {}) if isinstance(aut21b, dict) else {}
     check(
         "[GUARDADO] al cambiar algo se marca que hay que guardar",
         piloto21b.get("cambios_pendientes") is True,
         f"cambios_pendientes={piloto21b.get('cambios_pendientes')}",
     )
-    guard21 = pedir("POST", "/api/permisos/guardar")
+    guard21 = pedir("POST", "/api/v1/permisos/guardar")
     check(
         "[GUARDADO] el guardado espera a que la persona deje de escribir",
         isinstance(guard21, dict) and "guardado" in guard21,
         f"guardado={(guard21 or {}).get('guardado') if isinstance(guard21, dict) else '-'}",
     )
-    sin21 = pedir_suave("POST", "/api/permisos/ejecutar-todos")
+    sin21 = pedir_suave("POST", "/api/v1/permisos/ejecutar-todos")
     check(
         "[GUARDADO] la tarea diaria esta protegida con token",
         sin21[0] == 403,
         f"-> cod={sin21[0]}",
     )
-    sinc21 = pedir("POST", "/api/cuentas/sincronizar")
+    sinc21 = pedir("POST", "/api/v1/cuentas/sincronizar")
     check(
         "[GUARDADO] al entrar se revisa Drive y se rellena lo que falte",
         isinstance(sinc21, dict) and sinc21.get("ok") is True and "mensaje" in sinc21,
@@ -665,15 +677,15 @@ def main() -> int:
 
     # Regresion: cada persona tiene su propia politica (v11) y la suya no choca.
     correo_v16 = f"smoke.v16+{int(time.time())}@example.com"
-    alta = pedir("POST", "/api/cuentas/codigo", {"correo": correo_v16, "nombre": "Prueba v16"})
+    alta = pedir("POST", "/api/v1/cuentas/codigo", {"correo": correo_v16, "nombre": "Prueba v16"})
     codigo_v16 = ""
     if isinstance(alta, dict):
         codigo_v16 = str(alta.get("codigo_dev") or alta.get("codigo") or "")
-    verif = pedir("POST", "/api/cuentas/verificar", {"correo": correo_v16, "codigo": codigo_v16})
+    verif = pedir("POST", "/api/v1/cuentas/verificar", {"correo": correo_v16, "codigo": codigo_v16})
     token_v16 = str((verif or {}).get("token") or "") if isinstance(verif, dict) else ""
     if token_v16:
         try:
-            cumpl = pedir("GET", "/api/responsabilidad/cumplimiento", token=token_v16)
+            cumpl = pedir("GET", "/api/v1/responsabilidad/cumplimiento", token=token_v16)
             check(
                 "[CUENTA] cada persona tiene su propia politica (sin colision)",
                 isinstance(cumpl, dict) and "puntaje" in cumpl,
@@ -681,7 +693,7 @@ def main() -> int:
             )
         except RuntimeError as exc:
             check("[CUENTA] cada persona tiene su propia politica (sin colision)", False, str(exc)[:90])
-        perm_nuevo = pedir("GET", "/api/permisos", token=token_v16)
+        perm_nuevo = pedir("GET", "/api/v1/permisos", token=token_v16)
         check(
             "[CUENTA] los permisos son de cada persona",
             isinstance(perm_nuevo, dict) and perm_nuevo.get("conectado") is False,
@@ -694,22 +706,22 @@ def main() -> int:
     # v19: acceso con contrasena + paneles con permisos
     # ------------------------------------------------------------------ #
     print("\nCUENTAS CON CONTRASENA Y PANELES (v19)")
-    cod, r = pedir_suave("GET", "/api/cuentas/google/disponible")
+    cod, r = pedir_suave("GET", "/api/v1/cuentas/google/disponible")
     check(
         "[CUENTA] el acceso con Google avisa si esta disponible (sin callejon)",
         cod == 200 and "disponible" in (r if isinstance(r, dict) else {}),
         f"-> cod={cod}",
     )
     correo_v19 = f"smoke.v19.{int(time.time())}@example.com"
-    reg = pedir("POST", "/api/cuentas/registro", {"correo": correo_v19, "nombre": "V19", "password": "clave123"})
+    reg = pedir("POST", "/api/v1/cuentas/registro", {"correo": correo_v19, "nombre": "V19", "password": "clave123"})
     check(
         "[CUENTA] se puede crear la cuenta con correo y contrasena",
         isinstance(reg, dict) and reg.get("ok") is True,
         f"correo={correo_v19}",
     )
-    cod, r = pedir_suave("POST", "/api/cuentas/entrar", {"correo": correo_v19, "password": "mala"})
+    cod, r = pedir_suave("POST", "/api/v1/cuentas/entrar", {"correo": correo_v19, "password": "mala"})
     check("[CUENTA] la contrasena incorrecta no deja entrar", cod == 401, f"-> cod={cod}")
-    cod, r = pedir_suave("POST", "/api/cuentas/entrar", {"correo": correo_v19, "password": "clave123"})
+    cod, r = pedir_suave("POST", "/api/v1/cuentas/entrar", {"correo": correo_v19, "password": "clave123"})
     check(
         "[CUENTA] si falta confirmar el correo te lo dice (no te deja fuera)",
         cod in (200, 403),
@@ -718,63 +730,63 @@ def main() -> int:
     token_v19 = ""
     codigo_v19 = (reg or {}).get("codigo") if isinstance(reg, dict) else None
     if codigo_v19:
-        ver = pedir("POST", "/api/cuentas/verificar", {"correo": correo_v19, "codigo": codigo_v19})
+        ver = pedir("POST", "/api/v1/cuentas/verificar", {"correo": correo_v19, "codigo": codigo_v19})
         token_v19 = (ver or {}).get("token", "") if isinstance(ver, dict) else ""
     check("[CUENTA] con el codigo verificado entras con tu token", bool(token_v19))
     if token_v19:
-        panel = pedir("POST", "/api/paneles", {"nombre": "Universidad", "tipo": "academia"}, token_v19)
+        panel = pedir("POST", "/api/v1/paneles", {"nombre": "Universidad", "tipo": "academia"}, token_v19)
         panel_id = (panel or {}).get("panel", {}).get("id") if isinstance(panel, dict) else None
         check("[PANEL] se puede crear un panel", bool(panel_id), f"-> id={panel_id}")
-        lista = pedir("GET", "/api/paneles", token=token_v19)
+        lista = pedir("GET", "/api/v1/paneles", token=token_v19)
         check(
             "[PANEL] el panel aparece en tu lista",
             isinstance(lista, dict) and any(p.get("id") == panel_id for p in lista.get("paneles", [])),
         )
-        cod, r = pedir_suave("GET", f"/api/paneles/{panel_id}/datos", token=token_v19)
+        cod, r = pedir_suave("GET", f"/api/v1/paneles/{panel_id}/datos", token=token_v19)
         check("[PANEL] puedes ver el contenido de tu panel", cod == 200, f"-> cod={cod}")
         # Una persona sin permiso no puede ver el panel.
         correo_ajeno = f"smoke.v19b.{int(time.time())}@example.com"
-        reg2 = pedir("POST", "/api/cuentas/registro", {"correo": correo_ajeno, "nombre": "Ajena", "password": "clave456"})
+        reg2 = pedir("POST", "/api/v1/cuentas/registro", {"correo": correo_ajeno, "nombre": "Ajena", "password": "clave456"})
         codigo2 = (reg2 or {}).get("codigo") if isinstance(reg2, dict) else None
         token_ajeno = ""
         if codigo2:
-            ver2 = pedir("POST", "/api/cuentas/verificar", {"correo": correo_ajeno, "codigo": codigo2})
+            ver2 = pedir("POST", "/api/v1/cuentas/verificar", {"correo": correo_ajeno, "codigo": codigo2})
             token_ajeno = (ver2 or {}).get("token", "") if isinstance(ver2, dict) else ""
         if token_ajeno:
-            cod, r = pedir_suave("GET", f"/api/paneles/{panel_id}/datos", token=token_ajeno)
+            cod, r = pedir_suave("GET", f"/api/v1/paneles/{panel_id}/datos", token=token_ajeno)
             check("[PANEL] sin permiso NO puedes ver el panel de otra persona", cod == 403, f"-> cod={cod}")
-            comp = pedir("POST", f"/api/paneles/{panel_id}/compartir", {"correo": correo_ajeno, "nivel": "ver"}, token_v19)
+            comp = pedir("POST", f"/api/v1/paneles/{panel_id}/compartir", {"correo": correo_ajeno, "nivel": "ver"}, token_v19)
             check(
                 "[PANEL] puedes compartir el panel por correo",
                 isinstance(comp, dict) and comp.get("ok") is True,
             )
-            cod, r = pedir_suave("GET", f"/api/paneles/{panel_id}/datos", token=token_ajeno)
+            cod, r = pedir_suave("GET", f"/api/v1/paneles/{panel_id}/datos", token=token_ajeno)
             check("[PANEL] con permiso SI puedes ver el panel", cod == 200, f"-> cod={cod}")
-            cod, r = pedir_suave("DELETE", f"/api/paneles/{panel_id}/compartir/0")
+            cod, r = pedir_suave("DELETE", f"/api/v1/paneles/{panel_id}/compartir/0")
             check("[PANEL] quitar el acceso responde", cod in (200, 403, 404), f"-> cod={cod}")
         else:
             check("[PANEL] sin permiso NO puedes ver el panel de otra persona", False, "no se pudo crear la cuenta ajena")
-        cod, r = pedir_suave("DELETE", f"/api/paneles/{panel_id}", token=token_v19)
+        cod, r = pedir_suave("DELETE", f"/api/v1/paneles/{panel_id}", token=token_v19)
         check("[PANEL] se puede borrar el panel", cod == 200, f"-> cod={cod}")
 
     # ------------------------------------------------------------------ #
     print("\nRESPALDO, VERIFICACION Y ALMACENAMIENTO (v20)")
     # ------------------------------------------------------------------ #
     correo_v20 = f"smoke.v20.{int(time.time())}@example.com"
-    reg20 = pedir("POST", "/api/cuentas/registro", {"correo": correo_v20, "nombre": "V20", "password": "clave123"})
+    reg20 = pedir("POST", "/api/v1/cuentas/registro", {"correo": correo_v20, "nombre": "V20", "password": "clave123"})
     codigo20 = (reg20 or {}).get("codigo") if isinstance(reg20, dict) else None
     token20 = ""
     if codigo20:
-        ver20 = pedir("POST", "/api/cuentas/verificar", {"correo": correo_v20, "codigo": codigo20})
+        ver20 = pedir("POST", "/api/v1/cuentas/verificar", {"correo": correo_v20, "codigo": codigo20})
         token20 = (ver20 or {}).get("token", "") if isinstance(ver20, dict) else ""
     check("[CUENTA] la cuenta se verifica con el codigo y da token", bool(token20))
-    cod, r = pedir_suave("POST", "/api/cuentas/reenviar-codigo", {"correo": correo_v20, "nombre": "V20"})
+    cod, r = pedir_suave("POST", "/api/v1/cuentas/reenviar-codigo", {"correo": correo_v20, "nombre": "V20"})
     check(
         "[CUENTA] se puede reenviar el codigo de verificacion",
         cod == 200 and isinstance(r, dict) and r.get("ok") is True,
         f"-> cod={cod}",
     )
-    cod, r = pedir_suave("GET", "/api/diagnostico")
+    cod, r = pedir_suave("GET", "/diagnostico")
     check(
         "[API] el autodiagnostico responde y no ve problemas",
         cod == 200 and isinstance(r, dict) and not r.get("problemas"),
@@ -784,7 +796,7 @@ def main() -> int:
         # Contenido con bloque de estudio (la tarea apunta a un evento).
         chat("Tengo que entregar el ensayo el viernes", token20)
         chat("Mañana tengo una cita a las 3 PM y ademas gaste 20 mil en gasolina", token20)
-        snap = pedir("GET", "/api/cuentas/respaldo", token=token20)
+        snap = pedir("GET", "/api/v1/cuentas/respaldo", token=token20)
         check(
             "[RESPALDO] el respaldo incluye agenda, tareas y gastos",
             isinstance(snap, dict) and len(snap.get("eventos", [])) >= 1 and len(snap.get("tareas", [])) >= 1,
@@ -792,14 +804,14 @@ def main() -> int:
         )
         # Otra cuenta recibe ese respaldo: no debe reventar con un 500.
         correo_v20b = f"smoke.v20b.{int(time.time())}@example.com"
-        reg20b = pedir("POST", "/api/cuentas/registro", {"correo": correo_v20b, "nombre": "V20B", "password": "clave123"})
+        reg20b = pedir("POST", "/api/v1/cuentas/registro", {"correo": correo_v20b, "nombre": "V20B", "password": "clave123"})
         codigo20b = (reg20b or {}).get("codigo") if isinstance(reg20b, dict) else None
         token20b = ""
         if codigo20b:
-            ver20b = pedir("POST", "/api/cuentas/verificar", {"correo": correo_v20b, "codigo": codigo20b})
+            ver20b = pedir("POST", "/api/v1/cuentas/verificar", {"correo": correo_v20b, "codigo": codigo20b})
             token20b = (ver20b or {}).get("token", "") if isinstance(ver20b, dict) else ""
         if token20b:
-            cod, r = pedir_suave("POST", "/api/cuentas/respaldo/restaurar", snap, token20b)
+            cod, r = pedir_suave("POST", "/api/v1/cuentas/respaldo/restaurar", snap, token20b)
             check(
                 "[RESPALDO] restaurar el respaldo NO da error 500",
                 cod == 200,
@@ -811,7 +823,7 @@ def main() -> int:
                 sum(int(v or 0) for v in restaurado.values()) >= 2,
                 f"restaurados={restaurado}",
             )
-            cod, r = pedir_suave("GET", "/api/events", token=token20b)
+            cod, r = pedir_suave("GET", "/api/v1/events", token=token20b)
             check(
                 "[RESPALDO] al entrar de nuevo se ve todo el contenido",
                 cod == 200 and isinstance(r, list) and len(r) >= 1,
@@ -826,7 +838,7 @@ def main() -> int:
     print("\n" + "=" * 70)
     print("APARTADO DE CUENTAS (v24)")
     print("=" * 70)
-    cod, r = pedir_suave("GET", "/api/cuentas/proveedores")
+    cod, r = pedir_suave("GET", "/api/v1/cuentas/proveedores")
     proveedores = (r or {}).get("proveedores", []) if isinstance(r, dict) else []
     ids = [p.get("id") for p in proveedores]
     check(
@@ -859,14 +871,14 @@ def main() -> int:
     print("=" * 70)
     id_prueba_v25 = "9876543210-abc.apps.googleusercontent.com"
     cod_save, r_save = pedir_suave(
-        "PUT", "/api/conexiones/google/estado", {"client_id": id_prueba_v25, "proveedor": "google_cuenta"}
+        "PUT", "/api/v1/conexiones/google/estado", {"client_id": id_prueba_v25, "proveedor": "google_cuenta"}
     )
     check(
         "[CUENTA] se puede activar el acceso con una cuenta desde la app",
         cod_save == 200 and isinstance(r_save, dict) and r_save.get("configurado") is True,
         f"-> cod={cod_save} {r_save}",
     )
-    cod_prov, r_prov = pedir_suave("GET", "/api/cuentas/proveedores")
+    cod_prov, r_prov = pedir_suave("GET", "/api/v1/cuentas/proveedores")
     google_v25 = next(
         (p for p in ((r_prov or {}).get("proveedores") or []) if p.get("id") == "google_cuenta"),
         {},
@@ -876,14 +888,14 @@ def main() -> int:
         google_v25.get("disponible") is True,
         f"-> disponible={google_v25.get('disponible')} ({google_v25.get('mensaje', '')})",
     )
-    cod_flow, _ = pedir_suave("POST", "/api/cuentas/google/iniciar", {"proveedor": "google_cuenta"})
+    cod_flow, _ = pedir_suave("POST", "/api/v1/cuentas/google/iniciar", {"proveedor": "google_cuenta"})
     check(
         "[CUENTA] al iniciar, la peticion sale al proveedor (no se queda muerta)",
         cod_flow in (200, 400),
         f"-> cod={cod_flow} (400 = el proveedor rechazo el ID de prueba, o sea si llego)",
     )
     cod_forget, r_forget = pedir_suave(
-        "PUT", "/api/conexiones/google/estado", {"client_id": "", "proveedor": "google_cuenta"}
+        "PUT", "/api/v1/conexiones/google/estado", {"client_id": "", "proveedor": "google_cuenta"}
     )
     check(
         "[CUENTA] se puede olvidar el ID de cliente",
@@ -897,13 +909,13 @@ def main() -> int:
     print("\n" + "=" * 70)
     print("IA LIGERA Y ACCESO CON UN CLIC (v26)")
     print("=" * 70)
-    cod_bo, r_bo = pedir_suave("GET", "/api/conexiones/clientes-publicos")
+    cod_bo, r_bo = pedir_suave("GET", "/api/v1/conexiones/clientes-publicos")
     check(
         "[IA] el bootstrap de credenciales publicas responde",
         cod_bo == 200 and isinstance(r_bo, dict) and bool(r_bo.get("url")),
         f"-> cod={cod_bo} url={(r_bo or {}).get('url', '')}",
     )
-    cod_ml, r_ml = pedir_suave("GET", "/api/conexiones/modelos-ligeros")
+    cod_ml, r_ml = pedir_suave("GET", "/api/v1/conexiones/modelos-ligeros")
     modelos_v26 = (r_ml or {}).get("modelos", []) if isinstance(r_ml, dict) else []
     check(
         "[IA] hay modelos ligeros para descargar",
@@ -916,14 +928,14 @@ def main() -> int:
         any(m.get("recomendado") is True for m in modelos_v26),
         f"-> {[m.get('id') for m in modelos_v26 if m.get('recomendado')]}",
     )
-    cod_dl, r_dl = pedir_suave("GET", "/api/conexiones/descargas")
+    cod_dl, r_dl = pedir_suave("GET", "/api/v1/conexiones/descargas")
     check(
         "[IA] el registro de descargas responde",
         cod_dl == 200 and isinstance(r_dl, dict) and isinstance(r_dl.get("descargas"), list),
         f"-> cod={cod_dl} total={(r_dl or {}).get('total')}",
     )
     cod_bad, _ = pedir_suave(
-        "POST", "/api/conexiones/descargar-modelo", {"modelo": "modelo-que-no-existe"}
+        "POST", "/api/v1/conexiones/descargar-modelo", {"modelo": "modelo-que-no-existe"}
     )
     check(
         "[IA] no se deja descargar un modelo que no existe",
@@ -937,7 +949,7 @@ def main() -> int:
     print("\n" + "=" * 70)
     print("ERRORES CLAROS DE LA API (v27)")
     print("=" * 70)
-    cod_404, r_404 = pedir_suave("POST", "/api/cuentas/esta-ruta-no-existe", {})
+    cod_404, r_404 = pedir_suave("POST", "/api/v1/cuentas/esta-ruta-no-existe", {})
     check(
         "[API] una ruta de la API que no existe responde 404 (no 405 confuso)",
         cod_404 == 404,
@@ -949,7 +961,7 @@ def main() -> int:
         and "direccion de la API" in r_404.get("detail", ""),
         f"-> {(r_404 or {}).get('detail')}",
     )
-    cod_405, r_405 = pedir_suave("PUT", "/api/cuentas/registro", {})
+    cod_405, r_405 = pedir_suave("PUT", "/api/v1/cuentas/registro", {})
     check(
         "[API] un metodo equivocado en una ruta de la API tambien explica (no queda mudo)",
         cod_405 in (404, 405)
@@ -967,7 +979,7 @@ def main() -> int:
     correo_v32 = f"seguro.v32+{int(time.time())}@example.com"
     cod_reg, r_reg = pedir_suave(
         "POST",
-        "/api/cuentas/registro",
+        "/api/v1/cuentas/registro",
         {
             "correo": correo_v32,
             "nombre": "Prueba Segura",
@@ -980,7 +992,7 @@ def main() -> int:
         cod_reg in (200, 400) and not (isinstance(r_reg, dict) and r_reg.get("rol") == "admin"),
         f"-> cod={cod_reg} rol_devuelto={(r_reg or {}).get('rol')}",
     )
-    cod_adm, r_adm = pedir_suave("GET", "/api/cuentas/admin/usuarios")
+    cod_adm, r_adm = pedir_suave("GET", "/api/v1/cuentas/admin/usuarios")
     check(
         "[CUENTA] la seccion de administracion esta cerrada para los demas",
         cod_adm in (401, 403),
@@ -992,7 +1004,7 @@ def main() -> int:
         f"-> cod={cod_adm} {(r_adm or {}).get('detail')}",
     )
     cod_thr, r_thr = pedir_suave(
-        "POST", "/api/cuentas/codigo", {"correo": correo_v32, "nombre": "Prueba Segura"}
+        "POST", "/api/v1/cuentas/codigo", {"correo": correo_v32, "nombre": "Prueba Segura"}
     )
     check(
         "[CUENTA] pedir dos codigos seguidos se frena (no se inunda el correo)",
@@ -1010,7 +1022,7 @@ def main() -> int:
     clave_v33 = "ClaveSegura123"
     cod_v33, r_v33 = pedir_suave(
         "POST",
-        "/api/cuentas/entrar-o-crear",
+        "/api/v1/cuentas/entrar-o-crear",
         {"correo": correo_v33, "password": clave_v33, "nombre": "Prueba"},
     )
     check(
@@ -1022,7 +1034,7 @@ def main() -> int:
     )
     cod_v33b, r_v33b = pedir_suave(
         "POST",
-        "/api/cuentas/entrar-o-crear",
+        "/api/v1/cuentas/entrar-o-crear",
         {"correo": correo_v33, "password": clave_v33},
     )
     check(
@@ -1041,10 +1053,10 @@ def main() -> int:
     # ahora la cuenta debe existir de verdad y entrar de un solo boton.
     codigo_v33 = (r_v33 or {}).get("codigo")
     if codigo_v33:
-        pedir("POST", "/api/cuentas/verificar", {"correo": correo_v33, "codigo": codigo_v33})
+        pedir("POST", "/api/v1/cuentas/verificar", {"correo": correo_v33, "codigo": codigo_v33})
     cod_v33d, r_v33d = pedir_suave(
         "POST",
-        "/api/cuentas/entrar-o-crear",
+        "/api/v1/cuentas/entrar-o-crear",
         {"correo": correo_v33, "password": clave_v33},
     )
     check(
@@ -1057,7 +1069,7 @@ def main() -> int:
     )
     cod_v33c, r_v33c = pedir_suave(
         "POST",
-        "/api/cuentas/entrar-o-crear",
+        "/api/v1/cuentas/entrar-o-crear",
         {"correo": correo_v33, "password": "ClaveEquivocada9"},
     )
     check(
@@ -1073,7 +1085,7 @@ def main() -> int:
     # en uno (2,5 s por puerto ausente) y la pantalla de conexiones tardaba
     # 16 segundos en abrir. Ahora van todos en paralelo.
     t0 = time.time()
-    cod_r, cuerpo_r = pedir_suave("GET", "/api/conexiones/locales")
+    cod_r, cuerpo_r = pedir_suave("GET", "/api/v1/conexiones/locales")
     dt_cache = time.time() - t0
     check(
         "[VELOCIDAD] la deteccion de IA local responde rapido",
@@ -1081,7 +1093,7 @@ def main() -> int:
         f"-> {dt_cache:.2f} s (con cache)",
     )
     t0 = time.time()
-    cod_r2, _ = pedir_suave("POST", "/api/conexiones/autoconectar")
+    cod_r2, _ = pedir_suave("POST", "/api/v1/conexiones/autoconectar")
     dt_forzado = time.time() - t0
     check(
         "[VELOCIDAD] la deteccion completa (sin cache) tambien es rapida",
@@ -1089,7 +1101,7 @@ def main() -> int:
         f"-> {dt_forzado:.2f} s (sondeando los 8 puertos en paralelo)",
     )
     t0 = time.time()
-    cod_r3, _ = pedir_suave("GET", "/api/dashboard")
+    cod_r3, _ = pedir_suave("GET", "/api/v1/dashboard")
     dt_dash = time.time() - t0
     check(
         "[VELOCIDAD] el tablero de la agenda responde rapido",
@@ -1107,7 +1119,7 @@ def main() -> int:
     # salida el esquema de ENTRADA: FastAPI no encontraba el campo
     # "proveedor" en la respuesta y devolvia 500.
     cod_v1, cuerpo_v1 = pedir_suave(
-        "POST", "/api/conexiones/verificar", {"proveedor": "openai", "api_key": "sk-prueba"}
+        "POST", "/api/v1/conexiones/verificar", {"proveedor": "openai", "api_key": "sk-prueba"}
     )
     check(
         "[ERROR] probar una clave sin guardarla NO da 500",
@@ -1115,7 +1127,7 @@ def main() -> int:
         f"-> cod={cod_v1} {str(cuerpo_v1)[:120]}",
     )
     cod_v2, cuerpo_v2 = pedir_suave(
-        "POST", "/api/conexiones/verificar", {"proveedor": "ollama", "base_url": "http://127.0.0.1:11434"}
+        "POST", "/api/v1/conexiones/verificar", {"proveedor": "ollama", "base_url": "http://127.0.0.1:11434"}
     )
     check(
         "[ERROR] probar la IA local sin guardarla NO da 500",
@@ -1124,7 +1136,7 @@ def main() -> int:
     )
     # El camino "entrar con Google desde una conexion guardada" lo anuncia la
     # interfaz desde hace tiempo, pero el endpoint no existia (404).
-    cod_v3, cuerpo_v3 = pedir_suave("POST", "/api/cuentas/google/desde-conexion", {})
+    cod_v3, cuerpo_v3 = pedir_suave("POST", "/api/v1/cuentas/google/desde-conexion", {})
     check(
         "[ERROR] entrar con Google desde una conexion guardada existe",
         cod_v3 != 404,
@@ -1145,7 +1157,7 @@ def main() -> int:
     print("=" * 70)
 
     # 1. Todo en una sola peticion: la app abre con 1 viaje, no con 12.
-    cod_ini, r_ini = pedir_suave("GET", "/api/inicio")
+    cod_ini, r_ini = pedir_suave("GET", "/api/api/v1/inicio")
     claves_necesarias = (
         "dashboard",
         "eventos",
@@ -1158,7 +1170,7 @@ def main() -> int:
         "aprobaciones",
     )
     check(
-        "[VELOCIDAD] /api/inicio trae todo en una sola peticion",
+        "[VELOCIDAD] /api/api/v1/inicio trae todo en una sola peticion",
         cod_ini == 200
         and isinstance(r_ini, dict)
         and all(k in r_ini for k in claves_necesarias),
@@ -1166,7 +1178,7 @@ def main() -> int:
     )
 
     # 2. El codigo NUNCA promete un correo que no se mando.
-    cod_cod, r_cod = pedir_suave("POST", "/api/cuentas/codigo", {"correo": f"smoke.v36.{int(time.time())}@example.com", "nombre": "V36"})
+    cod_cod, r_cod = pedir_suave("POST", "/api/v1/cuentas/codigo", {"correo": f"smoke.v36.{int(time.time())}@example.com", "nombre": "V36"})
     modo_cod = (r_cod or {}).get("modo") if isinstance(r_cod, dict) else None
     texto_cod = str((r_cod or {}).get("mensaje") or "").lower() if isinstance(r_cod, dict) else ""
     check(
@@ -1186,8 +1198,8 @@ def main() -> int:
     # 3. Una cuenta con CONTRASENA entra aunque el correo no este confirmado.
     correo_v36 = f"smoke.v36.acceso+{int(time.time())}@example.com"
     clave_v36 = "ClaveSegura123"
-    pedir("POST", "/api/cuentas/registro", {"correo": correo_v36, "nombre": "V36", "password": clave_v36})
-    cod_v36, r_v36 = pedir_suave("POST", "/api/cuentas/entrar", {"correo": correo_v36, "password": clave_v36})
+    pedir("POST", "/api/v1/cuentas/registro", {"correo": correo_v36, "nombre": "V36", "password": clave_v36})
+    cod_v36, r_v36 = pedir_suave("POST", "/api/v1/cuentas/entrar", {"correo": correo_v36, "password": clave_v36})
     check(
         "[CORREO] con contrasena se entra aunque el correo no este confirmado",
         cod_v36 == 200 and bool((r_v36 or {}).get("token")),
@@ -1195,7 +1207,7 @@ def main() -> int:
     )
 
     # 4. El estado del correo del servidor no expone la clave.
-    cod_smtp, r_smtp = pedir_suave("GET", "/api/cuentas/smtp")
+    cod_smtp, r_smtp = pedir_suave("GET", "/api/v1/cuentas/smtp")
     check(
         "[CORREO] el estado del servidor de correo nunca muestra la clave",
         cod_smtp in (200, 403)
@@ -1205,7 +1217,7 @@ def main() -> int:
     )
 
     # 5. El respaldo por correo existe (no 404) y avisa con honestidad.
-    cod_correo, r_correo = pedir_suave("POST", "/api/permisos/respaldo/correo")
+    cod_correo, r_correo = pedir_suave("POST", "/api/v1/permisos/respaldo/correo")
     check(
         "[CORREO] el respaldo por correo existe y responde",
         cod_correo != 404 and cod_correo != 500,
@@ -1213,7 +1225,7 @@ def main() -> int:
     )
 
     # --- ESTADO DEL SERVIDOR Y RUTAS DE INTERFACES VIEJAS (v37) --------------
-    cod_diag, r_diag = pedir_suave("GET", "/api/diagnostico")
+    cod_diag, r_diag = pedir_suave("GET", "/diagnostico")
     pendientes = (r_diag or {}).get("pendientes") or []
     estados = {p.get("estado") for p in pendientes if isinstance(p, dict)}
     check(
@@ -1234,7 +1246,7 @@ def main() -> int:
     )
 
     # --- Correo con una sola clave (Brevo/Resend) y sistemas de agentes ---
-    cod_cat, r_cat = pedir_suave("GET", "/api/conexiones/catalogo")
+    cod_cat, r_cat = pedir_suave("GET", "/api/v1/conexiones/catalogo")
     ids = [p.get("id") for p in (r_cat.get("proveedores") or [])] if isinstance(r_cat, dict) else []
     check(
         "[CORREO] el catalogo trae el proveedor de conexion manual",
@@ -1247,7 +1259,7 @@ def main() -> int:
         len(locales) >= 12,
         f"-> {len(locales)} motores locales: {','.join(locales[:8])}",
     )
-    cod_url, r_url = pedir_suave("POST", "/api/conexiones/probar-url", {"base_url": "http://127.0.0.1:9999"})
+    cod_url, r_url = pedir_suave("POST", "/api/v1/conexiones/probar-url", {"base_url": "http://127.0.0.1:9999"})
     check(
         "[AGENTES] una direccion que no responde se explica sin fallar",
         cod_url == 200 and r_url.get("ok") is False and str(r_url.get("mensaje") or "").strip(),
@@ -1256,7 +1268,7 @@ def main() -> int:
     # OJO: esta comprobacion NO puede depender de que Ollama este encendido
     # (en CI no lo esta). Se valida que la deteccion responda bien y, si hay
     # una IA local viva, que ademas la reconozca.
-    cod_ollama, r_ollama = pedir_suave("POST", "/api/conexiones/probar-url", {"base_url": "http://127.0.0.1:11434"})
+    cod_ollama, r_ollama = pedir_suave("POST", "/api/v1/conexiones/probar-url", {"base_url": "http://127.0.0.1:11434"})
     estilo_detectado = str(r_ollama.get("estilo") or "")
     check(
         "[AGENTES] LifeAgente averigua solo como hablarle a tu IA local",
@@ -1267,14 +1279,14 @@ def main() -> int:
         ),
         f"-> cod={cod_ollama} ok={r_ollama.get('ok')} estilo={estilo_detectado or 'sin IA local encendida'} modelos={r_ollama.get('total')}",
     )
-    cod_correo, r_correo = pedir_suave("GET", "/api/cuentas/correo")
+    cod_correo, r_correo = pedir_suave("GET", "/api/v1/cuentas/correo")
     check(
         "[CORREO] el estado del correo solo lo puede ver un administrador",
         cod_correo in (200, 403),
         f"-> cod={cod_correo}",
     )
 
-    cod_ini, r_ini = pedir_suave("GET", "/api/inicio")
+    cod_ini, r_ini = pedir_suave("GET", "/api/api/v1/inicio")
     eventos_ini = (r_ini.get("eventos") or []) if isinstance(r_ini, dict) else []
     check(
         "[INICIO] los eventos llegan con su duracion calculada (sin NaN en pantalla)",
@@ -1292,7 +1304,7 @@ def main() -> int:
     # ------------------------------------------------------------------
     print("\n--- IA gratis y agentes detectados (v43) ---")
 
-    cod_gratis, r_gratis = pedir_suave("GET", "/api/conexiones/ia-gratis")
+    cod_gratis, r_gratis = pedir_suave("GET", "/api/v1/conexiones/ia-gratis")
     servicios = (r_gratis.get("servicios") or []) if isinstance(r_gratis, dict) else []
     check(
         "[GRATIS] hay un catalogo de IA gratis para conectar",
@@ -1316,7 +1328,7 @@ def main() -> int:
         f"-> ids={[s.get('id') for s in servicios]}",
     )
 
-    cod_agentes, r_agentes = pedir_suave("GET", "/api/conexiones/agentes")
+    cod_agentes, r_agentes = pedir_suave("GET", "/api/v1/conexiones/agentes")
     agentes = (r_agentes.get("agentes") or []) if isinstance(r_agentes, dict) else []
     check(
         "[AGENTES] se detectan los sistemas de IA con interfaz",
@@ -1343,7 +1355,7 @@ def main() -> int:
         cod_salud == 200 and perfil in ("web", "local"),
         f"-> cod={cod_salud} perfil={perfil}",
     )
-    cod_ini, r_ini = pedir_suave("GET", "/api/inicio")
+    cod_ini, r_ini = pedir_suave("GET", "/api/api/v1/inicio")
     check(
         "[PERFIL] la carga inicial tambien lleva el perfil",
         cod_ini == 200 and isinstance(r_ini, dict) and r_ini.get("perfil") in ("web", "local"),
@@ -1374,19 +1386,19 @@ def main() -> int:
     )
 
     # --- Cuentas para toda la gente, IA gratis y agentes (v1.4.0) ---
-    cod_clientes, cuerpo_clientes = pedir_suave("GET", "/api/cuentas/servidor/clientes")
+    cod_clientes, cuerpo_clientes = pedir_suave("GET", "/api/v1/cuentas/servidor/clientes")
     check(
         "[CUENTAS] la activacion de cuentas esta protegida (solo un administrador)",
         cod_clientes in (200, 403),
         f"-> cod={cod_clientes}",
     )
-    cod_gratis, cuerpo_gratis = pedir_suave("GET", "/api/conexiones/ia-gratis")
+    cod_gratis, cuerpo_gratis = pedir_suave("GET", "/api/v1/conexiones/ia-gratis")
     check(
         "[CUENTAS] hay IAs gratis con solo tu cuenta",
         cod_gratis == 200 and isinstance(cuerpo_gratis, dict) and len(cuerpo_gratis.get("servicios", [])) >= 5,
         f"-> cod={cod_gratis} servicios={len(cuerpo_gratis.get('servicios', [])) if isinstance(cuerpo_gratis, dict) else 0}",
     )
-    cod_agentes, cuerpo_agentes = pedir_suave("GET", "/api/conexiones/agentes")
+    cod_agentes, cuerpo_agentes = pedir_suave("GET", "/api/v1/conexiones/agentes")
     check(
         "[CUENTAS] se listan los sistemas de IA del computador",
         cod_agentes == 200 and isinstance(cuerpo_agentes, dict) and len(cuerpo_agentes.get("agentes", [])) >= 5,
@@ -1394,14 +1406,14 @@ def main() -> int:
     )
 
     # --- Guia y comprobacion de los identificadores de cuentas (v1.5.0) ---
-    cod_guia, cuerpo_guia = pedir_suave("GET", "/api/cuentas/servidor/clientes")
+    cod_guia, cuerpo_guia = pedir_suave("GET", "/api/v1/cuentas/servidor/clientes")
     check(
         "[CUENTAS] la activacion de cuentas responde (admin o proteccion)",
         cod_guia in (200, 403),
         f"-> cod={cod_guia}",
     )
     cod_prueba, cuerpo_prueba = pedir_suave(
-        "POST", "/api/cuentas/servidor/clientes/probar",
+        "POST", "/api/v1/cuentas/servidor/clientes/probar",
         {"proveedor": "google_cuenta", "client_id": "1234567890-abcd.apps.googleusercontent.com"},
     )
     check(

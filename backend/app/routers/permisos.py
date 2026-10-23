@@ -35,7 +35,7 @@ from ..permisos import (
     ejecutar_autopiloto_para_todos,
 )
 
-router = APIRouter(prefix="/api/permisos", tags=["permisos"])
+router = APIRouter(prefix="/permisos", tags=["permisos"])
 
 
 class AutorizarIn(BaseModel):

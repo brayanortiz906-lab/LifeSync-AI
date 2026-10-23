@@ -28,7 +28,7 @@ from ..schemas import (
 )
 from ..security import cifrar
 
-router = APIRouter(prefix="/api/conexiones", tags=["conexiones"])
+router = APIRouter(prefix="/conexiones", tags=["conexiones"])
 
 
 # --------------------------------------------------------------------------- #

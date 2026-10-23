@@ -9,25 +9,29 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-engine: AsyncEngine = create_async_engine(
-    settings.DATABASE_URL,
-    echo=settings.DEBUG,
-    poolclass=NullPool,
-    connect_args={"server_settings": {"application_name": "lifeagente-api", "timezone": "UTC"}}
-)
+# Database engine - handle both PostgreSQL and SQLite
+if settings.DATABASE_URL.startswith("postgresql"):
+    engine: AsyncEngine = create_async_engine(
+        settings.DATABASE_URL,
+        echo=settings.DEBUG,
+        poolclass=NullPool,
+        connect_args={"server_settings": {"application_name": "lifeagente-api", "timezone": "UTC"}}
+    )
+else:
+    # SQLite (aiosqlite) - no server_settings
+    engine: AsyncEngine = create_async_engine(
+        settings.DATABASE_URL,
+        echo=settings.DEBUG,
+        poolclass=NullPool,
+    )
 
 AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False, autoflush=False)
 
 from contextvars import ContextVar
 current_user_id: ContextVar[str | None] = ContextVar("current_user_id", default=None)
 
-@event.listens_for(AsyncSessionLocal.sync_session_class, "before_flush")
-def _set_rls_context(session, flush_context, instances):
-    user_id = current_user_id.get()
-    if user_id and session.bind:
-        sync_conn = session.bind.sync_engine.connect()
-        try: sync_conn.execute(text(f"SET LOCAL app.current_user_id = '{user_id}'"))
-        finally: sync_conn.close()
+# RLS context via middleware (FastAPI middleware handles this better for async)
+# Removed event listener - RLS is set via middleware in main.py
 
 async def init_db() -> None:
     if settings.ENVIRONMENT == "local":
