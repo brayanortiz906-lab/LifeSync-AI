@@ -1,75 +1,81 @@
-# LifeAgente AI - desplegable con un clic en Render (blueprint)
-# Docs: https://render.com/docs/blueprint-spec
-#
-# QUE OBTIENES: un solo servicio con la API y la interfaz juntas.
-#   https://<nombre>.onrender.com/  -> la app completa (funciona sola)
-#   https://<nombre>.onrender.com/api -> la API
-#
-# NOTA SOBRE EL NOMBRE: "lifesync-ai" ya esta ocupado en Render por otro
-# proyecto, asi que Render le anade un sufijo. El servicio que esta vivo ahora
-# es https://lifesync-ai-qs5t.onrender.com
-#
-# NOTA SOBRE LOS DATOS: el plan gratuito de Render no permite disco
-# persistente (solo en planes de pago), asi que la base SQLite vive dentro
-# del contenedor y se reinicia cuando Render reconstruye el servicio.
-# Para datos que sobrevivan, cambia `plan: free` por `plan: starter` y
-# descomenta el bloque `disk` de mas abajo.
-#
-# ---------------------------------------------------------------------------
-# OJO CON VITE_API_URL (esta fue la causa de un "Method Not Allowed"):
-# el Dockerfile declara `ARG VITE_API_URL`, asi que Render hornea ese valor
-# DENTRO del bundle de la interfaz. Si en el panel de Render creaste la
-# variable con el boton "Generate" (un texto aleatorio de 32 caracteres), la
-# interfaz construye URLs tipo https://<servicio>/<texto-aleatorio>/api/... y todo
-# se rompe: los GET devuelven el HTML de la pagina y los POST un 405.
-# Opciones correctas:
-#   a) NO crear esa variable en Render (la opcion mas simple: Render sirve la
-#      API y la interfaz en el mismo dominio, asi que la ruta relativa /api
-#      funciona sola), o
-#   b) ponerla con la URL COMPLETA: https://<nombre>.onrender.com/api
-# El codigo ya ignora cualquier valor que no sea una URL valida, pero lo
-# correcto es dejarlo bien desde el principio.
-# ---------------------------------------------------------------------------
+# Render Blueprint para LifeAgente AI v2.1.0
+# Uso: Conecta repo en Render → "New Blueprint Instance" → selecciona este archivo
+# O: Render Dashboard → New → Blueprint → pega URL del repo
+
 services:
+  # Backend API (FastAPI + Supabase + Gemini BYOK)
   - type: web
-    name: lifeagente-ai
+    name: lifeagente-api
     runtime: docker
+    repo: https://github.com/brayanortiz906-lab/LifeSync-AI
     dockerfilePath: ./Dockerfile
+    dockerContext: .
     plan: free
-    healthCheckPath: /api/health
+    region: frankfurt
     autoDeploy: true
+    healthCheckPath: /api/health
     envVars:
-      - key: APP_SECRET_KEY
-        generateValue: true
-      # La base de datos del contenedor (usa un disco si cambias el plan).
-      - key: DATABASE_URL
-        value: sqlite:////app/lifesync.db
-      # Origenes permitidos: la pagina de GitHub Pages y los puertos locales.
+      - key: APP_NAME
+        value: LifeAgente
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: API_V1_PREFIX
+        value: /api/v1
+      - key: FRONTEND_URL
+        value: https://lifeagente.vercel.app
       - key: CORS_ORIGINS
-        value: https://brayanortiz906-lab.github.io,https://underlanded4.github.io,http://localhost:8000,http://localhost:5173,http://127.0.0.1:8000,http://127.0.0.1:5173
-      # Sin API key: el asistente arranca con el motor integrado (demo).
-      - key: DEFAULT_LLM_PROVIDER
-        value: demo
-      - key: DEFAULT_CURRENCY
-        value: COP
-      # Opcionales: los rellenas en el panel de Render si los necesitas.
-      # ID de cliente publico de Google (para "Entrar con Google").
+        value: '["https://lifeagente.vercel.app", "https://brayanortiz906-lab.github.io", "capacitor://localhost"]'
+      - key: CRON_TOKEN
+        generateValue: true
+      - key: ENCRYPTION_KEY
+        generateValue: true
+      - fromDatabase:
+          name: lifeagente-db
+          property: connectionString
+        key: DATABASE_URL
+      - fromService:
+          name: lifeagente-db
+          property: connectionString
+        key: DATABASE_URL_INTERNAL
+      # Supabase (configurar manualmente en Render Dashboard)
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      # Google OAuth (opcional)
       - key: GOOGLE_CLIENT_ID
         sync: false
-      # Correo saliente (para el codigo de verificacion de las cuentas).
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      # Email (opcional)
       - key: SMTP_HOST
         sync: false
       - key: SMTP_PORT
-        value: 587
+        value: "587"
+        sync: false
       - key: SMTP_USER
         sync: false
       - key: SMTP_PASSWORD
         sync: false
-      - key: SMTP_DESDE
+      - key: EMAIL_FROM
+        value: "noreply@lifeagente.app"
         sync: false
-    # Con plan de pago (starter) descomenta esto para que los datos
-    # sobrevivan a las reconstrucciones:
-    # disk:
-    #   name: lifesync-data
-    #   mountPath: /data
-    #   sizeGB: 1
+
+  # Base de datos PostgreSQL (Supabase la maneja, esto es backup/local)
+  # Nota: En producción usamos Supabase, pero Render ofrece PG gratis
+  - type: pserv
+    name: lifeagente-db
+    plan: free
+    region: frankfurt
+    postgresMajorVersion: 16
+    # Supabase es la DB real, esto solo para desarrollo/local
+
+databases:
+  - name: lifeagente-db
+    plan: free
+    region: frankfurt
+    postgresMajorVersion: 16
