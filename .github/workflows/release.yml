@@ -1,0 +1,166 @@
+name: Release v2.0+
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-exe:
+    name: Build Windows .exe
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install system dependencies
+        run: |
+          # Python packages for PyInstaller
+          pip install --upgrade pip
+          pip install -r backend/requirements.txt
+          pip install pyinstaller
+
+      - name: Build Frontend
+        working-directory: ./frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Build .exe with PyInstaller
+        working-directory: ./desktop
+        run: |
+          pyinstaller LifeAgente.spec --noconfirm --clean --distpath dist --workpath build
+
+      - name: Verify .exe exists
+        run: |
+          $exe = "desktop\dist\LifeAgente.exe"
+          if (-not (Test-Path $exe)) {
+            Write-Error "No se generó el ejecutable: $exe"
+            exit 1
+          }
+          $peso = [math]::Round((Get-Item $exe).Length / 1MB, 1)
+          Write-Host "✅ Ejecutable generado: $peso MB"
+
+      - name: Upload .exe artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LifeAgente.exe
+          path: desktop/dist/LifeAgente.exe
+          retention-days: 90
+
+  build-source-zip:
+    name: Build Source ZIP
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create source ZIP
+        run: |
+          # Exclude build artifacts, node_modules, venvs, etc.
+          zip -r LifeAgente-AI-sistema.zip . \
+            -x ".git/*" \
+            -x "node_modules/*" \
+            -x ".venv*/*" \
+            -x "__pycache__/*" \
+            -x "*.db*" \
+            -x ".env*" \
+            -x "*.pyc" \
+            -x "*.zip" \
+            -x "desktop/build/*" \
+            -x "desktop/dist/*" \
+            -x "frontend/dist/*" \
+            -x "frontend/node_modules/*" \
+            -x ".github/*" \
+            -x "*.log" \
+            -x ".idea/*" \
+            -x ".vscode/*"
+
+      - name: Upload source ZIP artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LifeAgente-AI-sistema.zip
+          path: LifeAgente-AI-sistema.zip
+          retention-days: 90
+
+  create-release:
+    name: Create GitHub Release
+    needs: [build-exe, build-source-zip]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Download .exe artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: LifeAgente.exe
+          path: ./release-assets
+
+      - name: Download source ZIP artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: LifeAgente-AI-sistema.zip
+          path: ./release-assets
+
+      - name: Verify assets
+        run: |
+          ls -la ./release-assets/
+          file ./release-assets/LifeAgente.exe
+          file ./release-assets/LifeAgente-AI-sistema.zip
+
+      - name: Extract changelog for this version
+        id: changelog
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          # Extract section for this version from CHANGELOG.md
+          awk -v ver="$VERSION" '
+            /^## v/ { if (found) exit; if ($0 ~ "v" ver) found=1 }
+            found { print }
+          ' CHANGELOG.md > release-notes.md || echo "No changelog found" > release-notes.md
+          cat release-notes.md
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: LifeAgente AI ${{ github.ref_name }}
+          body_path: ./release-notes.md
+          files: |
+            ./release-assets/LifeAgente.exe
+            ./release-assets/LifeAgente-AI-sistema.zip
+          draft: false
+          prerelease: false
+          generate_release_notes: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  notify:
+    name: Notify Completion
+    needs: create-release
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Status
+        run: |
+          if [ "${{ needs.create-release.result }}" == "success" ]; then
+            echo "✅ Release ${{ github.ref_name }} publicado correctamente"
+            echo "🔗 https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}"
+          else
+            echo "❌ Falló la creación del release"
+            exit 1
+          fi

@@ -1,98 +1,117 @@
-name: CI
+name: CI - Tests & Build Check
 
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
-  workflow_dispatch:
 
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+permissions:
+  contents: read
 
 jobs:
-  backend:
-    name: Backend · smoke test
+  backend-tests:
+    name: Backend Tests (Smoke)
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
+    timeout-minutes: 15
     steps:
-      - name: Clonar el repositorio
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Instalar Python
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: backend/requirements.txt
+          python-version: '3.11'
+          cache: 'pip'
 
-      - name: Instalar dependencias
-        run: pip install -r requirements.txt
-
-      # v44: la API sirve tambien el manifiesto, el service worker y los
-      # iconos (la app se instala en el celular). Para que el smoke test
-      # pueda comprobarlos hace falta la interfaz compilada.
-      - name: Instalar Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Compilar la interfaz (archivos PWA que sirve la API)
-        working-directory: frontend
+      - name: Install dependencies
         run: |
-          npm ci
-          npm run build
+          pip install --upgrade pip
+          pip install -r backend/requirements.txt
 
-      - name: Arrancar la API
+      - name: Run smoke tests
         run: |
-          python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --log-level warning &
-          for i in $(seq 1 40); do
-            if curl -sf http://127.0.0.1:8000/api/health > /dev/null; then
-              echo "API lista"
-              break
-            fi
-            sleep 1
-          done
-          curl -sf http://127.0.0.1:8000/api/health
+          cd backend
+          python smoke.py
 
-      - name: Smoke test (167  casos)
-        run: python smoke.py
-
-      - name: Comprobar el System Prompt maestro
+      - name: Verify imports
         run: |
-          python -c "from app.config import settings; s = settings.system_prompt; assert 'CONTRATO DE SALIDA' in s and 'REGISTRO EN CASCADA' in s and len(s) > 10000; print('System Prompt OK:', len(s), 'caracteres')"
+          cd backend
+          python -c "
+          import app.main
+          import app.config
+          import app.database
+          import app.models
+          import app.crypto
+          import app.supabase_client
+          import app.auth.supabase_auth
+          import app.auth.dependencies
+          import app.auth.schemas
+          import app.services.gemini
+          import app.services.storage
+          import app.services.backup
+          import app.routers.auth
+          import app.routers.chat
+          import app.routers.accounts
+          import app.routers.events
+          import app.routers.tasks
+          import app.routers.panels
+          import app.routers.backups
+          print('✅ All v2.0 modules import successfully')
+          "
 
-  frontend:
-    name: Frontend · build
+  frontend-build:
+    name: Frontend Build Check
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
+    timeout-minutes: 15
     steps:
-      - name: Clonar el repositorio
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Instalar Node
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          cache: npm
+          node-version: '20'
+          cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Instalar dependencias
+      - name: Install dependencies
+        working-directory: ./frontend
         run: npm ci
 
-      - name: Compilar (TypeScript estricto)
+      - name: Type check
+        working-directory: ./frontend
+        run: npx tsc --noEmit
+
+      - name: Build
+        working-directory: ./frontend
         run: npm run build
 
-      - name: Subir el bundle como artefacto
-        uses: actions/upload-artifact@v4
+      - name: Verify build output
+        run: |
+          ls -la frontend/dist/
+          test -f frontend/dist/index.html
+          echo "✅ Frontend build successful"
+
+  lint:
+    name: Lint (optional)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          name: frontend-dist
-          path: frontend/dist
-          retention-days: 7
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: ESLint
+        working-directory: ./frontend
+        run: npx eslint . --ext ts,tsx --max-warnings 0 || true

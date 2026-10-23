@@ -1,9 +1,9 @@
-# LifeAgente AI - instalador local (.exe) para Windows.
+# LifeAgente AI v2.0 - instalador local (.exe) para Windows.
 # Se compila con:  pyinstaller desktop/LifeAgente.spec --noconfirm --clean
 #
 # El .exe lleva dentro:
 #   - el motor de Python (no hace falta instalar Python);
-#   - la API completa (backend/app);
+#   - la API completa (backend/app) con Supabase + Gemini BYOK;
 #   - el System Prompt (shared/system_prompt.txt);
 #   - la interfaz ya compilada (frontend/dist);
 # y al arrancar crea la base de datos en %APPDATA%\LifeAgente.
@@ -25,30 +25,30 @@ datas = [
 
 binarios = []
 hiddenimports = [
+    # App core v2.0
     "app.main",
     "app.config",
     "app.database",
     "app.models",
-    "app.schemas",
-    "app.providers",
-    "app.planner",
-    "app.agent",
-    "app.policy",
-    "app.connections",
-    "app.security",
-    "app.seed",
-    "app.cuentas",
-    "app.permisos",
-    "app.paneles",
-    "app.ia_local",
-    "app.routers.crud",
-    "app.routers.agent",
-    "app.routers.conexiones",
-    "app.routers.cuentas",
-    "app.routers.permisos",
-    "app.routers.paneles",
-    "app.routers.responsabilidad",
-    "app.routers.inicio",
+    "app.crypto",
+    "app.supabase_client",
+    # Auth
+    "app.auth.supabase_auth",
+    "app.auth.dependencies",
+    "app.auth.schemas",
+    # Services
+    "app.services.gemini",
+    "app.services.storage",
+    "app.services.backup",
+    # Routers
+    "app.routers.auth",
+    "app.routers.chat",
+    "app.routers.accounts",
+    "app.routers.events",
+    "app.routers.tasks",
+    "app.routers.panels",
+    "app.routers.backups",
+    # Uvicorn internals
     "uvicorn.logging",
     "uvicorn.loops.auto",
     "uvicorn.loops.asyncio",
@@ -58,12 +58,22 @@ hiddenimports = [
     "uvicorn.protocols.websockets.websockets_impl",
     "uvicorn.lifespan.on",
     "uvicorn.lifespan.off",
-    "sqlalchemy.dialects.sqlite",
-    "cryptography.hazmat.primitives.fernet",
+    # DB drivers
+    "sqlalchemy.dialects.postgresql",
+    "asyncpg",
+    # External libs
+    "supabase",
+    "cryptography.fernet",
+    "google.generativeai",
+    "pydantic",
+    "pydantic_settings",
+    "httpx",
+    "anyio",
+    "starlette",
 ]
 
 for paquete in ("uvicorn", "fastapi", "sqlalchemy", "pydantic", "pydantic_settings",
-                "httpx", "cryptography", "anyio", "starlette"):
+                "httpx", "cryptography", "anyio", "starlette", "supabase"):
     try:
         d, b, h = collect_all(paquete)
         datas += d
