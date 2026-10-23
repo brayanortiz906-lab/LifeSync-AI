@@ -1,0 +1,80 @@
+{
+  "appId": "com.lifeagente.app",
+  "appName": "LifeAgente",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https",
+    "hostname": "lifeagente.app",
+    "iosScheme": "lifeagente"
+  },
+  "android": {
+    "buildOptions": {
+      "keystorePath": "release-key.keystore",
+      "keystorePassword": "CHANGE_ME",
+      "keystoreAlias": "lifeagente",
+      "keystoreAliasPassword": "CHANGE_ME",
+      "releaseType": "APK"
+    },
+    "permissions": [
+      "INTERNET",
+      "ACCESS_NETWORK_STATE",
+      "VIBRATE",
+      "RECEIVE_BOOT_COMPLETED",
+      "FOREGROUND_SERVICE",
+      "POST_NOTIFICATIONS"
+    ],
+    "minSdkVersion": 24,
+    "compileSdkVersion": 34,
+    "targetSdkVersion": 34,
+    "backgroundColor": "#0f172a",
+    "allowMixedContent": true,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": false
+  },
+  "ios": {
+    "contentInset": "automatic",
+    "scrollEnabled": true,
+    "limitsNavBarToVisibleBounds": true,
+    "preferredContentMode": "mobile"
+  },
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": true
+    },
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_icon_config_sample",
+      "iconColor": "#3B82F6",
+      "sound": "beep.wav"
+    },
+    "PushNotifications": {
+      "presentationOptions": ["badge", "sound", "alert"]
+    },
+    "SplashScreen": {
+      "launchShowDuration": 2000,
+      "launchAutoHide": true,
+      "backgroundColor": "#0f172a",
+      "androidSplashResourceName": "splash",
+      "androidScaleType": "CENTER_CROP",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#0f172a"
+    },
+    "Keyboard": {
+      "resize": "body",
+      "style": "DARK",
+      "resizeOnFullScreen": true
+    },
+    "App": {
+      "launchAutoHide": true
+    },
+    "Haptics": {},
+    "Browser": {},
+    "Share": {},
+    "Clipboard": {},
+    "Device": {},
+    "Network": {},
+    "Storage": {}
+  }
+}

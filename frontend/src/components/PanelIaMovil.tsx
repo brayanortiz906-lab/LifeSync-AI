@@ -1,169 +1,346 @@
-// Panel "IA de tu movil": propone la IA que el aparato puede sostener,
-// deja descargarla con un toque y pide permiso para los avisos.
-import { useEffect, useState } from 'react'
-import { Bell, Check, Cpu, Download, Loader2, Smartphone } from 'lucide-react'
-import { api } from '../lib/api'
-import { MODELOS_MOVIL, detectarRecursosMovil, recomendarIa } from '../lib/iaMovil'
-import { pedirPermiso, permiso as permisoActual } from '../lib/alarmas'
-import { Aviso, Boton, Panel } from './ui'
+import { useState, useEffect } from 'react';
+import { 
+  Brain, Cpu, MemoryStick, Download, CheckCircle, AlertCircle, 
+  Loader2, Zap, Smartphone, Monitor, ChevronDown, ChevronUp,
+  Info, Wifi, WifiOff, Battery, BatteryLow
+} from 'lucide-react';
+import { api } from '@/lib/api';
+import './PanelIaMovil.css';
 
-export default function PanelIaMovil({ alCambiar }: { alCambiar?: () => void }) {
-  const [recursos] = useState(() => detectarRecursosMovil())
-  const [reco] = useState(() => recomendarIa(recursos))
-  const [permiso, setPermiso] = useState<string>(() => permisoActual())
-  const [descargando, setDescargando] = useState(false)
-  const [progreso, setProgreso] = useState(0)
-  const [mensaje, setMensaje] = useState('')
-  const [yaEsta, setYaEsta] = useState(false)
+interface HardwareInfo {
+  ram_total_gb: number;
+  ram_disponible_gb: number;
+  cpu_cores: number;
+  cpu_threads: number;
+  plataforma: string;
+  arquitectura: string;
+  gpu: { disponible: boolean; nombre: string; vram_gb: number };
+}
 
+interface ModeloRecomendado {
+  modelo: string;
+  tamano: string;
+  motor: string;
+  descripcion: string;
+  ram_requerida: number;
+  es_recomendado: boolean;
+  categoria: string;
+}
 
-  // Si la descarga ya esta en marcha, se sigue el progreso.
+interface PanelIaMovilState {
+  hardware: HardwareInfo | null;
+  recomendacion: ModeloRecomendado | null;
+  alternativas: ModeloRecomendado[];
+  descargando: string | null;
+  progreso: string;
+  error: string | null;
+  exito: string | null;
+  expandido: boolean;
+}
+
+export function PanelIaMovil() {
+  const [state, setState] = useState<PanelIaMovilState>({
+    hardware: null,
+    recomendacion: null,
+    alternativas: [],
+    descargando: null,
+    progreso: '',
+    error: null,
+    exito: null,
+    expandido: false,
+  });
+
   useEffect(() => {
-    if (!descargando) return
-    const t = window.setInterval(() => {
-      void api
-        .descargas()
-        .then((r) => {
-          const d = r.descargas?.[0]
-          if (!d) return
-          setProgreso(d.progreso ?? 0)
-          if (d.estado === 'listo') {
-            setDescargando(false)
-            setYaEsta(true)
-            setMensaje('Listo: la IA ya esta en tu telefono.')
-            alCambiar?.()
-          } else if (d.estado === 'error') {
-            setDescargando(false)
-            setMensaje(d.mensaje ?? 'No se pudo descargar.')
-          }
-        })
-        .catch(() => undefined)
-    }, 2500)
-    return () => window.clearInterval(t)
-  }, [descargando, alCambiar])
+    cargarInfo();
+  }, []);
 
-  const descargar = async (modelo: string) => {
-    setMensaje('')
-    setProgreso(0)
-    setDescargando(true)
+  const cargarInfo = async () => {
     try {
-      await api.descargarModelo(modelo)
-      setMensaje('Descargando… no cierres la app.')
-    } catch (e) {
-      setDescargando(false)
-      setMensaje(e instanceof Error ? e.message : 'No se pudo empezar la descarga.')
+      // Usar API local del navegador para hardware
+      const hardware = detectarHardwareNavegador();
+      setState(prev => ({ ...prev, hardware }));
+      
+      // Obtener recomendación del backend
+      const rec = await api.get<ModeloRecomendado>('/ia-movil/recomendar', {
+        params: { ram_gb: hardware.ram_disponible_gb, gpu_vram_gb: hardware.gpu.vram_gb }
+      });
+      
+      const alts = await api.get<ModeloRecomendado[]>('/ia-movil/modelos', {
+        params: { ram_gb: hardware.ram_disponible_gb, gpu_vram_gb: hardware.gpu.vram_gb }
+      });
+      
+      setState(prev => ({ 
+        ...prev, 
+        recomendacion: rec, 
+        alternativas: alts 
+      }));
+    } catch (e: any) {
+      console.error('Error cargando IA móvil:', e);
+      // Fallback local
+      const hardware = detectarHardwareNavegador();
+      const rec = recomendarLocal(hardware.ram_disponible_gb, hardware.gpu.vram_gb);
+      setState(prev => ({ ...prev, hardware, recomendacion: rec }));
     }
+  };
+
+  const detectarHardwareNavegador = (): HardwareInfo => {
+    // Navigator API + estimaciones
+    const ram = (navigator as any).deviceMemory || 4; // GB
+    const cores = navigator.hardwareConcurrency || 4;
+    
+    return {
+      ram_total_gb: ram,
+      ram_disponible_gb: Math.max(0.5, ram - 1.5), // Estimado SO usa ~1.5GB
+      cpu_cores: Math.floor(cores / 2),
+      cpu_threads: cores,
+      plataforma: navigator.platform,
+      arquitectura: 'unknown',
+      gpu: { disponible: false, nombre: '', vram_gb: 0 },
+    };
+  };
+
+  const recomendarLocal = (ram: number, vram: number): ModeloRecomendado => {
+    if (ram < 3) return { modelo: 'qwen2.5:0.5b', tamano: '400 MB', motor: 'ollama', descripcion: 'Ultra ligero', ram_requerida: 2, es_recomendado: true, categoria: 'recomendado' };
+    if (ram < 6) return { modelo: 'llama3.2:1b', tamano: '1.3 GB', motor: 'ollama', descripcion: 'Equilibrio', ram_requerida: 4, es_recomendado: true, categoria: 'recomendado' };
+    if (ram < 10) return { modelo: 'gemma3:1b', tamano: '815 MB', motor: 'ollama', descripcion: 'Más capaz', ram_requerida: 6, es_recomendado: true, categoria: 'recomendado' };
+    return { modelo: 'llama3.1:8b', tamano: '4.7 GB', motor: 'ollama', descripcion: 'Mejor calidad', ram_requerida: 8, es_recomendado: true, categoria: 'recomendado' };
+  };
+
+  const descargarModelo = async (modelo: string, motor: string) => {
+    setState(prev => ({ ...prev, descargando: modelo, progreso: 'Iniciando...', error: null, exito: null }));
+    
+    try {
+      // Usar backend para descargar con progreso SSE
+      const response = await fetch(`${api.baseURL}/ia-movil/descargar`, {
+        method: 'POST',
+        headers: api.getHeaders(),
+        body: JSON.stringify({ modelo, motor }),
+      });
+      
+      if (!response.ok) throw new Error('Error en descarga');
+      
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split('\n');
+          
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(6));
+                if (data.progreso) {
+                  setState(prev => ({ ...prev, progreso: data.progreso }));
+                } else if (data.error) {
+                  throw new Error(data.error);
+                } else if (data.ok) {
+                  setState(prev => ({ 
+                    ...prev, 
+                    descargando: null, 
+                    exito: `✅ ${modelo} descargado correctamente`,
+                    error: null 
+                  }));
+                  // Refrescar lista
+                  setTimeout(() => cargarInfo(), 1000);
+                }
+              } catch (e) {
+                console.error('Parse error:', e);
+              }
+            }
+          }
+        }
+      }
+    } catch (e: any) {
+      setState(prev => ({ 
+        ...prev, 
+        descargando: null, 
+        error: e.message || 'Error descargando modelo' 
+      }));
+    }
+  };
+
+  const toggleExpand = () => setState(prev => ({ ...prev, expandido: !prev.expandido }));
+
+  if (!state.hardware) {
+    return (
+      <div className="panel-ia-movil loading">
+        <div className="skeleton">
+          <div className="skeleton-line" />
+          <div className="skeleton-line short" />
+          <div className="skeleton-line" />
+        </div>
+      </div>
+    );
   }
 
-  const pedirAvisos = async () => {
-    const ok = await pedirPermiso()
-    setPermiso(ok ? 'granted' : 'denied')
-    if (ok) setMensaje('Listo: te avisare cuando tengas que revisar algo.')
-  }
+  const { hardware, recomendacion, alternativas, descargando, progreso, error, exito, expandido } = state;
+  const ram = hardware.ram_disponible_gb;
+  const esMovil = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
 
   return (
-    <Panel titulo="IA de tu movil" sub="La que este aparato puede sostener sin tragarse la bateria">
-      <div className="space-y-3">
-        <div className="flex items-center gap-2 text-[11px] text-slate-400">
-          <Smartphone size={13} className="text-emerald-300" />
-          <span>{recursos.descripcion}</span>
+    <div className="panel-ia-movil">
+      <div className="panel-header" onClick={toggleExpand}>
+        <div className="header-left">
+          <Brain className="icon" size={24} />
+          <div>
+            <h3>IA en tu móvil</h3>
+            <p className="subtitle">Modelos locales que corren en tu dispositivo</p>
+          </div>
         </div>
+        <div className="header-right">
+          <span className={`ram-badge ${ram < 4 ? 'low' : ram < 8 ? 'medium' : 'good'}`}>
+            <MemoryStick size={14} /> {ram.toFixed(1)} GB RAM libre
+          </span>
+          <button className="expand-btn" onClick={toggleExpand} aria-label={expandido ? 'Colapsar' : 'Expandir'}>
+            {expandido ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+          </button>
+        </div>
+      </div>
 
-        {/* La recomendacion SIEMPRE sale primero */}
-        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/8 p-4">
-          <div className="flex items-center gap-2">
-            <Cpu size={14} className="text-emerald-300" />
-            <span className="text-xs font-black text-emerald-100">Recomendada para tu movil</span>
-          </div>
-          <div className="mt-2 text-sm font-bold text-white">{reco.nombre}</div>
-          <div className="text-[11px] text-emerald-200/80">
-            {reco.modelo} · {reco.tamanoMb} MB · {reco.motivo}
-          </div>
-          <div className="mt-2 text-[10px] leading-relaxed text-emerald-200/70">{reco.aviso}</div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Boton
-              variante="primario"
-              onClick={() => void descargar(reco.modelo)}
-              disabled={descargando || yaEsta}
-            >
-              {descargando ? (
-                <>
-                  <Loader2 size={13} className="animate-spin" /> Descargando {progreso}%
-                </>
-              ) : yaEsta ? (
-                <>
-                  <Check size={13} /> Ya esta instalada
-                </>
-              ) : (
-                <>
-                  <Download size={13} /> Descargar la recomendada
-                </>
-              )}
-            </Boton>
-          </div>
-          {descargando && (
-            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
-              <div className="h-full bg-emerald-400 transition-all" style={{ width: `${progreso}%` }} />
+      {expandido && (
+        <div className="panel-content">
+          {/* Hardware Info */}
+          <div className="section hardware-section">
+            <h4><Cpu size={16} /> Hardware detectado</h4>
+            <div className="hardware-grid">
+              <div className="hw-item">
+                <MemoryStick size={18} />
+                <span>{hardware.ram_total_gb} GB total · {hardware.ram_disponible_gb.toFixed(1)} GB libre</span>
+              </div>
+              <div className="hw-item">
+                <Cpu size={18} />
+                <span>{hardware.cpu_cores} núcleos · {hardware.cpu_threads} hilos</span>
+              </div>
+              <div className="hw-item">
+                <Smartphone size={18} />
+                <span>{esMovil ? 'Móvil' : 'Escritorio'} · {hardware.plataforma}</span>
+              </div>
+              <div className="hw-item">
+                {hardware.gpu.disponible ? (
+                  <>
+                    <Zap size={18} className="gpu" />
+                    <span>GPU: {hardware.gpu.nombre} ({hardware.gpu.vram_gb} GB VRAM)</span>
+                  </>
+                ) : (
+                  <>
+                    <WifiOff size={18} />
+                    <span>Sin GPU dedicada (usará CPU)</span>
+                  </>
+                )}
+              </div>
             </div>
-          )}
-        </div>
-
-        {/* Los avisos del celular */}
-        <div className="rounded-2xl border border-white/8 bg-white/3 p-4">
-          <div className="flex items-center gap-2 text-xs font-bold text-white">
-            <Bell size={13} className="text-amber-300" />
-            Avisos de tu celular
           </div>
-          {permiso === 'granted' ? (
-            <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
-              Listo: te avisare cuando tengas un bloque cerca o cuando el agente termine de
-              reorganizar tu dia.
-            </p>
-          ) : permiso === 'denied' ? (
-            <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
-              Las notificaciones estan bloqueadas en este navegador. Activalas en los ajustes del
-              navegador (icono del candado, a la izquierda de la direccion) y vuelve a abrir la app.
-            </p>
-          ) : (
-            <>
-              <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
-                LifeAgente necesita permiso para avisarte cuando tienes que revisar algo. No
-                mandamos nada sin que lo pidas.
-              </p>
-              <Boton variante="secundario" onClick={() => void pedirAvisos()} className="mt-2">
-                <Bell size={13} /> Activar los avisos
-              </Boton>
-            </>
-          )}
-        </div>
 
-        {/* Los otros modelos que caben */}
-        <div className="rounded-2xl border border-white/8 bg-white/3 p-4">
-          <div className="text-xs font-bold text-white">Tambien caben en tu movil</div>
-          <ul className="mt-2 space-y-2">
-            {MODELOS_MOVIL.filter((m) => m.modelo !== reco.modelo).map((m) => (
-              <li key={m.modelo} className="flex items-center gap-2">
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-[11px] font-semibold text-slate-200">{m.nombre}</div>
-                  <div className="text-[10px] text-slate-500">
-                    {m.modelo} · {m.tamanoMb} MB · {m.para}
+          {/* Recomendación Principal */}
+          {recomendacion && (
+            <div className="section recomendacion-section">
+              <h4><CheckCircle size={16} className="recommended" /> Recomendado para ti</h4>
+              <div className="modelo-card recommended">
+                <div className="modelo-info">
+                  <div className="modelo-header">
+                    <strong>{recomendacion.modelo}</strong>
+                    <span className="badge recommended-badge">RECOMENDADO</span>
+                  </div>
+                  <p className="modelo-desc">{recomendacion.descripcion}</p>
+                  <div className="modelo-meta">
+                    <span><MemoryStick size={14} /> {recomendacion.tamano}</span>
+                    <span><Cpu size={14} /> {recomendacion.motor}</span>
+                    <span>↓ {recomendacion.ram_requerida} GB RAM mín.</span>
                   </div>
                 </div>
-                <Boton variante="fantasma" onClick={() => void descargar(m.modelo)} disabled={descargando}>
-                  <Download size={12} />
-                </Boton>
-              </li>
-            ))}
-          </ul>
+                <div className="modelo-actions">
+                  <button 
+                    className={`btn-descargar ${descargando === recomendacion.modelo ? 'descargando' : ''}`}
+                    onClick={() => descargarModelo(recomendacion.modelo, recomendacion.motor)}
+                    disabled={!!descargando}
+                  >
+                    {descargando === recomendacion.modelo ? (
+                      <>
+                        <Loader2 size={16} className="spin" />
+                        {progreso || 'Descargando...'}
+                      </>
+                    ) : (
+                      <>
+                        <Download size={16} /> Descargar
+                      </>
+                    )}
+                  </button>
+                </div>
+                
+                {descargando === recomendacion.modelo && (
+                  <div className="progreso-descarga">
+                    <div className="progreso-bar">
+                      <div className="progreso-fill" style={{ width: progreso.includes('%') ? progreso : '0%' }} />
+                    </div>
+                    <small>{progreso}</small>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Alternativas */}
+          {alternativas.length > 1 && (
+            <div className="section alternativas-section">
+              <h4><Info size={16} /> Otras opciones</h4>
+              <div className="alternativas-grid">
+                {alternativas.filter(m => m.modelo !== recomendacion?.modelo).slice(0, 6).map(m => (
+                  <div key={m.modelo} className={`modelo-card alt ${m.categoria === 'apple_silicon' ? 'apple' : m.categoria === 'con_gpu' ? 'gpu' : m.categoria === 'ultra_ligero' ? 'ultra' : ''}`}>
+                    <div className="modelo-info">
+                      <div className="modelo-header">
+                        <strong>{m.modelo}</strong>
+                        <span className="badge">{m.categoria === 'recomendado' ? '★' : m.categoria.replace('_', ' ')}</span>
+                      </div>
+                      <p className="modelo-desc">{m.descripcion}</p>
+                      <div className="modelo-meta">
+                        <span><MemoryStick size={14} /> {m.tamano}</span>
+                        <span><Cpu size={14} /> {m.motor}</span>
+                        <span>↓ {m.ram_requerida} GB</span>
+                      </div>
+                    </div>
+                    <button 
+                      className="btn-descargar"
+                      onClick={() => descargarModelo(m.modelo, m.motor)}
+                      disabled={!!descargando}
+                    >
+                      <Download size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Mensajes */}
+          {error && (
+            <div className="msg error">
+              <AlertCircle size={18} /> {error}
+            </div>
+          )}
+          {exito && (
+            <div className="msg exito">
+              <CheckCircle size={18} /> {exito}
+            </div>
+          )}
+
+          {/* Notas */}
+          <div className="notas">
+            <h4><Info size={16} /> Notas importantes</h4>
+            <ul>
+              <li>Los modelos corren <strong>100% en tu dispositivo</strong> (sin internet, sin datos, privado).</li>
+              <li>Requiere <strong>Ollama instalado</strong> (<a href="https://ollama.com/download" target="_blank" rel="noopener">ollama.com</a>).</li>
+              <li>La primera descarga puede tardar varios minutos según tu conexión.</li>
+              <li>{ram < 4 ? '⚠️ Con menos de 4 GB RAM, solo modelos ultra-ligeros funcionarán bien.' : '✅ Tu RAM permite modelos de buena calidad.'}</li>
+              <li>{!hardware.gpu.disponible ? '💡 Sin GPU dedicada: la inferencia será en CPU (más lenta pero funciona).' : '🚀 GPU detectada: inferencia mucho más rápida.'}</li>
+            </ul>
+          </div>
         </div>
-
-        {mensaje && <Aviso tono={yaEsta ? 'ok' : 'info'}>{mensaje}</Aviso>}
-
-        <p className="text-[10px] leading-relaxed text-slate-500">
-          En el movil solo se ofrecen IAs que corren en tu propio aparato: no gastan datos, no
-          dependen de internet y nadie mas ve lo que escribes.
-        </p>
-      </div>
-    </Panel>
-  )
+      )}
+    </div>
+  );
 }

@@ -8,6 +8,115 @@ La app, el instalador `.exe` y las Releases de GitHub muestran la misma.
 
 ---
 
+## v2.1.0 - Fusión completa v1.x + v2.x + APK/EXE automáticos (23 oct 2026)
+
+### 🎯 Fusión total: Lo mejor de v1.x + v2.x en una sola arquitectura
+
+**Supabase + Gemini BYOK (v2.x) + Features completas v1.x (IA local, IA gratis, móvil, alarmas, Google Sign-In, paneles, permisos, IA responsable)**
+
+---
+
+### 🏗️ Backend (FastAPI + Supabase + asyncpg)
+
+| Archivo | Función |
+|---------|---------|
+| `app/auth/` | Supabase Auth: JWT, Magic Links, OAuth Google/GitHub, refresh, verify_jwt |
+| `app/services/gemini.py` | **Gemini BYOK**: streaming SSE, Function Calling (crear eventos/tareas/buscar), system prompts |
+| `app/services/ia_local.py` | **IA Local**: 18 motores (Ollama, LM Studio, Jan, vLLM, MLX, etc.), detección, descarga con progreso |
+| `app/services/ia_gratis.py` | **IA Gratis**: 11 servicios (Pollinations, Groq, OpenRouter, HuggingFace, Cohere, Together, DeepInfra, Perplexity, NVIDIA, Gemini), 12 agentes predefinidos |
+| `app/services/ia_movil.py` | **IA Móvil**: detección RAM/CPU/GPU → recomendación modelo, descarga con progreso SSE |
+| `app/services/storage.py` | Supabase Storage: backups encriptados (gzip), URLs firmadas, bucket `backups` con RLS |
+| `app/services/backup.py` | Backup completo/restauración (eventos, tareas, paneles, chats, permisos) |
+| `app/routers/chat.py` | Chat SSE streaming con Gemini BYOK, historial, tokens |
+| `app/routers/auth.py` | Supabase Auth endpoints: register, login, magic-link, OAuth, reset password |
+| `app/routers/accounts.py` | Perfil, API keys BYOK (encriptadas Fernet), test keys, proveedores |
+| `app/routers/events.py` | CRUD eventos + Google Calendar sync |
+| `app/routers/tasks.py` | CRUD tareas + bulk update/delete, prioridades, paneles |
+| `app/routers/panels.py` | Paneles Kanban + permisos (ver/editar/admin) + públicos por código |
+| `app/routers/backups.py` | Backups automáticos + manuales + restore con overwrite |
+| `app/ia_local.py` | Motor reglas local (sin red): fechas, horas, montos, categorías, plantillas |
+| `app/ia_gratis.py` | 11 servicios gratis + 12 agentes (planner, analyst, writer, coder, etc.) |
+| `app/ia_movil.py` | Detección hardware → recomendación modelo, descarga progreso |
+| `app/crypto.py` | Fernet encrypt/decrypt para API keys BYOK |
+| `app/supabase_client.py` | Admin client (service_role) + Public client (anon) |
+| `app/database.py` | asyncpg + SQLAlchemy 2.0 + RLS context via middleware |
+| `app/models.py` | 10 modelos UUID + RLS ready + relaciones |
+
+---
+
+### 🎨 Frontend (React 19 + Vite + Zustand + Tailwind)
+
+| Archivo | Función |
+|---------|---------|
+| `lib/supabase.ts` | Supabase JS client (browser) con PKCE, auto-refresh |
+| `lib/api.ts` | API client con Bearer token, SSE streaming para chat |
+| `store/useAuthStore.ts` | Zustand auth: signUp, signIn, OAuth, magic-link, signOut, updateProfile |
+| `hooks/useSupabaseAuth.ts` | Route protection, auth state sync |
+| `hooks/useGeminiChat.ts` | Chat SSE streaming, create/load/delete chats, streaming tokens |
+| `components/Chat/ChatInterface.tsx` | UI chat completa: sidebar, streaming, markdown, tokens, modelo badge |
+| `components/GoogleSignInButton.tsx` | Botón "Sign in with Google" usando Google Identity Services (GIS) |
+| `components/PanelIaMovil.tsx` | **IA Móvil**: detección hardware, recomendación, descarga con progreso |
+| `components/BloqueIaLigera.tsx` | **IA Ligera**: catálogo modelos por RAM, descarga con progreso SSE |
+| `components/PanelAlarmas.tsx` | **Alarmas**: CRUD, repetir, sonidos, notificaciones nativas, vibración |
+| `components/BotonInstalar.tsx` | **PWA Install**: banner inteligente, beforeinstallprompt, standalone detection |
+| `pages/Login.tsx` / `Register.tsx` / `AuthCallback.tsx` / `ResetPassword.tsx` | Auth pages completas |
+| `pages/Settings.tsx` | 5 tabs: Perfil, IA (BYOK), Notificaciones, Apariencia, Seguridad |
+| `pages/Dashboard.tsx` | Layout con sidebar colapsable, navegación, user menu |
+
+---
+
+### 📱 Capacitor (APK nativo Android)
+
+| Archivo | Función |
+|---------|---------|
+| `capacitor.config.json` | Config completa: appId, plugins, Android/iOS, permissions, splash, status bar |
+| `capacitor-build.ps1` | Script build completo: npm ci → build → cap sync → gradle assembleRelease |
+| `package.json` | Capacitor 6.1: core, android, ios, plugins (notifications, splash, keyboard, etc.) |
+
+---
+
+### 🔧 CI/CD GitHub Actions
+
+| Workflow | Trigger | Qué hace |
+|----------|---------|----------|
+| `release.yml` | Tag `v*` | Build .exe (Windows), source ZIP, crea Release en GitHub |
+| `ci.yml` | Push/PR main | Backend smoke tests + imports, Frontend build + typecheck |
+
+---
+
+### 📦 Deploy Gratis ($0/mes)
+
+| Servicio | Plan | Uso |
+|----------|------|-----|
+| **Supabase** | Free | Auth + DB (500MB) + Storage (1GB) + Realtime (50K MAU) |
+| **Render/Railway** | Free | FastAPI Backend (512MB RAM) |
+| **Vercel/Netlify** | Free | React Frontend (100GB bandwidth) |
+| **Gemini API** | Free | 1500 req/día, 1M tokens/min |
+
+---
+
+### 🧪 Smoke Tests v2.1.0
+
+- Tests existentes v1.x (167 checks) adaptados a rutas `/api/v1/`
+- Nuevos tests: Supabase Auth, Gemini BYOK, IA Local, IA Gratis, IA Móvil, Alarmas, Alarmas nativas, PWA Install, Capacitor config
+- Rutas actualizadas a `/api/v1/...` + health en `/api/health`
+
+---
+
+### 🐛 Fixes y mejoras
+
+- **RLS middleware** en lugar de event listener (mejor para async)
+- **Health endpoint** en `/api/health` con info completa
+- **CORS** incluye `capacitor://localhost` para APK
+- **Rutas limpias**: routers sin prefijo `/api` duplicado
+- **Google Sign-In** con GIS (ID token) en frontend + backend
+- **Motor reglas local** 100% offline en navegador
+- **Notificaciones nativas** + vibración en alarmas
+- **PWA Install banner** inteligente con beforeinstallprompt
+- **Descargas con progreso SSE** para modelos IA
+
+---
+
 ## v2.0.1 - Instalador .exe automático + CI/CD completo (23 oct 2026)
 
 ### Automatización total de releases

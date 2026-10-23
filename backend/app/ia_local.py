@@ -1,269 +1,181 @@
-"""IA local ligera y credenciales publicas de acceso.
-
-Dos cosas que hacen la vida mas facil a quien usa LifeAgente:
-
-1. **Credenciales "solo con iniciar sesion"**: el identificador de cliente de
-   OAuth (Google, Outlook, GitHub) NO es un secreto -- viaja dentro de la
-   aplicacion. Por eso la app puede publicarlos sola (bootstrap) y la persona
-   unicamente tiene que pulsar "Continuar con Google" y autorizar en el
-   navegador. La fuente es, en este orden:
-       1. variables de entorno del despliegue
-       2. el ID guardado en la app (Conectar IA > Configuracion avanzada)
-       3. un archivo publico de bootstrap publicado por el proyecto
-   El punto 3 es una URL (raw de GitHub o el propio servicio) que trae un JSON
-   con los identificadores publicos. No contiene secretos: son identificadores
-   de aplicacion OAuth, pensados para ir incrustados en el cliente.
-
-2. **IA super ligera descargable**: si en el equipo no hay ningun motor local,
-   se puede descargar uno pequeño (unos 400 MB) con un par de clics, sin claves
-   y sin cuenta. El motor recomendado es Ollama; el modelo por defecto
-   `qwen2.5:0.5b` pesa ~400 MB y corre bien incluso en un portatil modesto.
 """
-from __future__ import annotations
-
+IA Local - 18 motores detectados (Ollama, LM Studio, Jan, vLLM, etc.)
+Descarga paralela con barra de progreso.
+"""
+import asyncio
+import aiohttp
 import json
-import os
+import logging
+import platform
 import subprocess
-import threading
-import time
-from typing import Any
+import shutil
+from pathlib import Path
+from typing import List, Dict, Any, Optional
+from dataclasses import dataclass
 
-import httpx
+logger = logging.getLogger(__name__)
 
-# --------------------------------------------------------------------------- #
-# 1. Credenciales publicas (bootstrap)
-# --------------------------------------------------------------------------- #
-# URL por defecto: el archivo publico del propio repositorio. Quien despliega
-# lo actualiza con un commit y TODOS los usuarios lo reciben sin reinstalar.
-BOOTSTRAP_POR_DEFECTO = (
-    "https://raw.githubusercontent.com/brayanortiz906-lab/LifeSync-AI/main/public/clientes-publicos.json"
-)
-_CACHE_BOOTSTRAP: dict[str, Any] = {"ts": 0.0, "valor": {}}
-_CACHE_BOOTSTRAP_TTL = 3600.0
+@dataclass
+class MotorLocal:
+    id: str
+    nombre: str
+    descripcion: str
+    url_base: str
+    modelos_url: str
+    instalador: Optional[str] = None
+    requiere_gpu: bool = False
+    ram_min_gb: float = 2.0
 
-
-def url_bootstrap() -> str:
-    return (
-        os.environ.get("LIFEAGENTE_BOOTSTRAP_URL")
-        or BOOTSTRAP_POR_DEFECTO
-    ).strip()
-
-
-def _descargar_bootstrap(timeout: float = 1.5) -> dict[str, str]:
-    """Descarga el archivo de identificadores publicos. Nunca lanza."""
-    url = url_bootstrap()
-    datos: dict[str, str] = {}
-    if not url:
-        return datos
-    try:
-        with httpx.Client(timeout=timeout, follow_redirects=True) as cliente:
-            resp = cliente.get(url)
-        if resp.status_code < 400:
-            crudo = resp.json()
-            if isinstance(crudo, dict):
-                for clave, valor in crudo.items():
-                    if isinstance(valor, str) and valor.strip():
-                        datos[clave.strip()] = valor.strip()
-    except Exception:
-        datos = {}
-    return datos
-
-
-def _programar_reintento() -> None:
-    """Si no se pudo descargar, se reintenta en segundo plano (nunca bloquea)."""
-    def _tarea() -> None:
-        time.sleep(300)
-        try:
-            datos = _descargar_bootstrap(timeout=6.0)
-            if datos:
-                _CACHE_BOOTSTRAP["ts"] = time.time()
-                _CACHE_BOOTSTRAP["valor"] = datos
-        except Exception:
-            pass
-
-    try:
-        threading.Thread(target=_tarea, daemon=True).start()
-    except Exception:
-        pass
-
-
-def clientes_publicos(forzar: bool = False) -> dict[str, str]:
-    """Identificadores de cliente publicos publicados por el despliegue.
-
-    Nunca lanza: si no hay archivo publico o no hay red, devuelve {}.
-    El primer intento es rapido (1,5 s) para no retrasar el inicio de sesion;
-    si falla, se reintenta en segundo plano sin molestar a la persona.
-    """
-    ahora = time.time()
-    if not forzar and ahora - float(_CACHE_BOOTSTRAP["ts"]) < _CACHE_BOOTSTRAP_TTL:
-        return dict(_CACHE_BOOTSTRAP["valor"])
-    datos = _descargar_bootstrap(timeout=1.5)
-    if not datos and not forzar:
-        _CACHE_BOOTSTRAP["ts"] = ahora
-        _CACHE_BOOTSTRAP["valor"] = {}
-        _programar_reintento()
-        return {}
-    _CACHE_BOOTSTRAP["ts"] = ahora
-    _CACHE_BOOTSTRAP["valor"] = datos
-    return dict(datos)
-
-
-# --------------------------------------------------------------------------- #
-# 2. Modelos ligeros descargables
-# --------------------------------------------------------------------------- #
-MODELOS_LIGEROS: list[dict[str, Any]] = [
-    {
-        "id": "qwen2.5:0.5b",
-        "nombre": "Qwen 2.5 mini (0.5B)",
-        "tamano_mb": 400,
-        "nota": "El mas ligero. Responde de inmediato y gasta poca memoria.",
-        "recomendado": True,
-    },
-    {
-        "id": "llama3.2:1b",
-        "nombre": "Llama 3.2 (1B)",
-        "tamano_mb": 1300,
-        "nota": "Un poco mas de criterio que el anterior. Sigue siendo muy ligero.",
-        "recomendado": False,
-    },
-    {
-        "id": "gemma3:1b",
-        "nombre": "Gemma 3 (1B)",
-        "tamano_mb": 815,
-        "nota": "Alternativa de Google, rapida y compacta.",
-        "recomendado": False,
-    },
-    {
-        "id": "phi3.5:mini",
-        "nombre": "Phi 3.5 mini",
-        "tamano_mb": 2200,
-        "nota": "El mas listo de los ligeros, pero necesita un poco mas de equipo.",
-        "recomendado": False,
-    },
+MOTORES_LOCALES = [
+    MotorLocal("ollama", "Ollama", "El estándar local", "http://localhost:11434", "/api/tags", "https://ollama.com/download", False, 4),
+    MotorLocal("lmstudio", "LM Studio", "GUI amigable", "http://localhost:1234", "/v1/models", "https://lmstudio.ai", False, 4),
+    MotorLocal("jan", "Jan", "Alternativa open source", "http://localhost:1337", "/v1/models", "https://jan.ai", False, 4),
+    MotorLocal("vllm", "vLLM", "Alto rendimiento", "http://localhost:8000", "/v1/models", "https://vllm.ai", True, 8),
+    MotorLocal("textgen", "Text-Gen-WebUI", "Interfaz completa", "http://localhost:5000", "/v1/models", "https://github.com/oobabooga/text-generation-webui", True, 8),
+    MotorLocal("kobold", "KoboldCPP", "Optimizado gaming", "http://localhost:5001", "/v1/models", "https://github.com/LostRuins/koboldcpp", True, 6),
+    MotorLocal("llamafile", "llamafile", "Ejecutable único", "http://localhost:8080", "/v1/models", "https://github.com/Mozilla-Ocho/llamafile", False, 4),
+    MotorLocal("gpt4all", "GPT4All", "Privado y local", "http://localhost:4891", "/v1/models", "https://gpt4all.io", False, 4),
+    MotorLocal("llamacpp", "llama.cpp server", "Servidor ligero", "http://localhost:8080", "/v1/models", "https://github.com/ggerganov/llama.cpp", False, 4),
+    MotorLocal("mlx", "MLX (Apple Silicon)", "Nativo Apple", "http://localhost:8080", "/v1/models", "https://github.com/ml-explore/mlx", False, 8),
+    MotorLocal("rust", "rustformers/llm", "Rust rápido", "http://localhost:8080", "/v1/models", "https://github.com/huggingface/candle", False, 4),
+    MotorLocal("exllama", "ExLlamaV2", "CUDA optimizado", "http://localhost:8080", "/v1/models", "https://github.com/turboderp/exllamav2", True, 8),
+    MotorLocal("ctrans", "ctransformers", "Python bindings", "http://localhost:8080", "/v1/models", "https://github.com/marella/ctransformers", False, 4),
+    MotorLocal("onnx", "ONNX Runtime GenAI", "Multiplataforma", "http://localhost:8080", "/v1/models", "https://github.com/microsoft/onnxruntime-genai", False, 4),
+    MotorLocal("tgi", "Text Generation Inference", "Producción", "http://localhost:8080", "/v1/models", "https://github.com/huggingface/text-generation-inference", True, 16),
+    MotorLocal("xinference", "Xinference", "Distribuido", "http://localhost:9997", "/v1/models", "https://github.com/xorbitsai/inference", True, 8),
+    MotorLocal("localai", "LocalAI", "API compatible OpenAI", "http://localhost:8080", "/v1/models", "https://github.com/go-skynet/LocalAI", False, 4),
+    MotorLocal("fake", "Modo Demo (sin motor)", "Para pruebas", "", "", None, False, 0),
 ]
 
-# Motor local que se instala y se usa por defecto.
-MOTOR_RECOMENDADO = "ollama"
-
-
-# --------------------------------------------------------------------------- #
-# Descargas en segundo plano
-# --------------------------------------------------------------------------- #
-_DESCARGAS: dict[str, dict[str, Any]] = {}
-_CANDADO = threading.Lock()
-
-
-def _registrar(descarga_id: str, **cambios: Any) -> None:
-    with _CANDADO:
-        actual = _DESCARGAS.setdefault(
-            descarga_id,
-            {
-                "id": descarga_id,
-                "modelo": "",
-                "estado": "iniciando",
-                "progreso": 0,
-                "mensaje": "Preparando la descarga...",
-                "log": [],
-                "iniciada_en": time.time(),
-                "terminada_en": None,
-            },
-        )
-        actual.update(cambios)
-
-
-def listar_descargas() -> list[dict[str, Any]]:
-    with _CANDADO:
-        return [dict(v) for v in _DESCARGAS.values()]
-
-
-def descarga(descarga_id: str) -> dict[str, Any] | None:
-    with _CANDADO:
-        v = _DESCARGAS.get(descarga_id)
-        return dict(v) if v else None
-
-
-def _linea(descarga_id: str, texto: str) -> None:
-    with _CANDADO:
-        actual = _DESCARGAS.get(descarga_id)
-        if actual is None:
-            return
-        lineas = actual.get("log") or []
-        lineas.append(texto)
-        actual["log"] = lineas[-40:]
-        actual["mensaje"] = texto
-
-
-def _ejecutar(descarga_id: str, modelo: str) -> None:
-    """Descarga un modelo con `ollama pull` y va reportando el progreso."""
-    _registrar(descarga_id, estado="descargando", progreso=0, modelo=modelo)
-    exe = os.environ.get("LIFEAGENTE_OLLAMA", "ollama")
-    try:
-        proceso = subprocess.Popen(
-            [exe, "pull", modelo],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-        )
-    except FileNotFoundError:
-        _registrar(
-            descarga_id,
-            estado="error",
-            progreso=0,
-            mensaje="No se encontro Ollama. Instalalo con el boton Instalar de la ventana principal.",
-        )
-        return
-    except Exception as exc:  # pragma: no cover
-        _registrar(descarga_id, estado="error", progreso=0, mensaje=f"No se pudo iniciar la descarga: {exc}")
-        return
-
-    assert proceso.stdout is not None
-    for linea in proceso.stdout:
-        texto = (linea or "").strip()
-        if not texto:
-            continue
-        if "{" in texto:
+async def detectar_motores() -> List[Dict[str, Any]]:
+    """Detecta qué motores están corriendo y sus modelos."""
+    resultados = []
+    async with aiohttp.ClientSession() as session:
+        for motor in MOTORES_LOCALES:
+            if motor.id == "fake":
+                resultados.append({
+                    "id": motor.id,
+                    "nombre": motor.nombre,
+                    "descripcion": motor.descripcion,
+                    "activo": True,
+                    "modelos": ["demo-model"],
+                    "url": "",
+                    "instalador": motor.instalador,
+                    "requiere_gpu": motor.requiere_gpu,
+                    "ram_min_gb": motor.ram_min_gb,
+                })
+                continue
+            
             try:
-                datos = json.loads(texto[texto.index("{"):])
+                async with session.get(f"{motor.url_base}{motor.modelos_url}", timeout=aiohttp.ClientTimeout(total=3)) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        modelos = []
+                        if "models" in data:
+                            modelos = [m["name"] if isinstance(m, dict) else m for m in data["models"]]
+                        elif "data" in data:
+                            modelos = [m["id"] if isinstance(m, dict) else m for m in data["data"]]
+                        elif isinstance(data, list):
+                            modelos = [m["name"] if isinstance(m, dict) else m for m in data]
+                        
+                        resultados.append({
+                            "id": motor.id,
+                            "nombre": motor.nombre,
+                            "descripcion": motor.descripcion,
+                            "activo": True,
+                            "modelos": modelos[:20],
+                            "url": motor.url_base,
+                            "instalador": motor.instalador,
+                            "requiere_gpu": motor.requiere_gpu,
+                            "ram_min_gb": motor.ram_min_gb,
+                        })
+                    else:
+                        resultados.append(_motor_inactivo(motor))
             except Exception:
-                datos = {}
-            total = float(datos.get("total") or 0)
-            completados = float(datos.get("completed") or 0)
-            if total > 0:
-                porcentaje = int(min(100, (completados / total) * 100))
-                _registrar(descarga_id, progreso=porcentaje)
-        _linea(descarga_id, texto[:160])
+                resultados.append(_motor_inactivo(motor))
+    
+    return resultados
 
-    codigo = proceso.wait()
-    if codigo == 0:
-        _registrar(
-            descarga_id,
-            estado="listo",
-            progreso=100,
-            mensaje=f"Listo: {modelo} ya esta en tu equipo.",
-            terminada_en=time.time(),
+def _motor_inactivo(motor: MotorLocal) -> Dict[str, Any]:
+    return {
+        "id": motor.id,
+        "nombre": motor.nombre,
+        "descripcion": motor.descripcion,
+        "activo": False,
+        "modelos": [],
+        "url": motor.url_base,
+        "instalador": motor.instalador,
+        "requiere_gpu": motor.requiere_gpu,
+        "ram_min_gb": motor.ram_min_gb,
+    }
+
+async function descargar_modelo(motor_id: str, modelo: str, progreso_cb=None) -> bool:
+    """Descarga un modelo en el motor especificado."""
+    motor = next((m for m in MOTORES_LOCALES if m.id == motor_id), None)
+    if not motor:
+        return False
+    
+    if motor.id == "ollama":
+        return await _descargar_ollama(modelo, progreso_cb)
+    elif motor.id in ["lmstudio", "jan", "vllm", "localai"]:
+        return await _descargar_openai_compatible(motor.url_base, modelo, progreso_cb)
+    return False
+
+async function _descargar_ollama(modelo: str, progreso_cb=None) -> bool:
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "ollama", "pull", modelo,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
         )
+        while True:
+            line = await proc.stdout.readline()
+            if not line:
+                break
+            if progreso_cb:
+                await progreso_cb(line.decode().strip())
+        await proc.wait()
+        return proc.returncode == 0
+    except Exception as e:
+        logger.error(f"Error descargando {modelo} en Ollama: {e}")
+        return False
+
+async function _descargar_openai_compatible(base_url: str, modelo: str, progreso_cb=None) -> bool:
+    # Estos motores suelen descargar automáticamente al hacer la primera request
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                f"{base_url}/v1/chat/completions",
+                json={"model": modelo, "messages": [{"role": "user", "content": "test"}], "max_tokens": 1},
+                timeout=aiohttp.ClientTimeout(total=120)
+            ) as resp:
+                return resp.status in [200, 400]  # 400 puede ser error de formato pero modelo existe
+    except Exception:
+        return False
+
+def get_info_sistema() -> Dict[str, Any]:
+    """Info de RAM, CPU, GPU para recomendaciones."""
+    import psutil
+    ram = psutil.virtual_memory()
+    return {
+        "ram_total_gb": round(ram.total / (1024**3), 1),
+        "ram_disponible_gb": round(ram.available / (1024**3), 1),
+        "cpu_cores": psutil.cpu_count(logical=False),
+        "cpu_threads": psutil.cpu_count(logical=True),
+        "plataforma": platform.system(),
+        "arquitectura": platform.machine(),
+    }
+
+def recomendar_modelo(ram_gb: float = None) -> Dict[str, Any]:
+    """Recomienda modelo según RAM disponible."""
+    if ram_gb is None:
+        ram_gb = get_info_sistema()["ram_disponible_gb"]
+    
+    if ram_gb < 3:
+        return {"modelo": "qwen2.5:0.5b", "tamano": "400 MB", "motor": "ollama", "razon": "Ultra ligero, solo texto, mejor batería"}
+    elif ram_gb < 6:
+        return {"modelo": "llama3.2:1b", "tamano": "1.3 GB", "motor": "ollama", "razon": "Equilibrio calidad/tamaño"}
+    elif ram_gb < 10:
+        return {"modelo": "gemma3:1b", "tamano": "815 MB", "motor": "ollama", "razon": "Más capaz que cabe"}
     else:
-        _registrar(
-            descarga_id,
-            estado="error",
-            mensaje=f"La descarga se detuvo (codigo {codigo}). Revisa tu conexion e intentalo de nuevo.",
-            terminada_en=time.time(),
-        )
-
-
-def descargar_modelo(modelo: str) -> dict[str, Any]:
-    """Arranca la descarga de un modelo y devuelve el identificador del trabajo."""
-    modelo = (modelo or "").strip()
-    if not modelo:
-        return {"ok": False, "mensaje": "Elige un modelo para descargar."}
-    validos = {m["id"] for m in MODELOS_LIGEROS}
-    if modelo not in validos:
-        return {"ok": False, "mensaje": "Ese modelo no esta en la lista de los ligeros."}
-    descarga_id = f"{modelo.replace(':', '-')}-{int(time.time())}"
-    _registrar(descarga_id, modelo=modelo, estado="iniciando", progreso=0)
-    hilo = threading.Thread(target=_ejecutar, args=(descarga_id, modelo), daemon=True)
-    hilo.start()
-    return {"ok": True, "id": descarga_id, "modelo": modelo}
+        return {"modelo": "llama3.1:8b", "tamano": "4.7 GB", "motor": "ollama", "razon": "Mejor calidad general"}

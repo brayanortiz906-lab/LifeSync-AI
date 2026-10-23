@@ -1,201 +1,244 @@
-/** Bloque "Descarga una IA ligera": baja un modelo pequeño para usar IA en el
- *  computador sin claves, sin cuentas y sin internet (despues de descargarlo).
- *
- *  La descarga la hace el backend (que es el que tiene a Ollama), en segundo
- *  plano: la interfaz solo pregunta como va.
- */
-import { useCallback, useEffect, useState } from 'react'
-import { Check, CircleAlert, Cpu, Download, Loader2, Sparkles } from 'lucide-react'
-import { api } from '../lib/api'
-import type { DescargaIA, InfoModelosLigeros } from '../types'
-import { Aviso, Boton } from './ui'
+import { useState, useEffect } from 'react';
+import { 
+  Sparkles, Zap, Download, CheckCircle, AlertCircle, Loader2, 
+  Cpu, MemoryStick, Wifi, WifiOff, ExternalLink
+} from 'lucide-react';
+import { api } from '@/lib/api';
+import './BloqueIaLigera.css';
 
-export default function BloqueIaLigera({ alCambiar }: { alCambiar?: () => void }) {
-  const [info, setInfo] = useState<InfoModelosLigeros | null>(null)
-  const [descargas, setDescargas] = useState<DescargaIA[]>([])
-  const [ocupado, setOcupado] = useState(false)
-  const [error, setError] = useState('')
+interface ModeloLigero {
+  id: string;
+  nombre: string;
+  tamano: string;
+  motor: string;
+  descripcion: string;
+  ram_min: number;
+  categoria: string;
+  url: string;
+}
 
-  const cargar = useCallback(async () => {
-    try {
-      const [ligeros, lista] = await Promise.all([api.modelosLigeros(), api.descargas()])
-      setInfo(ligeros)
-      setDescargas(lista.descargas ?? [])
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudo consultar la IA local.')
-    }
-  }, [])
+export function BloqueIaLigera() {
+  const [modelos, setModelos] = useState<ModeloLigero[]>([]);
+  const [ram, setRam] = useState<number>(4);
+  const [descargando, setDescargando] = useState<string | null>(null);
+  const [progreso, setProgreso] = useState<string>('');
+  const [error, setError] = useState<string | null>(null);
+  const [exito, setExito] = useState<string | null>(null);
 
   useEffect(() => {
-    void cargar()
-  }, [cargar])
+    // Detectar RAM del navegador
+    const ramGB = (navigator as any).deviceMemory || 4;
+    setRam(ramGB);
+    cargarModelos(ramGB);
+  }, []);
 
-  // Mientras haya descargas en marcha, se consulta el progreso cada 2 segundos.
-  useEffect(() => {
-    const hayDescargando = descargas.some((d) => d.estado === 'descargando')
-    if (!hayDescargando) return
-    const t = window.setInterval(() => {
-      void api
-        .descargas()
-        .then((r) => setDescargas(r.descargas ?? []))
-        .catch(() => undefined)
-    }, 2000)
-    return () => window.clearInterval(t)
-  }, [descargas])
-
-  const bajar = async (modelo: string) => {
-    setOcupado(true)
-    setError('')
+  const cargarModelos = async (ramGB: number) => {
     try {
-      await api.descargarModelo(modelo)
-      await cargar()
+      const data = await api.get<ModeloLigero[]>('/ia-gratis/modelos-ligeros', {
+        params: { ram_gb: ramGB }
+      });
+      setModelos(data);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudo iniciar la descarga.')
-    } finally {
-      setOcupado(false)
+      // Fallback local
+      setModelos(getModelosFallback(ramGB));
     }
+  };
+
+  const getModelosFallback = (ramGB: number): ModeloLigero[] => {
+    const base = [
+      { id: 'qwen2.5:0.5b', nombre: 'Qwen 2.5 0.5B', tamano: '400 MB', motor: 'ollama', descripcion: 'Ultra rápido, solo texto', ram_min: 1, categoria: 'ultra_ligero', url: 'https://ollama.com/library/qwen2.5:0.5b' },
+      { id: 'smollm:135m', nombre: 'SmolLM 135M', tamano: '100 MB', motor: 'ollama', descripcion: 'Mínimo absoluto', ram_min: 1, categoria: 'ultra_ligero', url: 'https://ollama.com/library/smollm:135m' },
+      { id: 'tinyllama:1.1b', nombre: 'TinyLlama 1.1B', tamano: '650 MB', motor: 'ollama', descripcion: 'Compacto y útil', ram_min: 2, categoria: 'ultra_ligero', url: 'https://ollama.com/library/tinyllama:1.1b' },
+      { id: 'llama3.2:1b', nombre: 'Llama 3.2 1B', tamano: '1.3 GB', motor: 'ollama', descripcion: 'Equilibrio calidad/tamaño', ram_min: 3, categoria: 'ligero', url: 'https://ollama.com/library/llama3.2:1b' },
+      { id: 'gemma3:1b', nombre: 'Gemma 3 1B', tamano: '815 MB', motor: 'ollama', descripcion: 'Google, buena calidad', ram_min: 4, categoria: 'ligero', url: 'https://ollama.com/library/gemma3:1b' },
+      { id: 'phi3:3.8b', nombre: 'Phi-3 3.8B', tamano: '2.3 GB', motor: 'ollama', descripcion: 'Microsoft, buen razonamiento', ram_min: 6, categoria: 'medio', url: 'https://ollama.com/library/phi3:3.8b' },
+    ];
+    return base.filter(m => m.ram_min <= ramGB);
+  };
+
+  const descargar = async (modelo: ModeloLigero) => {
+    setDescargando(modelo.id);
+    setProgreso('Conectando...');
+    setError(null);
+    setExito(null);
+
+    try {
+      const response = await fetch(`${api.baseURL}/ia-gratis/descargar`, {
+        method: 'POST',
+        headers: api.getHeaders(),
+        body: JSON.stringify({ modelo: modelo.id, motor: modelo.motor }),
+      });
+
+      if (!response.ok) throw new Error('Error en descarga');
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split('\n');
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(6));
+                if (data.progreso) setProgreso(data.progreso);
+                else if (data.error) throw new Error(data.error);
+                else if (data.ok) {
+                  setDescargando(null);
+                  setExito(`✅ ${modelo.nombre} listo`);
+                  setTimeout(() => cargarModelos(ram), 1000);
+                }
+              } catch (e) {
+                console.error('Parse error:', e);
+              }
+            }
+          }
+        }
+      }
+    } catch (e: any) {
+      setDescargando(null);
+      setError(e.message || 'Error descargando');
+    }
+  };
+
+  const getCategoriaInfo = (cat: string) => {
+    switch (cat) {
+      case 'ultra_ligero': return { icon: Zap, label: 'Ultra ligero (1-2 GB)', color: 'var(--success, #22c55e)' };
+      case 'ligero': return { icon: Cpu, label: 'Ligero (3-5 GB)', color: 'var(--accent, #3b82f6)' };
+      case 'medio': return { icon: MemoryStick, label: 'Medio (6-8 GB)', color: 'var(--warning, #f59e0b)' };
+      default: return { icon: Sparkles, label: cat, color: 'var(--text-muted, #64748b)' };
+    }
+  };
+
+  const getMotorIcon = (motor: string) => {
+    switch (motor) {
+      case 'ollama': return <Cpu size={16} />;
+      case 'lmstudio': return <MemoryStick size={16} />;
+      case 'vllm': return <Zap size={16} />;
+      default: return <Sparkles size={16} />;
+    }
+  };
+
+  if (modelos.length === 0) {
+    return (
+      <div className="bloque-ia-ligera empty">
+        <p>No hay modelos disponibles para tu RAM ({ram} GB).</p>
+        <p className="hint">Instala Ollama y prueba con modelos ultra-ligeros.</p>
+        <a href="https://ollama.com/download" target="_blank" rel="noopener">
+          <ExternalLink size={16} /> Descargar Ollama
+        </a>
+      </div>
+    );
   }
 
-  const enMarcha = descargas.find((d) => d.estado === 'descargando')
-  const terminada = descargas.find((d) => d.estado === 'listo')
-  const fallida = descargas.find((d) => d.estado === 'error')
-  const yaInstalado = info?.motores?.some((m) => (m.modelos_disponibles ?? 0) > 0)
+  // Agrupar por categoría
+  const categorias = modelos.reduce((acc, m) => {
+    if (!acc[m.categoria]) acc[m.categoria] = [];
+    acc[m.categoria].push(m);
+    return acc;
+  }, {} as Record<string, ModeloLigero[]>);
+
+  const ordenCategorias = ['ultra_ligero', 'ligero', 'medio'];
 
   return (
-    <div className="rounded-2xl border border-sky-500/25 bg-sky-500/8 p-4">
-      <div className="flex items-center gap-2 text-xs font-bold text-sky-100">
-        <Download size={14} />
-        Descarga una IA ligera
+    <div className="bloque-ia-ligera">
+      <div className="header">
+        <div className="header-left">
+          <Sparkles size={24} className="icon" />
+          <div>
+            <h3>IA Ligera (Modelos locales)</h3>
+            <p className="subtitle">
+              Corren 100% en tu dispositivo · Sin internet · Privado · Gratis
+            </p>
+          </div>
+        </div>
+        <div className="ram-indicator">
+          <MemoryStick size={16} /> {ram} GB RAM · Modelos viables: {modelos.length}
+        </div>
       </div>
-      <p className="mt-1.5 text-[11px] leading-relaxed text-slate-300">
-        No detectamos una IA en tu computador. Puedes bajar un modelo pequeno
-        (gratis, sin cuentas, sin claves): se instala en tu equipo y despues
-        LifeAgente trabaja aunque no tengas internet.
-      </p>
 
-      {info && !info.hay_motor && (
-        <div className="mt-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-2 text-[10px] font-semibold text-amber-200">
-          <div className="flex items-center gap-1.5">
-            <CircleAlert size={12} />
-            Primero hay que instalar el motor (Ollama). El instalador de Windows
-            lo hace por ti con un clic.
-          </div>
-        </div>
-      )}
+      {error && <div className="msg error"><AlertCircle size={18} /> {error}</div>}
+      {exito && <div className="msg exito"><CheckCircle size={18} /> {exito}</div>}
 
-      {yaInstalado && (
-        <div className="mt-2.5 flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-2 text-[10px] font-semibold text-emerald-200">
-          <Check size={12} />
-          Ya tienes {info?.motores?.[0]?.modelos_disponibles} modelo(s) instalado(s).
-        </div>
-      )}
+      {ordenCategorias.map(cat => {
+        const items = categorias[cat];
+        if (!items || items.length === 0) return null;
+        const { icon: Icon, label, color } = getCategoriaInfo(cat);
+        
+        return (
+          <div key={cat} className="categoria-section">
+            <div className="categoria-header">
+              <Icon size={18} style={{ color }} />
+              <span>{label}</span>
+              <span className="count">{items.length} modelos</span>
+            </div>
+            <div className="modelos-grid">
+              {items.map(modelo => (
+                <div key={modelo.id} className="modelo-card">
+                  <div className="modelo-info">
+                    <div className="modelo-header">
+                      <strong>{modelo.nombre}</strong>
+                      <span className="motor-badge">{getMotorIcon(modelo.motor)} {modelo.motor}</span>
+                    </div>
+                    <p className="modelo-desc">{modelo.descripcion}</p>
+                    <div className="modelo-meta">
+                      <span><MemoryStick size={14} /> {modelo.tamano}</span>
+                      <span>↓ {modelo.ram_min} GB RAM mín.</span>
+                    </div>
+                  </div>
+                  <div className="modelo-actions">
+                    <button
+                      className={`btn-descargar ${descargando === modelo.id ? 'descargando' : ''}`}
+                      onClick={() => descargar(modelo)}
+                      disabled={!!descargando}
+                    >
+                      {descargando === modelo.id ? (
+                        <>
+                          <Loader2 size={16} className="spin" />
+                          {progreso || 'Descargando...'}
+                        </>
+                      ) : (
+                        <>
+                          <Download size={16} /> Descargar
+                        </>
+                      )}
+                    </button>
+                    <a href={modelo.url} target="_blank" rel="noopener" className="btn-link">
+                      <ExternalLink size={14} />
+                    </a>
+                  </div>
 
-      {/* Progreso de la descarga en curso */}
-      {enMarcha && (
-        <div className="mt-2.5 rounded-lg border border-white/10 bg-black/25 p-2.5">
-          <div className="flex items-center justify-between text-[10px] font-semibold text-slate-200">
-            <span className="flex items-center gap-1.5">
-              <Loader2 size={11} className="animate-spin" />
-              Bajando {enMarcha.modelo}
-            </span>
-            <span>{Math.round(enMarcha.progreso)}%</span>
-          </div>
-          <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
-            <div
-              className="h-full rounded-full bg-sky-400 transition-all"
-              style={{ width: `${Math.max(2, Math.min(100, enMarcha.progreso))}%` }}
-            />
-          </div>
-          {enMarcha.log?.length > 0 && (
-            <pre className="mt-1.5 max-h-20 overflow-auto whitespace-pre-wrap break-words text-[9px] leading-snug text-slate-500">
-              {enMarcha.log.slice(-4).join('\n')}
-            </pre>
-          )}
-        </div>
-      )}
-
-      {terminada && (
-        <Aviso tono="ok">
-          <span className="flex items-center gap-1.5">
-            <Check size={12} /> {terminada.modelo} esta listo. Ya puedes usarlo desde
-            &quot;Conectar IA&quot; o deja que LifeAgente lo detecte solo.
-          </span>
-        </Aviso>
-      )}
-
-      {fallida && (
-        <div className="mt-2.5">
-          <Aviso tono="error">{fallida.mensaje || 'La descarga fallo.'}</Aviso>
-        </div>
-      )}
-
-      {error && (
-        <div className="mt-2.5">
-          <Aviso tono="error">{error}</Aviso>
-        </div>
-      )}
-
-      {/* Catalogo de modelos ligeros */}
-      <div className="mt-2.5 space-y-1.5">
-        {(info?.modelos ?? []).map((m) => {
-          const enCurso = enMarcha?.modelo === m.id
-          const listo = descargas.some((d) => d.modelo === m.id && d.estado === 'listo')
-          return (
-            <div
-              key={m.id}
-              className="flex items-center gap-2 rounded-lg bg-black/20 px-2.5 py-2"
-            >
-              <Cpu size={13} className="shrink-0 text-sky-300" />
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-200">
-                  {m.nombre}
-                  {m.recomendado && (
-                    <span className="rounded-md bg-sky-500/20 px-1.5 py-0.5 text-[9px] font-bold text-sky-200">
-                      recomendado
-                    </span>
+                  {descargando === modelo.id && (
+                    <div className="progreso-descarga">
+                      <div className="progreso-bar">
+                        <div className="progreso-fill" style={{ width: progreso.includes('%') ? progreso : '0%' }} />
+                      </div>
+                      <small>{progreso}</small>
+                    </div>
                   )}
                 </div>
-                <div className="truncate text-[10px] text-slate-500">
-                  {m.tamano_mb} MB · {m.nota}
-                </div>
-              </div>
-              <Boton
-                variante={listo ? 'fantasma' : 'secundario'}
-                onClick={() => void bajar(m.id)}
-                disabled={ocupado || enCurso}
-                className="!px-2 !py-1 text-[10px]"
-              >
-                {enCurso ? (
-                  <Loader2 size={11} className="animate-spin" />
-                ) : listo ? (
-                  <Check size={11} />
-                ) : (
-                  <Download size={11} />
-                )}
-                {enCurso ? 'Bajando' : listo ? 'Repetir' : 'Bajar'}
-              </Boton>
+              ))}
             </div>
-          )
-        })}
-      </div>
+          </div>
+      )})}
 
-      {terminada && (
-        <div className="mt-2.5">
-          <Boton
-            variante="primario"
-            className="w-full"
-            onClick={() => {
-              void api
-                .detectarLocales()
-                .then(() => alCambiar?.())
-                .catch(() => undefined)
-            }}
-          >
-            <Sparkles size={12} />
-            Buscar la IA descargada
-          </Boton>
-        </div>
-      )}
+      <div className="notas">
+        <h4><Info size={16} /> ¿Cómo funciona?</h4>
+        <ul>
+          <li>Requiere <a href="https://ollama.com/download" target="_blank" rel="noopener">Ollama instalado</a> (motor local).</li>
+          <li>La descarga es <strong>una sola vez</strong>; luego el modelo corre offline.</li>
+          <li>Los modelos "Ultra ligeros" funcionan incluso con 1-2 GB RAM libre.</li>
+          <li>Sin GPU: usa CPU (más lento pero funcional). Con GPU NVIDIA: mucho más rápido.</li>
+          <li>Privado total: tus datos nunca salen de tu dispositivo.</li>
+        </ul>
+      </div>
     </div>
-  )
+  );
 }
+
+import { Info } from 'lucide-react';
