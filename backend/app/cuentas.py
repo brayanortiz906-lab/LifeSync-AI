@@ -24,6 +24,8 @@ import ssl
 from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import datetime, timedelta
+from google.auth.transport import requests as google_requests
+from google.oauth2 import id_token as google_id_token
 from email.message import EmailMessage
 
 from fastapi import Depends, Header, HTTPException
@@ -592,6 +594,47 @@ def entrar_con_cuenta(
         )
     metodo = "google" if proveedor == "google_cuenta" else proveedor.replace("_cuenta", "")
     usuario = _buscar_o_crear(db, correo, nombre, metodo)
+    usuario.verificado = True
+    usuario.ultimo_acceso = datetime.now()
+    db.flush()
+    return usuario
+
+
+def entrar_con_google_id_token(
+    db: SASession, id_token: str, client_id: str = ""
+) -> Usuario:
+    """Verifica el ID token de Google (del flujo GIS) y crea/loguea al usuario."""
+    import httpx
+    from google.oauth2 import id_token as google_id_token
+    from google.auth.transport import requests
+
+    if not client_id:
+        # Intentar obtener el client_id configurado
+        client_id = client_id_de(db, "google_cuenta")
+
+    try:
+        # Verificar el ID token con la librería oficial de Google
+        request = requests.Request()
+        idinfo = google_id_token.verify_oauth2_token(id_token, request, client_id)
+
+        # El token es válido, extraer la información
+        correo = idinfo.get("email", "")
+        nombre = idinfo.get("name") or idinfo.get("given_name", "")
+        if not correo:
+            raise HTTPException(status_code=400, detail="El token no contiene correo electrónico")
+
+        # Verificar que el email está verificado
+        if not idinfo.get("email_verified"):
+            raise HTTPException(status_code=400, detail="El correo no está verificado en Google")
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Token de Google inválido: {str(e)}",
+        )
+
+    # Crear o buscar el usuario
+    usuario = _buscar_o_crear(db, correo, nombre, "google")
     usuario.verificado = True
     usuario.ultimo_acceso = datetime.now()
     db.flush()

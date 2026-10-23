@@ -1,376 +1,140 @@
-"""Modelo de datos de LifeAgente AI.
+"""SQLAlchemy models - UUID PK, RLS ready."""
+import uuid
+from datetime import datetime
+from typing import Optional, List, Dict, Any
+from sqlalchemy import String, Text, DateTime, ForeignKey, Index, UniqueConstraint, Boolean, Integer, JSON, Enum as SQLEnum, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship, DeclarativeBase
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+import enum
 
-Entidades:
-  Event        -> bloques de calendario (trabajo, clase, estudio, descanso...)
-  Task         -> tareas/entregas académicas
-  LogEntry     -> bitácora cotidiana y gastos
-  Maintenance  -> plan de mantenimiento periódico (moto, carro, PC...)
-  ChatMessage  -> historial del chat con el agente
-  AppSettings  -> proveedor de IA + API Key cifrada (BYOK)
-"""
-from __future__ import annotations
+class Base(DeclarativeBase): pass
 
-from datetime import date, datetime
+class EventType(str, enum.Enum):
+    TASK = "task"; EVENT = "event"; NOTE = "note"; REMINDER = "reminder"
 
-from sqlalchemy import (
-    Boolean,
-    Date,
-    DateTime,
-    Float,
-    ForeignKey,
-    Integer,
-    String,
-    Text,
-    func,
-)
-from sqlalchemy import Column, Integer
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+class Usuario(Base):
+    __tablename__ = "usuarios"
+    id: Mapped[uuid.UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True)
+    display_name: Mapped[Optional[str]] = mapped_column(String(100))
+    avatar_url: Mapped[Optional[str]] = mapped_column(Text)
+    timezone: Mapped[str] = mapped_column(String(50), default="UTC")
+    locale: Mapped[str] = mapped_column(String(10), default="es")
+    ai_api_keys: Mapped[Dict[str, str]] = mapped_column(JSON, default={})
+    default_ai_provider: Mapped[Optional[str]] = mapped_column(String(50))
+    email_notifications: Mapped[bool] = mapped_column(default=True)
+    daily_summary_time: Mapped[Optional[str]] = mapped_column(String(5))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    eventos: Mapped[List["Evento"]] = relationship(back_populates="usuario", cascade="all, delete-orphan")
+    tareas: Mapped[List["Tarea"]] = relationship(back_populates="usuario", cascade="all, delete-orphan")
+    paneles: Mapped[List["Panel"]] = relationship(back_populates="usuario", cascade="all, delete-orphan")
+    backups: Mapped[List["Backup"]] = relationship(back_populates="usuario", cascade="all, delete-orphan")
+    chats: Mapped[List["Chat"]] = relationship(back_populates="usuario", cascade="all, delete-orphan")
 
-from .database import Base
+class Evento(Base):
+    __tablename__ = "eventos"
+    id: Mapped[uuid.UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    usuario_id: Mapped[uuid.UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("usuarios.id", ondelete="CASCADE"), nullable=False, index=True)
+    titulo: Mapped[str] = mapped_column(String(200))
+    descripcion: Mapped[Optional[str]] = mapped_column(Text)
+    tipo: Mapped[EventType] = mapped_column(SQLEnum(EventType), default=EventType.EVENT)
+    inicio: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    fin: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    todo_dia: Mapped[bool] = mapped_column(default=False)
+    rrule: Mapped[Optional[str]] = mapped_column(Text)
+    google_event_id: Mapped[Optional[str]] = mapped_column(String(100), index=True)
+    google_calendar_id: Mapped[Optional[str]] = mapped_column(String(100))
+    sync_status: Mapped[str] = mapped_column(String(20), default="pending")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    usuario: Mapped["Usuario"] = relationship(back_populates="eventos")
+    __table_args__ = (Index("ix_eventos_usuario_inicio", "usuario_id", "inicio"),)
 
+class Tarea(Base):
+    __tablename__ = "tareas"
+    id: Mapped[uuid.UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    usuario_id: Mapped[uuid.UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("usuarios.id", ondelete="CASCADE"), nullable=False, index=True)
+    titulo: Mapped[str] = mapped_column(String(200))
+    descripcion: Mapped[Optional[str]] = mapped_column(Text)
+    completada: Mapped[bool] = mapped_column(default=False, index=True)
+    prioridad: Mapped[int] = mapped_column(Integer, default=0)
+    fecha_vencimiento: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), index=True)
+    fecha_recordatorio: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    rrule: Mapped[Optional[str]] = mapped_column(Text)
+    orden: Mapped[int] = mapped_column(Integer, default=0)
+    panel_id: Mapped[Optional[uuid.UUID]] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("paneles.id", ondelete="SET NULL"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    completada_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    usuario: Mapped["Usuario"] = relationship(back_populates="tareas")
+    panel: Mapped[Optional["Panel"]] = relationship(back_populates="tareas")
+    __table_args__ = (Index("ix_tareas_usuario_completada", "usuario_id", "completada"), Index("ix_tareas_usuario_vencimiento", "usuario_id", "fecha_vencimiento"),)
 
-class Event(Base):
-    __tablename__ = "events"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    titulo: Mapped[str] = mapped_column(String(160), index=True)
-    categoria: Mapped[str] = mapped_column(String(32), default="personal", index=True)
-    inicio: Mapped[datetime] = mapped_column(DateTime, index=True)
-    fin: Mapped[datetime] = mapped_column(DateTime)
-    inamovible: Mapped[bool] = mapped_column(Boolean, default=False)
-    notas: Mapped[str | None] = mapped_column(Text, default=None)
-    fuente: Mapped[str] = mapped_column(String(32), default="chat")
-    color: Mapped[str | None] = mapped_column(String(16), default=None)
-    #: Panel (espacio de trabajo) al que pertenece este bloque (v19).
-    panel_id: Mapped[int | None] = mapped_column(Integer, default=None, index=True)
-    creado_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-
-    @property
-    def duracion_min(self) -> int:
-        return int((self.fin - self.inicio).total_seconds() // 60)
-
-
-class Task(Base):
-    __tablename__ = "tasks"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    titulo: Mapped[str] = mapped_column(String(220), index=True)
-    materia: Mapped[str | None] = mapped_column(String(120), default=None, index=True)
-    fecha_entrega: Mapped[date | None] = mapped_column(Date, default=None, index=True)
-    estado: Mapped[str] = mapped_column(String(24), default="pendiente", index=True)
-    prioridad: Mapped[str] = mapped_column(String(16), default="media")
-    minutos_estimados: Mapped[int] = mapped_column(Integer, default=60)
-    resumen: Mapped[str | None] = mapped_column(Text, default=None)
-    material: Mapped[str | None] = mapped_column(Text, default=None)
-    preguntas: Mapped[str | None] = mapped_column(Text, default=None)  # JSON: list[str]
-    fuente: Mapped[str] = mapped_column(String(32), default="manual")
-    #: Panel (espacio de trabajo) al que pertenece esta tarea (v19).
-    panel_id: Mapped[int | None] = mapped_column(Integer, default=None, index=True)
-    # Evento de calendario que respalda esta tarea (bloque de estudio).
-    tarea_id: Mapped[int | None] = mapped_column(ForeignKey("events.id"), default=None)
-    creado_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-
-
-class LogEntry(Base):
-    __tablename__ = "log_entries"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    descripcion: Mapped[str] = mapped_column(String(255))
-    monto: Mapped[float | None] = mapped_column(Float, default=None)
-    moneda: Mapped[str] = mapped_column(String(8), default="COP")
-    categoria: Mapped[str] = mapped_column(String(32), default="otro", index=True)
-    fecha: Mapped[date] = mapped_column(Date, index=True)
-    evento_id: Mapped[int | None] = mapped_column(ForeignKey("events.id"), default=None)
-    notas: Mapped[str | None] = mapped_column(Text, default=None)
-    #: Panel (espacio de trabajo) al que pertenece este registro (v19).
-    panel_id: Mapped[int | None] = mapped_column(Integer, default=None, index=True)
-    creado_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-
-
-class Maintenance(Base):
-    __tablename__ = "maintenance_items"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    activo: Mapped[str] = mapped_column(String(48), index=True)
-    tarea: Mapped[str] = mapped_column(String(160))
-    intervalo_dias: Mapped[int] = mapped_column(Integer, default=90)
-    ultima_realizacion: Mapped[date | None] = mapped_column(Date, default=None)
-    proxima_fecha: Mapped[date | None] = mapped_column(Date, default=None, index=True)
-    costo_estimado: Mapped[float | None] = mapped_column(Float, default=None)
-    notas: Mapped[str | None] = mapped_column(Text, default=None)
-    activo_flag: Mapped[bool] = mapped_column(Boolean, default=True)
-    #: Panel (espacio de trabajo) al que pertenece este mantenimiento (v19).
-    panel_id: Mapped[int | None] = mapped_column(Integer, default=None, index=True)
-    creado_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-
-
-class ChatMessage(Base):
-    __tablename__ = "chat_messages"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    rol: Mapped[str] = mapped_column(String(16))  # user | assistant | system
-    contenido: Mapped[str] = mapped_column(Text)
-    payload: Mapped[str | None] = mapped_column(Text, default=None)  # JSON crudo del agente
-    categoria: Mapped[str | None] = mapped_column(String(32), default=None)
-    #: Panel (espacio de trabajo) al que pertenece este mensaje (v19).
-    panel_id: Mapped[int | None] = mapped_column(Integer, default=None, index=True)
-    creado_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-
-
-class AppSettings(Base):
-    """Ajustes de la persona (uno por usuario, v11).
-
-    La clave primaria la asigna la base de datos: cada persona tiene su propia
-    fila y se busca por `usuario_id` (nunca por id fijo, que colisionaba).
-    """
-
-    __tablename__ = "app_settings"
-
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    proveedor: Mapped[str] = mapped_column(String(24), default="mock")
-    modelo: Mapped[str] = mapped_column(String(64), default="gpt-4o-mini")
-    api_key_cifrada: Mapped[str | None] = mapped_column(Text, default=None)
-    moneda: Mapped[str] = mapped_column(String(8), default="COP")
-    inicio_jornada: Mapped[str] = mapped_column(String(5), default="07:00")
-    fin_jornada: Mapped[str] = mapped_column(String(5), default="22:00")
-    # --- Preferencias de la persona (v8) ---------------------------------- #
-    nombre_usuario: Mapped[str] = mapped_column(String(60), default="")
-    tema: Mapped[str] = mapped_column(String(24), default="medianoche")
-    orden_tareas: Mapped[str] = mapped_column(String(24), default="fecha")
-    orden_gastos: Mapped[str] = mapped_column(String(24), default="fecha")
-    orden_eventos: Mapped[str] = mapped_column(String(24), default="hora")
-    #: Etiquetas personalization por la persona (JSON con lista de textos).
-    etiquetas: Mapped[str] = mapped_column(Text, default="")
-    onboarding_completo: Mapped[bool] = mapped_column(Boolean, default=False)
-    #: ID de cliente OAuth de Google (identificador PUBLICO, no es un secreto).
-    #: Permite que cualquier persona conecte su cuenta de Google con un clic.
-    google_client_id: Mapped[str] = mapped_column(String(200), default="")
-    #: Lo mismo para Outlook/Hotmail y GitHub (v24): asi cada via de acceso
-    #: se puede activar desde la propia app, sin tocar el despliegue.
-    outlook_client_id: Mapped[str] = mapped_column(String(200), default="")
-    github_client_id: Mapped[str] = mapped_column(String(200), default="")
-    actualizado_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
-
-
-class ConfiguracionServidor(Base):
-    """Ajustes del SERVIDOR (una sola fila para toda la instalacion, v36).
-
-    Sirve para que quien instala la app pueda activar el envio de correos
-    (codigos de verificacion y avisos) desde la propia aplicacion, sin tener
-    que entrar al panel del despliegue. La clave del correo se guarda
-    CIFRADA con Fernet, nunca en claro.
-    """
-
-    __tablename__ = "configuracion_servidor"
-
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    smtp_host: Mapped[str] = mapped_column(String(120), default="")
-    smtp_port: Mapped[int] = mapped_column(Integer, default=587)
-    smtp_user: Mapped[str] = mapped_column(String(160), default="")
-    #: Clave del correo (o clave de aplicacion), cifrada con Fernet.
-    smtp_password_cifrado: Mapped[str | None] = mapped_column(Text, default=None)
-    smtp_desde: Mapped[str] = mapped_column(String(160), default="")
-    #: Proveedor de correo sin SMTP: "brevo" | "resend" | "smtp" (v39).
-    proveedor_correo: Mapped[str] = mapped_column(String(20), default="smtp")
-    #: Clave de API del proveedor (Brevo / Resend), cifrada con Fernet (v39).
-    api_key_cifrada: Mapped[str | None] = mapped_column(Text, default=None)
-    #: Correo remitente (el que el proveedor tiene verificado) (v39).
-    remitente: Mapped[str] = mapped_column(String(160), default="")
-    #: Identificadores de cliente OAuth (son PUBLICOS: no son secretos) para
-    #: que la gente pueda entrar con Google, Outlook o GitHub. Se guardan aqui
-    #: (una sola fila para toda la instalacion) y valen para TODOS los usuarios.
-    google_client_id: Mapped[str] = mapped_column(String(200), default="")
-    outlook_client_id: Mapped[str] = mapped_column(String(200), default="")
-    github_client_id: Mapped[str] = mapped_column(String(200), default="")
-    actualizado_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
-
-
-# --------------------------------------------------------------------------- #
-# CONEXIONES DE IA (cuentas y proveedores)
-# --------------------------------------------------------------------------- #
-class ConexionIA(Base):
-    """Conexión a un proveedor de IA.
-
-    `modo` define como se autentica el usuario:
-      - "api_key"  -> pega una clave (OpenAI, Anthropic, Gemini, OpenRouter...)
-      - "cuenta"   -> OAuth / sesión de cuenta (ChatGPT, Claude.ai, Google...)
-      - "local"    -> motor local (Ollama, LM Studio) sin clave
-      - "mock"     -> asistente integrado sin conexión
-    """
-
-    __tablename__ = "ai_connections"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    proveedor: Mapped[str] = mapped_column(String(48), index=True)
-    nombre: Mapped[str] = mapped_column(String(80), default="")
-    modo: Mapped[str] = mapped_column(String(16), default="api_key", index=True)
-    credenciales_cifradas: Mapped[str | None] = mapped_column(Text, default=None)
-    modelo: Mapped[str] = mapped_column(String(96), default="")
-    activa: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
-    estado: Mapped[str] = mapped_column(String(24), default="sin_probar", index=True)
-    detalle_estado: Mapped[str | None] = mapped_column(Text, default=None)
-    creada_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-    verificada_en: Mapped[datetime | None] = mapped_column(DateTime, default=None)
-
-
-# --------------------------------------------------------------------------- #
-# SISTEMA RESPONSABLE (IA responsable)
-# --------------------------------------------------------------------------- #
-class PolicySettings(Base):
-    """Parámetros de gobierno del agente: umbrales, autonomia y trazabilidad.
-
-    Una fila por persona (v11): la clave primaria la asigna la base de datos
-    y se busca por `usuario_id` (si no, dos personas chocan en la misma fila).
-    """
-
-    __tablename__ = "policy_settings"
-
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    # --- Umbrales de decisión -------------------------------------------------
-    umbral_confianza: Mapped[float] = mapped_column(Float, default=0.65)
-    gasto_max_autonomo: Mapped[float] = mapped_column(Float, default=100000.0)
-    max_acciones_por_mensaje: Mapped[int] = mapped_column(Integer, default=12)
-    # --- Interruptores de gobierno --------------------------------------------
-    eliminar_requiere_aprobacion: Mapped[bool] = mapped_column(Boolean, default=True)
-    gasto_alto_requiere_aprobacion: Mapped[bool] = mapped_column(Boolean, default=True)
-    baja_confianza_requiere_aprobacion: Mapped[bool] = mapped_column(Boolean, default=True)
-    redactar_pii: Mapped[bool] = mapped_column(Boolean, default=True)
-    registrar_auditoria: Mapped[bool] = mapped_column(Boolean, default=True)
-    permitir_ia_externa: Mapped[bool] = mapped_column(Boolean, default=True)
-    modo_prudente: Mapped[bool] = mapped_column(Boolean, default=False)
-    # --- Explicabilidad --------------------------------------------------------
-    exigir_motivo: Mapped[bool] = mapped_column(Boolean, default=True)
-    # --- Privacidad ------------------------------------------------------------
-    dias_retencion_auditoria: Mapped[int] = mapped_column(Integer, default=365)
-    actualizado_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
-
-
-class AuditLog(Base):
-    """Bitacora de auditoría: que hizo el sistema, con que motivo y con que impacto."""
-
-    __tablename__ = "audit_log"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    creado_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)
-    actor: Mapped[str] = mapped_column(String(24), default="agente", index=True)
-    tipo: Mapped[str] = mapped_column(String(32), default="accion", index=True)
-    modulo: Mapped[str] = mapped_column(String(32), default="agente")
-    entidad: Mapped[str | None] = mapped_column(String(32), default=None)
-    entidad_id: Mapped[int | None] = mapped_column(Integer, default=None)
-    descripcion: Mapped[str] = mapped_column(String(255), default="")
-    motivo: Mapped[str | None] = mapped_column(Text, default=None)
-    confianza: Mapped[float | None] = mapped_column(Float, default=None)
-    riesgo: Mapped[str] = mapped_column(String(16), default="bajo", index=True)
-    reversible: Mapped[bool] = mapped_column(Boolean, default=True)
-    resultado: Mapped[str] = mapped_column(String(16), default="ok", index=True)
-    datos: Mapped[str | None] = mapped_column(Text, default=None)  # JSON
-
-
-class ApprovalRequest(Base):
-    """Acción que el agente propone pero NO ejecuta: espera decisión humana."""
-
-    __tablename__ = "approval_requests"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    creado_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)
-    estado: Mapped[str] = mapped_column(String(16), default="pendiente", index=True)
-    tipo_accion: Mapped[str] = mapped_column(String(32), default="")
-    resumen: Mapped[str] = mapped_column(String(255), default="")
-    motivo: Mapped[str | None] = mapped_column(Text, default=None)
-    regla: Mapped[str] = mapped_column(String(64), default="")
-    riesgo: Mapped[str] = mapped_column(String(16), default="medio")
-    confianza: Mapped[float | None] = mapped_column(Float, default=None)
-    datos: Mapped[str | None] = mapped_column(Text, default=None)  # JSON de la acción
-    chat_message_id: Mapped[int | None] = mapped_column(Integer, default=None)
-    decidido_en: Mapped[datetime | None] = mapped_column(DateTime, default=None)
-    decidido_por: Mapped[str | None] = mapped_column(String(48), default=None)
-    nota_decision: Mapped[str | None] = mapped_column(Text, default=None)
-
-
-# --------------------------------------------------------------------------- #
-# PERMISOS DE LA CUENTA (v16)
-# --------------------------------------------------------------------------- #
-class PermisosCuenta(Base):
-    """Permisos que la persona autorizó a LifeAgente con su cuenta.
-
-    Con un solo permiso concedido (Drive, Calendar, correo) el sistema puede
-    trabajar solo: respaldar cada noche, importar la agenda de Google y
-    avisar por correo, aunque nadie tenga la app abierta.
-    """
-
-    __tablename__ = "permisos_cuenta"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    proveedor: Mapped[str] = mapped_column(String(48), default="google_cuenta", index=True)
-    correo: Mapped[str] = mapped_column(String(180), default="")
-    scope: Mapped[str] = mapped_column(Text, default="")
-    access_token_cifrado: Mapped[str | None] = mapped_column(Text, default=None)
-    refresh_token_cifrado: Mapped[str | None] = mapped_column(Text, default=None)
-    client_id: Mapped[str] = mapped_column(String(200), default="")
-    autopiloto: Mapped[bool] = mapped_column(Boolean, default=False)
-    respaldo_auto: Mapped[bool] = mapped_column(Boolean, default=True)
-    importar_calendario: Mapped[bool] = mapped_column(Boolean, default=True)
-    ultimo_respaldo: Mapped[datetime | None] = mapped_column(DateTime, default=None)
-    proximo_respaldo: Mapped[datetime | None] = mapped_column(DateTime, default=None)
-    #: v21: hay cambios sin respaldar. El sistema espera a que la persona
-    #: deje de poner informacion y entonces guarda (guardado con retardo).
-    cambios_pendientes: Mapped[bool] = mapped_column(Boolean, default=False)
-    ultimo_cambio: Mapped[datetime | None] = mapped_column(DateTime, default=None)
-    #: v21: enviar el resumen del dia siguiente por correo.
-    resumen_diario: Mapped[bool] = mapped_column(Boolean, default=False)
-    creado_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-    actualizado_en: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now(), onupdate=func.now()
-    )
-
-
-# --------------------------------------------------------------------------- #
-# PANELES (v19): espacios de trabajo con acceso por persona
-# --------------------------------------------------------------------------- #
 class Panel(Base):
-    """Un panel (espacio de trabajo) con su propio contenido.
-
-    Cada panel tiene un dueño y puede compartirse con otras cuentas con dos
-    niveles: "ver" (solo mirar) y "editar" (además puede agregar cosas).
-    Nadie ve un panel ajeno sin permiso explícito.
-    """
-
     __tablename__ = "paneles"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    nombre: Mapped[str] = mapped_column(String(80), index=True)
-    tipo: Mapped[str] = mapped_column(String(32), default="agenda", index=True)
-    color: Mapped[str] = mapped_column(String(16), default="indigo")
-    descripcion: Mapped[str | None] = mapped_column(Text, default=None)
-    creado_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-
+    id: Mapped[uuid.UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    usuario_id: Mapped[uuid.UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("usuarios.id", ondelete="CASCADE"), nullable=False, index=True)
+    nombre: Mapped[str] = mapped_column(String(100))
+    descripcion: Mapped[Optional[str]] = mapped_column(Text)
+    color: Mapped[str] = mapped_column(String(7), default="#3B82F6")
+    icono: Mapped[Optional[str]] = mapped_column(String(50))
+    es_publico: Mapped[bool] = mapped_column(default=False)
+    codigo_compartido: Mapped[Optional[str]] = mapped_column(String(20), unique=True, index=True)
+    creado_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    actualizado_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    usuario: Mapped["Usuario"] = relationship(back_populates="paneles")
+    tareas: Mapped[List["Tarea"]] = relationship(back_populates="panel", cascade="all, delete-orphan")
+    permisos: Mapped[List["PermisoPanel"]] = relationship(back_populates="panel", cascade="all, delete-orphan")
 
 class PermisoPanel(Base):
-    """Permiso de acceso de una persona a un panel (v19)."""
-
     __tablename__ = "permisos_panel"
+    id: Mapped[uuid.UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    panel_id: Mapped[uuid.UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("paneles.id", ondelete="CASCADE"))
+    usuario_id: Mapped[uuid.UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("usuarios.id", ondelete="CASCADE"))
+    rol: Mapped[str] = mapped_column(String(20), default="viewer")
+    creado_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    panel: Mapped["Panel"] = relationship(back_populates="permisos")
+    usuario: Mapped["Usuario"] = relationship()
+    __table_args__ = (UniqueConstraint("panel_id", "usuario_id", name="uq_panel_usuario"),)
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    panel_id: Mapped[int] = mapped_column(Integer, index=True)
-    #: Persona a quien se le da acceso (no es el dueño).
-    usuario_id: Mapped[int] = mapped_column(Integer, index=True)
-    #: "ver" o "editar".
-    nivel: Mapped[str] = mapped_column(String(16), default="ver", index=True)
-    creado_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+class Backup(Base):
+    __tablename__ = "backups"
+    id: Mapped[uuid.UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    usuario_id: Mapped[uuid.UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("usuarios.id", ondelete="CASCADE"), nullable=False, index=True)
+    nombre_archivo: Mapped[str] = mapped_column(String(255))
+    ruta_storage: Mapped[str] = mapped_column(String(500))
+    tamano_bytes: Mapped[int] = mapped_column(Integer)
+    tipo: Mapped[str] = mapped_column(String(20))
+    estado: Mapped[str] = mapped_column(String(20), default="completed")
+    metadatos: Mapped[Dict[str, Any]] = mapped_column(JSON, default={})
+    creado_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+    usuario: Mapped["Usuario"] = relationship(back_populates="backups")
+    __table_args__ = (Index("ix_backups_usuario_creado", "usuario_id", "creado_at"),)
 
+class Chat(Base):
+    __tablename__ = "chats"
+    id: Mapped[uuid.UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    usuario_id: Mapped[uuid.UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("usuarios.id", ondelete="CASCADE"), nullable=False, index=True)
+    titulo: Mapped[Optional[str]] = mapped_column(String(200))
+    modelo: Mapped[str] = mapped_column(String(50), default="gemini-1.5-flash")
+    system_prompt: Mapped[Optional[str]] = mapped_column(Text)
+    creado_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+    actualizado_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    usuario: Mapped["Usuario"] = relationship(back_populates="chats")
+    mensajes: Mapped[List["MensajeChat"]] = relationship(back_populates="chat", cascade="all, delete-orphan", order_by="MensajeChat.creado_at")
 
-# --------------------------------------------------------------------------- #
-# Multiusuario (v11)
-# --------------------------------------------------------------------------- #
-# Cada fila pertenece a una persona. El id 1 es el "usuario local": el que
-# usa LifeAgente en su propio equipo sin crear ninguna cuenta. El filtro de
-# sesion de `cuentas.py` aade `usuario_id = <usuario actual>` a todas las
-# consultas, de modo que cada persona ve solo lo suyo.
-from sqlalchemy import Column  # noqa: E402  (import local para no tocar el bloque superior)
-
-for _modelo in (
-    Event, Task, LogEntry, Maintenance, ChatMessage, ConexionIA,
-    AuditLog, ApprovalRequest, AppSettings, PolicySettings, PermisosCuenta,
-    Panel,
-):
-    _modelo.usuario_id = Column(Integer, default=1, index=True)
+class MensajeChat(Base):
+    __tablename__ = "mensajes_chat"
+    id: Mapped[uuid.UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    chat_id: Mapped[uuid.UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("chats.id", ondelete="CASCADE"), nullable=False, index=True)
+    usuario_id: Mapped[uuid.UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("usuarios.id", ondelete="CASCADE"), nullable=False)
+    rol: Mapped[str] = mapped_column(String(20))
+    contenido: Mapped[str] = mapped_column(Text)
+    tokens_entrada: Mapped[Optional[int]] = mapped_column(Integer)
+    tokens_salida: Mapped[Optional[int]] = mapped_column(Integer)
+    modelo: Mapped[Optional[str]] = mapped_column(String(50))
+    metadatos: Mapped[Dict[str, Any]] = mapped_column(JSON, default={})
+    creado_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+    chat: Mapped["Chat"] = relationship(back_populates="mensajes")
+    usuario: Mapped["Usuario"] = relationship()
+    __table_args__ = (Index("ix_mensajes_chat_creado", "chat_id", "creado_at"),)

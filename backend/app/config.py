@@ -1,260 +1,49 @@
-"""Configuración centralizada (patrón Settings con pydantic-settings)."""
-from __future__ import annotations
-
-import os
-import sys
-from functools import lru_cache
-from pathlib import Path
-
+"""Settings centralizadas - Supabase + BYOK (sin GEMINI_API_KEY global)."""
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
-BASE_DIR = Path(__file__).resolve().parent.parent          # backend/
-PROJECT_DIR = BASE_DIR.parent                               # raíz del proyecto
-SHARED_DIR = PROJECT_DIR / "shared"
-
-# Orígenes que la API siempre acepta: las webs de este mismo proyecto
-# publicadas en GitHub Pages. Así la app funciona desde la web aunque quien
-# despliega olvide añadir el origen a CORS_ORIGINS.
-ORIGENES_PROPIOS = (
-    "https://brayanortiz906-lab.github.io",
-    "https://underlanded4.github.io",
-    # El APK de Android (Capacitor) y la PWA abierta desde el telefono
-    # llegan con estos origenes: sin ellos el navegador los bloquea.
-    "capacitor://localhost",
-    "http://localhost",
-    "https://localhost",
-    "http://localhost:8100",
-)
-
-# --- App empaquetada (instalador .exe) ----------------------------------- #
-# Cuando LifeAgente va dentro de un .exe (PyInstaller), los archivos viven
-# en una carpeta temporal que se BORRA al cerrar. Por eso:
-#   1. la base de datos va a una carpeta de datos del usuario (persiste), y
-#   2. los archivos de solo lectura (system_prompt, frontend) se buscan en
-#      varias rutas posibles.
-FROZEN = bool(getattr(sys, "frozen", False))               # True dentro del .exe
-MEIPASS = Path(getattr(sys, "_MEIPASS", "")) if FROZEN else None
-
-
-def _primer_existente(candidatos: list[Path]) -> Path:
-    for c in candidatos:
-        if c and c.exists():
-            return c
-    return candidatos[0]
-
-
-# Carpeta de datos del usuario: %APPDATA%\LifeAgente (o ~/.lifeagente).
-# Aqui vive la base de datos, los respaldos y los logs. NO se borra al cerrar.
-DATA_DIR = Path(
-    os.environ.get("LIFEAGENTE_DATA")
-    or (Path(os.environ.get("APPDATA") or Path.home()) / "LifeAgente")
-)
-try:
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-except OSError:  # pragma: no cover - permisos raros
-    pass
-
-# Carpeta de la interfaz compilada (frontend/dist).
-FRONTEND_DIST = _primer_existente(
-    [
-        (MEIPASS / "frontend" / "dist") if MEIPASS else BASE_DIR.parent / "frontend" / "dist",
-        BASE_DIR.parent / "frontend" / "dist",
-        Path(sys.executable).parent / "frontend" / "dist" if FROZEN else BASE_DIR / "dist",
-    ]
-)
-
-# Archivo con el System Prompt (fuente de verdad del agente).
-SYSTEM_PROMPT_PATH = _primer_existente(
-    [
-        (MEIPASS / "shared" / "system_prompt.txt") if MEIPASS else PROJECT_DIR / "shared" / "system_prompt.txt",
-        PROJECT_DIR / "shared" / "system_prompt.txt",
-        Path(sys.executable).parent / "shared" / "system_prompt.txt" if FROZEN else BASE_DIR / "system_prompt.txt",
-    ]
-)
-SHARED_DIR = SYSTEM_PROMPT_PATH.parent
-
-# --- Version de la app (fuente unica: el archivo VERSION) ----------------- #
-# La misma version la ven: la app (Ajustes), el instalador .exe, la API
-# (/api/health) y la pagina de Releases de GitHub.
-VERSION_POR_DEFECTO = "1.1.0"
-VERSION_PATHES = [
-    (MEIPASS / "VERSION") if MEIPASS else PROJECT_DIR / "VERSION",
-    PROJECT_DIR / "VERSION",
-    Path(sys.executable).parent / "VERSION" if FROZEN else BASE_DIR / "VERSION",
-]
-
-
-def _secreto_estable() -> str:
-    """Clave estable entre ejecuciones.
-
-    La clave cifra las credenciales de las IA (Fernet). Si cambiara en cada
-    arranque, las claves guardadas quedarían ilegibles. Por eso se guarda una
-    vez en la carpeta de datos del usuario.
-    """
-    archivo = DATA_DIR / "secreto.txt"
-    try:
-        if archivo.exists():
-            valor = archivo.read_text(encoding="utf-8").strip()
-            if valor:
-                return valor
-        import secrets as _secrets
-
-        valor = _secrets.token_urlsafe(48)
-        archivo.write_text(valor, encoding="utf-8")
-        return valor
-    except OSError:  # pragma: no cover
-        return "dev-secret-change-me"
-
+from pydantic import Field, computed_field
+from typing import List, Optional
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=(BASE_DIR / ".env"), env_file_encoding="utf-8", extra="ignore"
+        env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore"
     )
-
-    app_name: str = "LifeAgente AI"
-    app_secret_key: str = ""
-    database_url: str = ""
-    default_llm_provider: str = "mock"
-    default_openai_model: str = "gpt-4o-mini"
-    default_gemini_model: str = "gemini-2.0-flash"
-
-    default_currency: str = "COP"
-    day_start: str = "07:00"
-    day_end: str = "22:00"
-    default_timezone: str = "America/Bogota"
-
-    # --- Envio del codigo de verificacion (v11) ------------------------- #
-    # Sin SMTP configurado el codigo se muestra en la respuesta (modo
-    # desarrollo) y queda registrado en la consola del servidor.
-    # --- Acceso con cuenta: un client id por proveedor ---------------- #
-    # Lo configura UNA vez quien instala la app (env vars del despliegue).
-    google_client_id: str = ""
-    outlook_client_id: str = ""
-    github_client_id: str = ""
-    smtp_host: str = ""
-    smtp_port: int = 587
-    smtp_user: str = ""
-    smtp_password: str = ""
-    smtp_desde: str = ""
-
-    # --- Envio de correo sin SMTP (v39) ---------------------------------- #
-    # Brevo (300 correos/dia gratis) y Resend (3.000/mes gratis): con UNA
-    # clave de API se manda el codigo de verificacion y los avisos, sin
-    # puertos de correo abierto y sin configurar un servidor SMTP.
-    # "brevo" | "resend" | "smtp" | "" (se deduce solo).
-    email_provider: str = ""
-    brevo_api_key: str = ""
-    brevo_remitente: str = ""
-    resend_api_key: str = ""
-    resend_remitente: str = ""
-
-    # --- Tarea diaria (v21) -------------------------------------------- #
-    # Token que protege `POST /api/permisos/ejecutar-todos`. La tarea diaria
-    # de GitHub Actions lo usa para despertar la API y mandar el resumen.
-    cron_token: str = ""
-
-    # --- Seguridad de las cuentas (v32) --------------------------------- #
-    # "desarrollo" | "produccion". En produccion NUNCA se devuelve el codigo
-    # de verificacion en la respuesta de la API (solo llega por correo).
-    entorno: str = "desarrollo"
-    # Correos que nacen con rol de administrador (separados por comas).
-    # Es la UNICA via para crear un admin: nadie puede auto-asignarse el rol.
-    admin_emails: str = ""
-    # Minutos de validez del codigo de verificacion.
-    minutos_codigo: int = 15
-    # Intentos maximos para acertar el codigo antes de invalidarlo.
-    max_intentos_codigo: int = 5
-    # Segundos que hay que esperar para pedir otro codigo al mismo correo.
-    segundos_entre_codigos: int = 60
-
-    cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
-
-    # --- Perfil de la app (v44) -------------------------------------- #
-    # "web" = la version de la pagina: se entra con una cuenta y se
-    # pueden conectar Google, Drive, calendario y correo.
-    # "local" = la version que se descarga (.exe): NO hace falta cuenta,
-    # los datos se guardan en la base de datos de este computador y todo
-    # lo de las cuentas se esconde.
-    perfil: str = "web"
-
+    
+    # App
+    APP_NAME: str = "LifeAgente"
+    DEBUG: bool = True
+    ENVIRONMENT: str = "local"
+    API_V1_PREFIX: str = "/api/v1"
+    CORS_ORIGINS: List[str] = ["http://localhost:5173"]
+    
+    # Supabase
+    SUPABASE_URL: str = Field(..., description="https://xxx.supabase.co")
+    SUPABASE_ANON_KEY: str = Field(..., description="Clave pública anon")
+    SUPABASE_SERVICE_ROLE_KEY: str = Field(..., description="Service role (SOLO backend)")
+    DATABASE_URL: str = Field(..., description="postgresql+asyncpg://...")
+    
+    # Crypto para encriptar API keys de usuarios (BYOK)
+    ENCRYPTION_KEY: str = Field(..., description="32 bytes base64 para Fernet")
+    
+    # Google OAuth (opcional - Calendar/Drive)
+    GOOGLE_CLIENT_ID: Optional[str] = None
+    GOOGLE_CLIENT_SECRET: Optional[str] = None
+    
+    # Email (opcional)
+    SMTP_HOST: Optional[str] = None
+    SMTP_PORT: int = 587
+    SMTP_USER: Optional[str] = None
+    SMTP_PASSWORD: Optional[str] = None
+    EMAIL_FROM: str = "noreply@lifeagente.local"
+    
+    # Frontend URL
+    FRONTEND_URL: str = "http://localhost:5173"
+    
+    # Cron
+    CRON_TOKEN: str = "cron-token-secreto"
+    
+    @computed_field
     @property
-    def cors_origin_list(self) -> list[str]:
-        """Orígenes permitidos.
+    def is_local(self) -> bool:
+        return self.ENVIRONMENT == "local"
 
-        Los del propio proyecto (la web publicada en GitHub Pages) se incluyen
-        SIEMPRE: si el panel de Render no los lista, el navegador bloquea la
-        llamada y la app cae en modo local al entrar desde la web. El valor
-        de CORS_ORIGINS solo puede AÑADIR orígenes, nunca quitarlos.
-        """
-        lista = [o.strip() for o in self.cors_origins.split(",") if o.strip()]
-        for propio in ORIGENES_PROPIOS:
-            if propio not in lista:
-                lista.append(propio)
-        return lista
-
-    @property
-    def perfil_efectivo(self) -> str:
-        """Perfil real: la variable de entorno manda sobre el ajuste.
-
-        El instalador (.exe) arranca con LIFEAGENTE_PERFILO=local para que
-        la app sea la version de escritorio: sin cuentas, sin Drive y con la
-        base de datos en este computador.
-        """
-        valor = os.environ.get("LIFEAGENTE_PERFILO", self.perfil).strip().lower()
-        return "local" if valor in ("local", "escritorio", "offline") else "web"
-
-    @property
-    def es_local(self) -> bool:
-        """True cuando esta es la version local (instalada en el equipo)."""
-        return self.perfil_efectivo == "local"
-
-    @property
-    def es_produccion(self) -> bool:
-        """En produccion no se muestran codigos en pantalla ni se imprimen."""
-        return self.entorno.strip().lower() in ("produccion", "production", "prod")
-
-    @property
-    def lista_admins(self) -> list[str]:
-        """Correos que nacen con rol de administrador (configuracion del servidor)."""
-        return [c.strip().lower() for c in self.admin_emails.split(",") if c.strip()]
-
-    def modelo_defecto(self) -> "Settings":
-        """Rellena los valores que dependen de la carpeta de datos."""
-        if not self.app_secret_key:
-            self.app_secret_key = _secreto_estable()
-        if not self.database_url:
-            self.database_url = f"sqlite:///{(DATA_DIR / 'lifesync.db').as_posix()}"
-        return self
-
-    @property
-    def system_prompt(self) -> str:
-        """System Prompt maestro (fuente de verdad en /shared/system_prompt.txt)."""
-        if SYSTEM_PROMPT_PATH.exists():
-            return SYSTEM_PROMPT_PATH.read_text(encoding="utf-8")
-        return "Eres LifeAgente, un asistente de vida y productividad. Responde en JSON."
-
-    @property
-    def version(self) -> str:
-        """Version de la app. Fuente unica: el archivo VERSION del repositorio.
-
-        La misma version aparece en la app, en el instalador .exe y en las
-        Releases de GitHub, para que nadie se pierda al actualizar.
-        """
-        for ruta in VERSION_PATHES:
-            try:
-                if ruta.exists():
-                    texto = ruta.read_text(encoding="utf-8").strip()
-                    if texto:
-                        return texto
-            except Exception:
-                continue
-        return VERSION_POR_DEFECTO
-
-
-@lru_cache
-def get_settings() -> Settings:
-    return Settings().modelo_defecto()
-
-
-settings = get_settings()
-os.makedirs(BASE_DIR, exist_ok=True)
+settings = Settings()

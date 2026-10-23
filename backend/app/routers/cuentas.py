@@ -26,6 +26,7 @@ from ..cuentas import (
     USUARIO_LOCAL,
     client_id_de,
     entrar_con_cuenta,
+    entrar_con_google_id_token,
     entrar_con_password,
     cerrar_sesion,
     crear_sesion,
@@ -81,6 +82,12 @@ class CuentaGoogleIn(BaseModel):
 
     proveedor: str = "google_cuenta"
     device_code: str = ""
+
+
+class GoogleIdTokenIn(BaseModel):
+    """ID token de Google Identity Services (GIS) para el botón 'Sign in with Google'."""
+
+    id_token: str
 
 
 class RegistroIn(BaseModel):
@@ -222,6 +229,26 @@ def google_terminar(payload: CuentaGoogleIn, db: Session = Depends(get_db, scope
         return {"ok": False, "mensaje": mensaje.strip()}
     usuario = entrar_con_cuenta(db, cred.get("access_token", ""), payload.proveedor)
     token = crear_sesion(db, usuario, payload.proveedor)
+    return {"ok": True, "token": token, "usuario": _perfil(usuario)}
+
+
+# --------------------------------------------------------------------------- #
+# Inicio de sesión con Google Identity Services (GIS) - ID token
+# --------------------------------------------------------------------------- #
+class GoogleIdTokenIn(BaseModel):
+    id_token: str
+
+
+@router.post("/google/id-token")
+def google_id_token(payload: GoogleIdTokenIn, db: Session = Depends(get_db, scope="function")):
+    """Inicia sesión con el ID token de Google Identity Services (GIS).
+
+    El frontend envía el ID token recibido del botón "Sign in with Google" de GIS.
+    """
+    from ..cuentas import entrar_con_google_id_token, crear_sesion
+
+    usuario = entrar_con_google_id_token(db, payload.id_token)
+    token = crear_sesion(db, usuario, "google_cuenta")
     return {"ok": True, "token": token, "usuario": _perfil(usuario)}
 
 

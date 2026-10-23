@@ -1,1273 +1,260 @@
-# LifeAgente AI
+# LifeAgente AI v2.0
 
-**Asistente Integral de Vida y Productividad** — centraliza la rutina diaria, los estudios y
-las finanzas/mantenimiento personal mediante un agente conversacional que planifica,
-reorganiza tu agenda ante imprevistos y registra lo que te pasa en lenguaje natural.
+**Asistente Integral de Vida y Productividad** — centraliza la rutina diaria, los estudios y las finanzas/mantenimiento personal mediante un agente conversacional con **Gemini (BYOK)** que planifica, reorganiza tu agenda ante imprevistos y registra lo que te pasa en lenguaje natural.
 
-[![CI](https://github.com/brayanortiz906-lab/LifeSync-AI/actions/workflows/ci.yml/badge.svg)](https://github.com/brayanortiz906-lab/LifeSync-AI/actions/workflows/ci.yml)
-[![Pages](https://github.com/brayanortiz906-lab/LifeSync-AI/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/brayanortiz906-lab/LifeSync-AI/actions/workflows/deploy-pages.yml)
-[![Licencia](https://img.shields.io/badge/licencia-MIT-blue.svg)](LICENSE)
+## 🆕 Novedades v2.0 - Migración a Supabase + Gemini
 
-### Estado del proyecto
+| Antes (v1.x) | Ahora (v2.0) |
+|--------------|--------------|
+| Auth propio (email/password + Google Device Flow) | **Supabase Auth** (email/password + Magic Link + Google/GitHub OAuth) |
+| SQLite local / PostgreSQL propio | **Supabase PostgreSQL** con **Row Level Security (RLS)** |
+| Google Drive para backups | **Supabase Storage** (bucket privado con RLS) |
+| Múltiples proveedores IA + local | **Gemini BYOK** (cada usuario trae su API key) |
+| 167 tests legacy | Arquitectura limpia, preparada para tests nuevos |
 
-| | |
-|---|---|
-| **Versión** | `v1.1.1` (release con el instalador `.exe` y el código completo) · el número vive en el archivo [`VERSION`](VERSION) |
-| **Pruebas** | 167  comprobaciones automáticas (`backend/smoke.py`) + build TypeScript |
-| **Documentación** | 20 documentos (`docs/00-INDICE.md` es el índice) + [`CHANGELOG.md`](CHANGELOG.md) |
-| **Interfaz** | React 19 · Vite 7 · TypeScript · Tailwind CSS v4 · Zustand 5 |
-| **API** | FastAPI · SQLAlchemy 2 · SQLite · Pydantic v2 |
-| **IA** | OpenAI · Gemini · Anthropic · OpenRouter · Ollama · LM Studio · motor local por reglas |
-| **Extras** | IA responsable (auditoría y aprobaciones) · cuentas con Drive · paneles compartidos · `.exe` de Windows |
-| **Licencia** | MIT |
+---
 
-### 📦 Releases: dónde se descarga y qué hay
-La pestaña **Releases** de GitHub es el «escaparate» del proyecto. Ahí vive **una página por
-versión**, con los archivos para descargar y las novedades escritas.
-
-| Qué | Enlace |
-|---|---|
-| **Releases (todas las versiones)** | <https://github.com/brayanortiz906-lab/LifeSync-AI/releases> |
-| **Última versión (v1.1.1)** | <https://github.com/brayanortiz906-lab/LifeSync-AI/releases/latest> |
-| **Novedades completas** | [`CHANGELOG.md`](CHANGELOG.md) |
-
-**Qué hay en cada release**
-
-| Archivo | Qué es | Para quién |
-|---|---|---|
-| `LifeAgente.exe` | El instalador de Windows (13 MB). Trae la API, la interfaz y crea la base de datos. | Quien quiere usarlo en su computador, sin instalar nada |
-| `LifeAgente-AI-sistema.zip` | El código fuente + la interfaz, para quien quiere mirarlo o modificarlo | quien programa o quiere leerlo |
-| El cuerpo de la release | Las novedades de esa versión, en palabras llanas | todo el mundo |
-
-**Cómo se publica una versión nueva** (ya está automatizado):
-1. Se sube el código a `main` (con `publicar.ps1`).
-2. Se crea la etiqueta `v1.1.1` → GitHub Actions compila el `.exe` y **crea la release** con los archivos.
-3. La web (Pages) se republica sola y Render reconstruye el servicio.
-
-```powershell
-git tag v1.1.1
-git push upstream v1.1.1
-```
-
-> La **versión es una sola**: el archivo `VERSION` de la raíz. La app (Ajustes), el `.exe` y las
-> releases muestran el mismo número, así siempre sabes qué tienes instalado.
-
-#
-### Activar Google, Outlook o GitHub para toda la gente (esta dentro de la app)
-LifeAgente trae la **guia paso a paso** en *Conectar IA > Ajustes tecnicos > Entrar con Google, Outlook o GitHub*:
-los 6 pasos de cada proveedor, el enlace a su consola y que copiar.
-
-| Que hay | Para que sirve |
-|---|---|
-| **Guia paso a paso** (Google, GitHub, Outlook) | saber exactamente donde pulsar, sin tecnicismos |
-| **Boton "Comprobar"** | la app pregunta al proveedor si tu identificador sirve antes de guardarlo (y te dice si esta mal copiado) |
-| **"Guardar y activarlo para todos"** | queda una vez y le funciona a toda la gente: cada uno entra con su cuenta tocando un boton |
-
-Con esto se activan: entrar con tu cuenta, **Drive**, el **calendario** y el **correo**.
-Detalle paso a paso en `docs/26-GUIA-CUENTAS.md`.
-
-## 🌍 Está en vivo
-
-| Qué | Dónde |
-|---|---|
-| **App completa (interfaz + API)** | **https://lifesync-ai-qs5t.onrender.com** |
-| **Interfaz en GitHub Pages** | **https://brayanortiz906-lab.github.io/LifeSync-AI/** |
-| API | `https://lifesync-ai-qs5t.onrender.com/api` · salud: `/api/health` |
-| Código | https://github.com/brayanortiz906-lab/LifeSync-AI |
-
-> **Cómo está desplegado**: un solo servicio de Render (plan **gratis, sin
-> tarjeta**) sirve la interfaz compilada **y** la API en el mismo dominio
-> (`backend/app/main.py` monta `frontend/dist` con fallback SPA). GitHub
-> Pages publica la interfaz con `VITE_API_URL` apuntando a ese servicio.
->
-> Ojo: en el plan gratis Render **se duerme a los 15 minutos** y su disco es
-> **efímero**, por eso el almacén real de cada persona es su **Google Drive**
-> (respaldo con retardo + recuperación al entrar).
->
-> **Si la web de Pages no llama a la API**: revisa en Render → *Environment* →
-> `CORS_ORIGINS` y asegúrate de que incluya `https://brayanortiz906-lab.github.io`
-> (separado por comas). Sin ese origen el navegador bloquea la llamada y la app
-> cae en modo local.
->
-> **Cuidado con `VITE_API_URL`**: si en Render creaste esa variable con el botón
-> "Generate" (texto aleatorio), el valor queda **horneado en el bundle** y la
-> interfaz llama a rutas que no existen (405 "Method Not Allowed"). Déjala
-> **vacía** (Render sirve la API y la interfaz en el mismo dominio) o ponle la
-> URL completa `https://lifesync-ai-qs5t.onrender.com/api`, y luego **Redeploy**.
-> Detalle en [`docs/10-DESPLIEGUE.md`](docs/10-DESPLIEGUE.md) §9.
-
-### Dos versiones: la pagina web y la que se descarga
-
-El mismo programa se publica de **dos formas** y cada una hace lo que le
-pides a cada persona:
-
-| | **La pagina web** (la que ves en el enlace de arriba) | **La que se descarga** (`LifeAgente.exe`) |
-|---|---|---|
-| Cuentas | **Si**: Google, Outlook, GitHub o tu correo | **No hace falta cuenta** |
-| Google Drive | **Si**: respaldos, calendario y avisos por correo | **No**: todo se queda en tu equipo |
-| Donde se guardan tus datos | En el servidor, separados por persona y respaldados en tu Drive | En la base de datos de tu equipo (`%APPDATA%\LifeAgente`) |
-| IA | La que conectes (OpenAI, Gemini, Anthropic, OpenRouter...) | La IA **de tu computador** (Ollama, LM Studio) o el motor de reglas integrado |
-| Internet | Necesario | No hace falta |
-
-La app **sabe en que version esta** (el servidor lo dice en cada respuesta) y
-cambia sola: en la version local desaparecen las tarjetas de cuentas, Drive y
-calendario, y aparece «Version local: no necesitas crear cuenta» con la IA de
-tu computador y los organizadores preestablecidos.
-
-**Y en el celular**: la web ahora es instalable (abre a pantalla completa,
-funciona sin internet y tiene su icono). Ver «La app en el celular» mas abajo.
-
-### 🖥️ Instalador local: un `.exe` y listo
-
-Para quien prefiera **no depender de la nube** (o no quiera entrar con cuenta),
-hay un instalador de Windows de un solo archivo:
-
-| Qué hace | Cómo |
-|---|---|
-| Revisa qué falta (Docker, Node, base de datos, puerto) | al abrir la ventana |
-| **Instala lo que falte** con un clic | botón «Instalar» (usa `winget`) |
-| **Crea la base de datos** | en `%APPDATA%\LifeAgente\lifesync.db` |
-| Arranca el sistema y abre el navegador | `http://127.0.0.1:8000` |
-| **Al cerrar la ventana**: copia los datos y apaga todo | nada queda corriendo |
-
-**No necesita instalar Python, Node ni Docker**: el `.exe` lleva dentro el
-motor, la API, el System Prompt y la interfaz ya compilada.
-
-⬇️ **Descarga directa**: **[LifeAgente.exe (v1.0.0)](https://github.com/brayanortiz906-lab/LifeSync-AI/releases/download/v1.0.0/LifeAgente.exe)**
-(página del release: https://github.com/brayanortiz906-lab/LifeSync-AI/releases/tag/v1.0.0)
-
-```powershell
-# compilar el instalador (tarda unos minutos)
-powershell -ExecutionPolicy Bypass -File desktop\build.ps1
-# -> desktop\dist\LifeAgente.exe
-```
-
-También hay un arranque sin compilar: **`desktop/INICIAR.bat`** (crea el
-entorno, instala, compila, levanta y abre el navegador). Y el workflow
-`.github/workflows/build-installer.yml` publica el `.exe` como descarga
-gratuita en cada release.
-
-Detalle técnico: `docs/17-INSTALADOR-LOCAL.md`.
-
-### 🚀 Puesta en marcha, paso a paso
-
-#### Opción A — En la nube (lo más fácil, 3 pasos)
-| # | Qué haces | Dónde |
-|---|---|---|
-| 1 | Abre **https://brayanortiz906-lab.github.io/LifeSync-AI/** | el navegador |
-| 2 | Elige cómo entrar: **Google / Outlook / GitHub** (un clic) · **correo + contraseña** · **sin cuenta** (modo local, todo queda en tu navegador) | la pantalla de bienvenida |
-| 3 | Ya estás dentro: la agenda es la pantalla principal y el chat flotante está abajo a la derecha (`Ctrl+K` lo abre y lo cierra) | la app |
-
-> Si la primera carga tarda: es que el servidor de Render estaba dormido. La app te avisa
-> («Despertando el servidor…») y carga sola en ~30 s. **Recarga con `Ctrl+Shift+R`** si ves
-> algo viejo (el navegador guarda copia del código).
-
-#### Opción B — En tu computador con el instalador (5 pasos)
-| # | Qué haces |
-|---|---|
-| 1 | Descarga **LifeAgente.exe** desde [Releases](https://github.com/brayanortiz906-lab/LifeSync-AI/releases) |
-| 2 | Doble clic. Se abre una ventana con los **requisitos** (motor ✅, Docker opcional, base de datos, puerto 8000, interfaz compilada) |
-| 3 | (Opcional) Pulsa **Instalar** para que el propio programa instale lo que falte (Python, Docker, Node) |
-| 4 | Pulsa **Iniciar LifeAgente**: se levanta la API en `http://127.0.0.1:8000` y se abre el navegador solo |
-| 5 | **Al cerrar la ventana**, LifeAgente **guarda una copia** de tus datos y **apaga el servidor** (no queda nada corriendo) |
-
-Tus datos viven en `%APPDATA%\LifeAgente\` (base de datos, respaldos y clave de cifrado) —
-**no se borran** al cerrar ni al actualizar el programa.
-
-#### Opción C — Con el código (para programar)
-```powershell
-# 1. API
-cd backend
-.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
-# 2. Interfaz (en otra terminal)
-cd frontend
-npm install
-npm run dev            # http://localhost:5173
-# 3. Publicar lo que cambiaste (pruebas + commit + push + espera al CI)
-powershell -ExecutionPolicy Bypass -File publicar.ps1 -Mensaje "feat: mi cambio"
-```
-
-#### Lo que puedes hacer después (en cualquier opción)
-| Quiero… | Dónde |
-|---|---|
-| **Que el asistente hable con una IA de verdad** | *Conectar IA* → sección 1 (cuenta), 2 (tu computador) o 3 (clave) |
-| **Usar la app sin internet** | *Conectar IA* → sección 2 → *Descarga una IA ligera* (400 MB) |
-| **Guardar todo en mi Drive** | *Permisos* → *Autorizar todo* → *Respaldo en Drive* |
-| **Que me llegue el resumen de la mañana** | *Permisos* → *Resumen de mañana por correo* |
-| **Que me llegue el código de verificación** | *Conectar IA* → *Ajustes técnicos* → *Envío de correo* (o que el administrador lo ponga en Render) |
-| **Compartir mi agenda con alguien** | *Paneles* → *Compartir* (por correo, nivel *ver* o *editar*) |
-| **Saber qué le falta al servidor** | *Conectar IA* → *Ajustes técnicos* → *Estado del servidor* |
-
-### 🔑 Acceso en un clic, sin configurar nada
-
-El identificador de cliente OAuth **es público** (va dentro de la app, igual que
-el botón de «Continuar con Google» de cualquier sitio web). Por eso el
-instalador o el despliegue pueden traerlo ya puesto y **quien usa la app solo
-pulsa el botón y autoriza en el navegador**.
+## 🏗️ Arquitectura
 
 ```
-Persona          LifeAgente                 Google
-   |  clic  ---------->|  device flow -------->|
-   |<----- código + "autorizar en el navegador" --|
-   |  "Listo, ya autoricé" -->|  poll ----------->|
-   |<------ sesión con su correo y sus datos ------|
-```
-
-La app busca ese identificador en **4 sitios**, en orden: variable de entorno →
-credencial guardada → lo que pegaste en la app → el archivo público
-`public/clientes-publicos.json`. **Nadie tiene que pegar nada.**
-
-### 🪶 Descarga una IA ligera y úsala en tu computador
-
-Sin claves, sin cuentas y sin internet: la app puede **bajarse una IA pequeña**
-y conectarla sola.
-
-| Modelo | Tamaño | Nota |
-|---|---|---|
-| `qwen2.5:0.5b` | **400 MB** | **recomendado** (rápido y suficiente) |
-| `gemma3:1b` | 815 MB | mejor calidad |
-| `llama3.2:1b` | 1,3 GB | muy rápido |
-| `phi3.5:mini` | 2,2 GB | el más pequeño de razonar |
-
-| Desde dónde | Cómo |
-|---|---|
-| **La app** | *Conectar IA* → tarjeta **«Descarga una IA ligera»** con barra de progreso real |
-| **El instalador** | ventana `LifeAgente.exe` → botón **«Descargar IA ligera»** (instala Ollama si falta) |
-
-Detalle: [`docs/18-IA-LIGERA-Y-ACCESO.md`](docs/18-IA-LIGERA-Y-ACCESO.md).
-
-### 📘 El manual del sistema (para tenerlo local)
-
-| Archivo | Qué es |
-|---|---|
-| **[`MANUAL-LOCAL.md`](MANUAL-LOCAL.md)** | el manual completo: 5 formas de tenerlo en tu equipo, dónde quedan los datos, variables de entorno, **qué hace cada archivo del sistema**, problemas frecuentes y mantenimiento |
-| **[`LEEME.txt`](LEEME.txt)** | arranque rápido en texto plano (2 minutos, sin Markdown) |
-| **[`empaquetar.ps1`](empaquetar.ps1)** | crea un ZIP con **todo el sistema** (código + interfaz compilada + docs) para llevártelo a otro equipo |
-
-```powershell
-# crear el paquete del sistema completo
-powershell -ExecutionPolicy Bypass -File empaquetar.ps1
-# -> LifeAgente-AI-sistema.zip
-```
-
-```
-┌───────────────────────────────────────────┬──────────────────────┐
-│  MI AGENDA (vista inicial)                │  ACADÉMICO + BITÁCORA│
-│  calendario por franjas · resumen         │  (tareas y gastos)   │
-│  academia · bitácora · mantenimiento       │                      │
-└───────────────────────────────────────────┴──────────────────────┘
-        ▲
-        │  burbuja flotante (Ctrl+K) — el chat vive aparte, no tapa la agenda
+┌─────────────────────────────────────────────────────────────────┐
+│                        FRONTEND (React 19)                      │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐ │
+│  │ Supabase JS │  │ Zustand     │  │ API Client (Fetch)      │ │
+│  │ Client      │  │ Store       │  │ → Backend (FastAPI)     │ │
+│  └──────┬──────┘  └──────┬──────┘  └───────────┬─────────────┘ │
+│         │                │                      │               │
+│         ▼                ▼                      ▼               │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │              SUPABASE (Backend-as-a-Service)             │   │
+│  │  ┌──────────┐  ┌────────────┐  ┌──────────┐             │   │
+│  │  │ Auth     │  │ Database   │  │ Storage  │             │   │
+│  │  │ (JWT)    │  │ (PostgreSQL│  │ (Backups)│             │   │
+│  │  │          │  │  + RLS)    │  │          │             │   │
+│  │  └──────────┘  └────────────┘  └──────────┘             │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                            │                                    │
+│                            ▼                                    │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │              FASTAPI BACKEND (Render/Railway)            │   │
+│  │  ┌──────────┐  ┌────────────┐  ┌──────────┐             │   │
+│  │  │ Supabase │  │ SQLAlchemy │  │ Gemini   │             │   │
+│  │  │ Admin    │  │ + asyncpg  │  │ (google- │             │   │
+│  │  │ Client   │  │            │  │ genai)   │             │   │
+│  │  └──────────┘  └────────────┘  └──────────┘             │   │
+│  └─────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 1. Arranque rápido (2 minutos)
+## 🚀 Inicio Rápido
 
-### Backend
+### Prerrequisitos
+- Cuenta en [Supabase](https://supabase.com) (gratis, sin tarjeta)
+- Cuenta en [Google AI Studio](https://aistudio.google.com/apikey) para Gemini API key
+- Node.js 20+ y Python 3.11+
 
-```powershell
-cd backend
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-Copy-Item .env.example .env          # opcional: configura APP_SECRET_KEY
-.\.venv\Scripts\python.exe run.py    # http://127.0.0.1:8000/docs
-```
-
-La base SQLite se crea sola y se siembra con datos de ejemplo (agenda, tareas, gastos,
-mantenimiento) la primera vez.
-
-### Frontend
-
-```powershell
-cd frontend
-npm install
-npm run dev                          # http://localhost:5173
-```
-
-Vite hace proxy de `/api` → `http://127.0.0.1:8000`, así que no hay CORS que configurar
-en desarrollo.
-
-### Probar sin API Key
-
-Por defecto el backend arranca en **modo `demo`**: un clasificador local por reglas que
-responde con el mismo contrato JSON. Sirve para demostrar el flujo completo (incluida la
-reorganización de agenda) sin gastar tokens. Para conectar una IA real, ve a
-**Conectar IA** en la barra superior.
-
-### El Centro de Conexiones (conecta **cualquier** IA, sin jerga)
-
-LifeAgente no te obliga a saber qué es un token o una API key. El botón **Conectar IA**
-abre un asistente con **cuatro secciones numeradas**, de la más fácil a la más manual:
-
-| # | Sección | Qué encuentras | Costo |
-|---|---|---|---|
-| **1** | **Entra con tu cuenta** | la tarjeta grande de **Google** (un clic, autorizas en el navegador) y los botones de **Outlook/Hotmail** y **GitHub** | El de tu plan |
-| **2** | **Usa la IA de tu computador** | los motores locales detectados (Ollama, LM Studio, Jan…) con su botón «Conectar»; si no hay ninguno, la tarjeta **«Descarga una IA ligera»** (4 modelos, 400 MB el recomendado) | **Gratis, sin internet** |
-| **3** | **Conecta una IA con clave** | los chips de los proveedores con clave: OpenAI, Anthropic, Gemini y OpenRouter (300+ modelos) | Según el uso |
-| **4** | **Solo quiero ver cómo funciona** | el **asistente demo** integrado, que no necesita nada | Gratis |
-
-Debajo: **«Tus conexiones»** (las que ya guardaste) y, **plegado y al final**, el bloque
-**«Ajustes técnicos (solo si algo va mal)»** con la *Dirección de la API* y la
-*Configuración avanzada* (activar el acceso con una cuenta: tarea de una sola vez de
-quien instala). *Regla de oro: lo que usas todos los días arriba; lo técnico abajo y plegado.*
-
-El camino de **cuenta** usa **OAuth 2.0 Device Authorization**, el estándar de "inicia
-sesión con tu cuenta": LifeAgente te da un **código corto**, abres el sitio del proveedor
-en tu navegador, lo pegas y la autorización vuelve sola. **Nunca ves ni escribes tu
-contraseña**, y los errores del proveedor se traducen a lenguaje llano antes de
-mostrarse ("Ese ID de cliente no existe. Cópialo de nuevo desde el panel del
-proveedor…").
-
-LifeAgente **detecta automáticamente** los motores locales y muestra los modelos que ya
-tienes instalados:
-
-```
-GET /api/conexiones/locales
-{"motores":[{"id":"ollama","nombre":"Ollama","modelos":["qwen2.5:latest","gemma4:26b", ...],
-  "modelos_disponibles":5}],"total":1}
-```
-
-**«Continuar con Google» y elegir cualquier IA.** La tarjeta grande del modal inicia
-el acceso con tu cuenta de Google (OAuth Device Flow) y, al autorizar, LifeAgente te
-enseña **todos** los proveedores para que elijas. El token de Google habilita
-**Gemini** al instante; y a través de **OpenRouter** (cuyo acceso tiene *Sign in with
-Google*) desbloqueas **468 modelos de 67 familias** —GPT, Claude, Gemini, Llama,
-DeepSeek, Mistral…— con buscador y filtro por familia:
-
-```
-GET /api/conexiones/modelos?proveedor=openrouter
-{"proveedor":"openrouter","total":468,"familias":[{"familia":"anthropic","modelos":8}, ...],
- "modelos":[{"id":"anthropic/claude-sonnet-4.5","nombre":"Anthropic: Claude Sonnet 4.5",
-             "familia":"anthropic","gratis":false,"contexto":1000000}, ...]}
-```
-
-Si el despliegue define `GOOGLE_CLIENT_ID` (ver `backend/.env.example`), el botón
-funciona en **un solo clic** sin que nadie escriba identificadores.
-
-**Y si todavía no hay ID de cliente de Google, el botón no se queda muerto.** Abre
-un asistente con **tres caminos que siempre funcionan**:
-
-| Camino | Qué haces | Resultado |
-|---|---|---|
-| **1. Activar el acceso con Google** (1 minuto) | Pegas el ID de cliente público de Google Cloud | **Queda guardado**: la próxima vez es un clic |
-| **2. Entrar con Google en OpenRouter** | Inicias sesión con Google en `openrouter.ai` y pegas la clave | Acceso a **468 IAs** |
-| **3. Usar la IA de tu computador** | Pulsas «Conectar» sobre el motor detectado | Gratis, offline, sin cuentas |
-
-```
-GET  /api/conexiones/google/estado   -> {"configurado":true,"origen":"app","pista":"..."}
-PUT  /api/conexiones/google/estado   -> guarda u olvida el ID de cliente
-```
-
-Ventajas que ya trae:
-
-- **Los modelos locales no pierden tu frase**: si el modelo no devuelve el JSON del
-  contrato, LifeAgente cae al motor por reglas y registra lo que corresponde igual.
-- **Credenciales cifradas** (Fernet) y nunca enviadas al navegador: la API solo dice
-  `tiene_credencial: true/false`.
-- **Conectores compatibles con OpenAI** (`lmstudio`, `openrouter`) reutilizan un mismo
-  adaptador HTTP.
-- Un solo proveedor activo a la vez; cambiar es un clic y desconectar limpia la clave.
-
-Detalle completo en [`docs/06-CONE-XIONES.md`](docs/06-CONE-XIONES.md).
-
-### Verificación automática
-
-Con el backend corriendo, `backend/smoke.py` comprueba los 167  casos de uso contra la
-base de datos real (calendario, bitácora, tareas, mantenimiento, multi-intención,
-cascadas de registro automático, el sistema de IA responsable, el centro de conexiones
-y los permisos con piloto automático):
-
-```powershell
-cd backend
-.\.venv\Scripts\python.exe smoke.py
-```
-
-```
-[OK  ] [CALENDARIO] devuelve plan de reorganizacion -> movidos=2
-[OK  ] [MULTI] detecta 2 categorías -> categorías=['CALENDARIO', 'BITACORA_GASTO']
-[OK  ] [CASCADA] tarea genera bloque de estudio
-[OK  ] [RESP] gasto alto queda pendiente de aprobación
-[OK  ] [RESP] tras aprobar, el gasto SI queda registrado
-...
-RESULTADO: TODOS LOS CASOS PASARON
-```
-
-El script es **idempotente**: limpia las citas de corridas anteriores antes de
-empezar, así que se puede repetir sin contaminar la base.
-
-### El error 500 ya no aparece (y si aparece, te dice que fallo)
-
-Habia un endpoint que declaraba el esquema de *entrada* como esquema de *salida*:
-FastAPI validaba la respuesta, no encontraba el campo `proveedor` y devolvia un
-500 sin explicación. Ahora:
-
-| Antes | Ahora |
-|---|---|
-| `POST /api/conexiones/verificar` → **500** «El servidor tuvo un problema» | → **200** con `ok: false` y el motivo: *«La clave fue rechazada. Revísala en la consola del proveedor.»* |
-| `POST /api/cuentas/google/desde-conexion` → **404** (la interfaz lo pedia desde la v26) | → existe y responde con un mensaje claro |
-| Una ruta inexistente → 404 pelado | → 404 con **qué ruta** y **qué método** fallaron |
-| Cualquier 500 → texto genérico | → el error dice **la ruta y la causa real** |
-
-Hay **4 comprobaciones automaticas** que vigilan que ningun endpoint vuelva a
-devolver un 500 por culpa de un esquema mal declarado.
-
-### El log del servidor te lo dice todo: la lista de pendientes
-
-Si algo no funciona, la app te dice **que falta**, no un error seco. En
-*Conectar IA > Ajustes tecnicos > Estado del servidor* hay una lista que se
-calcula con informacion real del servidor:
-
-| Pendiente | Como se arregla |
-|---|---|
-| Modo produccion (`APP_ENTORNO=produccion`) | Render > Environment > `APP_ENTORNO` = `produccion`. Mientras no lo pongas, el codigo de verificacion se muestra en pantalla. |
-| Correo para el codigo de verificacion (SMTP) | *Conectar IA > Ajustes tecnicos > Envio de correo* (host, puerto, usuario, clave, desde) o `SMTP_*` en Render. |
-| Acceso con Google (`GOOGLE_CLIENT_ID`) | ID de cliente OAuth de escritorio en Google Cloud, pegado en *Ajustes tecnicos* o en Render. Opcional: hay otras vias. |
-| La web de GitHub Pages puede llamar a la API (CORS) | `CORS_ORIGINS` con `https://brayanortiz906-lab.github.io` en Render. |
-| Direccion de la API en la web publicada (`VITE_API_URL`) | Vacia (la API va en el mismo sitio) o con la URL completa. |
-
-El mismo dato esta disponible sin abrir la app: `GET /api/diagnostico` devuelve
-la lista de pendientes, los problemas de la base de datos y el estado del
-correo y de Google.
-
-### Que no vaya lento (rendimiento medido)
-
-La app se midio endpoint por endpoint. El culpable era la deteccion de IA local:
-buscaba 8 puertos **uno por uno** y cada puerto ausente quemaba 2,5 s de espera
-(**16 segundos** al abrir «Conectar tu IA»). Ahora se sondean **todos en
-paralelo** con un timeout corto.
-
-| Endpoint | Antes | Ahora |
-|---|---:|---:|
-| `GET /api/conexiones/locales` (detectar IA local) | **16 053 ms** | **3 ms** (cache) · **741 ms** (forzada) |
-| `GET /api/health` | 1 172 ms | 62 ms |
-| `GET /api/cuentas/proveedores` | 305 ms | 118 ms |
-
-Ademas: el bootstrap de credenciales publicas no bloquea el inicio de sesion
-(1,5 s y reintento en segundo plano), SQLite escribe con `synchronous=NORMAL`,
-el vigilante de guardado paso de 20 s a 45 s, y **la interfaz explica la
-espera**: si el servidor tarda mas de 3,5 s aparece «*Despertando el
-servidor…*» (el plan gratis de Render se duerme a los 15 min). Cuando la IA
-vive en tu equipo, el chat avisa que la primera respuesta puede tardar 1 o 2
-minutos y que no es un error.
-
-Tres checks del smoke test vigilan que no vuelva a pasar:
-`[VELOCIDAD] la deteccion de IA local responde rapido` (< 3 s),
-`[VELOCIDAD] la deteccion completa (sin cache) tambien es rapida` (< 5 s) y
-`[VELOCIDAD] el tablero de la agenda responde rapido` (< 1,5 s).
-Detalle en `docs/19-RENDIMIENTO.md`.
-
-### El codigo de verificacion ahora si llega (o te lo dicen de verdad)
-
-Antes la app **prometia** un correo que a veces no existia: decia siempre
-«Te enviamos el codigo a tu correo» aunque el servidor no tuviera ningun
-correo configurado. Ahora dice la verdad:
-
-| Modo | Que ve la persona |
-|---|---|
-| `smtp` | «Te enviamos el codigo a tu correo» (y llega) |
-| `consola` | el codigo en pantalla (solo en desarrollo) |
-| `ninguno` | «No pudimos enviarte el correo: entra con **Google, Outlook o GitHub** (un clic, sin codigo) o sigue en este equipo» |
-
-Y para que el correo **si** llegue, el administrador lo configura **una sola
-vez** desde *Conectar IA > Ajustes tecnicos > Envio de correo* (host, puerto,
-usuario, clave de aplicacion y remitente; **la clave se guarda cifrada**).
-Tambien se puede con las variables `SMTP_*` de Render.
-
-Ademas, **una cuenta creada con contrasena ya no queda atrapada** esperando un
-codigo: la contrasena demuestra que es la persona, asi que entra y trabaja
-igual, y el buzon se confirma despues. Y con **Google, Outlook o GitHub** la
-cuenta se crea **verificada** en un clic, sin codigo y sin SMTP.
-
-### De 12 peticiones a 1: la app abre Mucho mas rapido
-
-Al abrir, la app hacia **12 viajes** al servidor (agenda, tareas, gastos,
-mantenimiento, paneles, permisos, politica, auditoria, cumplimiento...). Ahora
-hay **un endpoint, `GET /api/inicio`, que trae todo**:
-
-| | Antes | Ahora |
-|---|---:|---:|
-| Peticiones al abrir | 12 | **1** (+ el historial del chat) |
-| Tiempo medido (local) | 3 042 ms en serie | **198 ms** |
-| Tras un mensaje del agente | 5 peticiones | **1** (solo las aprobaciones) |
-
-### Tu correo tambien es un almacen
-
-Ademas de Drive, LifeAgente puede **mandarte una copia completa a tu buzon**
-(adjunto JSON) con el boton **«Guardar una copia en tu correo»** (Permisos >
-Piloto automatico). No depende de Drive ni del disco del servidor: el archivo
-llega a tu correo, que es un almacen que ya tienes.
-
-Detalle de todo esto en `docs/20-CORREO-Y-RENDIMIENTO.md`.
-
-### El chat: habla y se registra todo
-
-El chat es la puerta de entrada principal. Escribe en lenguaje natural, con una o
-varias intenciones a la vez, y el agente registra **todo** automáticamente:
-
-| Tu frase | Qué registra el agente |
-|---|---|
-| `Tengo una cita hoy a las 3 PM` | Evento **Cita** 15:00-16:00 (inamovible) + reorganiza el día |
-| `Hoy tanqueé la moto por $20.000` | Gasto 20.000 COP, categoría **combustible** |
-| `Tengo que entregar el ensayo el viernes` | Tarea con entrega + **bloque de estudio** agendado |
-| `me toca cambiar el aceite de la moto` | Mantenimiento **Cambio de aceite** + evento en el calendario |
-| `Pagué el cambió de aceite de la moto por 120 mil` | Gasto + **actualiza el próximo mantenimiento** |
-| `Mañana tengo reunión a las 9 AM, además entrego el informe el jueves y me toca revisar los frenos` | Las **3 cosas** a la vez (3 categorías, 5 registros) |
-
-Claves de la experiencia:
-
-- **Multi-intención**: una sola frase con varias intenciones se segmenta por
-  conectores (`y`, `además`, `también`, `luego`, `después`, `pero`, `entonces`,
-  `,`, `;`) y cada fragmento se registra por separado.
-- **Registro en cascada**: el código encadena las consecuencias (tarea → bloque de
-  estudio; gasto de mantenimiento → próxima fecha; evento nuevo → reorganización).
-- **Visibilidad**: bajo cada respuesta aparece el bloque verde **«Registrado
-  automáticamente (N)»** con cada cosa guardada, y un chip por categoría.
-- **Chat flotante y móvil, aparte de la agenda**: el asistente vive en una burbuja
-  **arrastrable** (la agarras y la llevas a donde quieras; la posición se recuerda).
-  `Ctrl+K` (o `Cmd+K`) la abre y la cierra, `Escape` la cierra, y desde su cabecera
-  puedes ampliarla a pantalla casi completa. En el celular el panel ocupa toda la
-  pantalla. La agenda manda: nunca tapa la información operativa.
-- **Anti-duplicados**: repetir la misma cita actualiza el evento en vez de crear
-  otro.
-- **Sin API Key**: si el proveedor elegido no tiene clave, el backend cae al motor
-  local (`mock`) y lo avisa en la respuesta; el chat nunca se rompe.
-
-### La interfaz: la agenda manda, el chat acompaña
-
-Al abrir LifeAgente ves **«Mi agenda»**, no el chat. El chat es un **widget flotante**
-(`frontend/src/components/ChatFlotante.tsx`) superpuesto, para que la conversación
-tape lo que ya tenías en pantalla.
-
-| Zona | Qué contiene |
-|---|---|
-| **Vista inicial «Mi agenda»** | Calendario por franjas (Mañana / Tarde / Noche) + resumen del día + tareas académicas + bitácora de gastos |
-| **Tarjeta «Habla con tu asistente»** | Dentro de la propia agenda: un botón «Abrir el chat» para hablar sin salir de la vista |
-| **Burbuja flotante** (arrastrable) | Acceso al chat desde cualquier vista; la mueves con el dedo o el ratón; puntos animados mientras el agente responde |
-| **Panel del chat** | Burbuja → panel de 420 px pegado a la burbuja; botón «Ampliar» → casi pantalla completa; en móvil → pantalla completa |
-| **Pestaña «Ajustes»** | Tu nombre, moneda, jornada, tema de color, cómo ordenar cada bloque y tus etiquetas |
-| **Teclado** | `Ctrl+K` / `Cmd+K` alterna el chat · `Escape` lo cierra |
-
-### Responsive: la app se adapta y no se rompe
-
-LifeAgente se reorganiza según el ancho **sin scrolls anidados** (que era lo que hacía que
-"no se pudiera mover") y sin esconder cosas a la ligera.
-
-| Pantalla | Cómo se ve | Qué hay |
-|---|---|---|
-| **Móvil / tablet (< 1024 px)** | Una columna | Calendario completo + **3 líneas de resumen** y un botón **«Ver todo lo demás»** que abre una hoja con Tareas · Dinero · Contexto · Cuenta |
-| **Escritorio (≥ 1024 px)** | 2 columnas | Agenda (ocupa las dos filas) · tareas y contexto arriba, dinero abajo |
-| **Pantalla grande (≥ 1280 px)** | 3 columnas | Agenda · tareas y contexto · dinero |
-| **Muy grande (≥ 1920 px)** | 3 columnas anchas | Contenido centrado, máximo 1900 px: en un 4K no se estira de más |
-
-| Pieza | Qué resuelve |
-|---|---|
-| `frontend/src/components/ResumenMovil.tsx` | Las 3 líneas: `Hoy: 8 bloques · 5 h 30 min` · `51 tareas pendientes · próxima: …` · `$ 30.134.000 del mes · 5 mantenimientos` |
-| `frontend/src/components/MenuMovil.tsx` | La hoja desplegable con lo que no cabe (solo en pantallas pequeñas) |
-| `frontend/src/lib/useMediaQuery.ts` | El corte de pantalla en un solo sitio (`ESCRITORIO` = 1024 px) |
-| `.ls-shell` / `.ls-scroll` (CSS) | Una sola zona con scroll: la carcasa nunca scrollea y el gesto nunca se queda atrapado |
-
-Detalle técnico: `docs/14-RESPONSIVE.md`.
-
-### Ajustes, temas y cómo ordenar lo que ves
-
-LifeAgente arranca con un **formulario de bienvenida** (3 pasos) la primera vez: te pide
-tu nombre, tu jornada y el tema que prefieres, antes de que toques nada. Después, todo
-lo demás vive en la pestaña **«Ajustes»** (`frontend/src/components/AjustesPanel.tsx`).
-
-| Bloque de Ajustes | Qué puedes cambiar | Dónde se nota |
-|---|---|---|
-| **Sobre ti** | Nombre, moneda, hora de inicio y fin de tu jornada | Encabezado, métricas y agenda |
-| **Tema de la app** | 4 temas: Medianoche, Océano, Bosque, Atardecer | Cambia la interfaz al instante (variables CSS, sin recargar) |
-| **Cómo organizar lo que ves** | Orden de tareas (fecha / prioridad / tiempo / materia), de gastos (fecha / monto / categoría) y de agenda (hora / categoría / duración) | Paneles de tareas, gastos y calendario |
-| **Tus temas / etiquetas** | Etiquetas libres (p. ej. *Universidad*, *Trabajo*) para clasificar a tu manera | Filtras y agrupadores |
-
-Además, la agenda tiene **filtros por categoría** y la opción **«solo fijos»** (los
-compromisos inamovibles que el agente nunca mueve).
-
-Detalle completo en [docs/07-AJUSTES.md](docs/07-AJUSTES.md).
-
-### Un sistema visual: nada queda pegado ni raro
-
-La interfaz se construye con un **sistema visual único** (no clases sueltas pantalla por pantalla):
-
-| Pieza | Qué resuelve |
-|---|---|
-| `Modal` con pie fijo | El modal ya no se corta ni esconde sus botones: título, subtítulo, contenido con scroll y acciones siempre visibles. Se monta con `createPortal`, así que ningún `backdrop-filter` puede descolgarlo. |
-| `Tarjeta`, `Seccion`, `Campo`, `Aviso` | Bloques, títulos, formularios y mensajes con la misma jerarquía en toda la app. |
-| `.ls-card`, `.ls-input`, `.ls-paso`… | Separación,aire y tipografía consistentes; cambian solas con el tema. |
-| Reglas de espaciado | `p-4` en páginas, `gap-4` entre columnas, `space-y-3` dentro, `px-5 py-3.5` en cabeceras. |
-
-| Síntoma | Causa | Arreglo |
-|---|---|---|
-| El modal salía cortado por arriba | El `backdrop-blur` de la barra superior convertía el `fixed` en `absolute` | `createPortal` a `document.body` |
-| Bloques pegados entre sí | Padding y gaps distintos en cada pantalla | Sistema visual global |
-| "Conectar mi cuenta de Google (con mi cuenta de Google)" | El nombre del proveedor se pintaba dos veces | Un solo lugar para cada título |
-| Dos botones "Volver" | Acciones dentro del cuerpo con scroll | Pie fijo del modal |
-
-Detalle completo en [docs/08-SISTEMA-VISUAL.md](docs/08-SISTEMA-VISUAL.md).
-
-### IA gratis con tu cuenta (sin instalar nada)
-
-En **Conectar IA** hay una seccion nueva: **"2 · IA gratis con tu cuenta"**. Son servicios
-verificados donde solo necesitas tu cuenta (o directamente nada):
-
-| Servicio | Plan gratis | Donde esta la clave |
-|---|---|---|
-| Pollinations AI | Gratis, sin registro | Ninguna (ni cuenta ni clave) |
-| OpenCode Zen / Go | Creditos al entrar | Consola de OpenCode |
-| Google AI Studio | Gratis con tu cuenta de Google | Get API key |
-| GitHub Models | Gratis con tu cuenta de GitHub | Personal access token |
-| OpenRouter | 20 modelos :free al dia, sin tarjeta | OpenRouter > Keys |
-| Groq / Cerebras / Mistral / Together / NVIDIA / Hugging Face | Plan gratis cada uno | Su pagina de API keys |
-
-Cada tarjeta te dice **que pulsar, donde copiar la clave y a donde ir**, y hay un boton
-**Conectar** que la deja cifrada y activa. Detalle: `docs/23-IA-GRATIS-Y-AGENTES.md`.
-
-### Sistemas de IA con interfaz que ya tienes
-
-La misma pantalla revisa tu computador y te dice que programas de agentes y editores con IA
-tienes instalados, con su version y como conectarlos: **OpenCode, Claude Code, Codex CLI,
-Gemini CLI, GitHub Copilot CLI, Aider, Cline, Roo Code, Cursor, Windsurf, Continue** y los
-**servidores MCP**. Los que exponen servidor (OpenCode, Continue) se conectan con un clic.
-
-### El sistema de IA responsable
-
-Un asistente que **escribe en tu base de datos** necesita justificar cada movimiento.
-LifeAgente incluye una capa de gobierno completa entre el modelo y la ejecución
-(`backend/app/policy.py`): el LLM propone intenciones, la política decide si pueden
-ejecutarse, y todo queda auditado.
-
-| Mecanismo | Qué hace |
-|---|---|
-| **Gobernanza por reglas** | 7 reglas ordenadas: modo prudente, acción no reconocida (bloqueada), confianza baja, borrado irreversible, gasto sobre umbral, compromiso inamovible, motivo ausente |
-| **Autonomía graduada** | Cada acción es `AUTONOMO`, `REQUIERE_APROBACION` o `BLOQUEADO`, siempre con motivo legible |
-| **Bandeja de aprobaciones** | Lo que requiere permiso **no** se ejecuta: espera tu visto bueno en *Responsabilidad → Aprobaciones* |
-| **Auditoría** | Bitácora append-only: actor, tipo, motivo, confianza, riesgo, reversible, entidad tocada |
-| **Privacidad (PII)** | Cédulas, teléfonos, correos, tarjetas, claves y direcciones se enmascaran **antes** de salir del servidor |
-| **Cumplimiento** | Reporte de 8 controles con marco ISO/IEC 42001, EU AI Act, OECD, Ley 1581, GDPR y NIST AI RMF |
-
-Verificado en la interfaz: un gasto de 2.000.000 con umbral de 100.000 queda en la
-bandeja con el motivo *"supera el límite autónomo"*, y al aprobarlo se registra, se audita
-(`solicitud_aprobacion → aprobación → acción → ejecucion_aprobada`) y desaparece de la
-bandeja. Detalle completo en [docs/05-RESPONSABILIDAD.md](docs/05-RESPONSABILIDAD.md).
-
-### Modo producción (un solo proceso)
-
-`run.py` usa `--reload`, que en Windows deja un proceso *hijo* que puede sobrevivir y
-seguir ocupando el puerto 8000. Si cambias código y "no se aplica", mata ambos:
-
-```powershell
-Get-NetTCPConnection -LocalPort 8000 -State Listen |
-  ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }
-```
-
-O arranca sin recarga: `.\.venv\Scripts\python.exe -m uvicorn app.main:app --port 8000`.
-
----
-
-## 1-bis. Correr dentro de GitHub
-
-El repositorio trae **toda la infraestructura** para que la app funcione sin instalar nada
-en tu equipo. Hay tres caminos:
-
-| Camino | Qué es | Para quién |
-|---|---|---|
-| **GitHub Codespaces** | Un VS Code en la nube con Python, Node, la API (8000) y la interfaz (5173) ya instalados | Quien quiere abrir, tocar y probar sin configurar nada |
-| **GitHub Pages + Render** | La interfaz se publica en `brayanortiz906-lab.github.io/LifeSync-AI/` y la API corre en Render (Docker) | Quien quiere una URL pública que se pueda compartir |
-| **Docker en tu equipo** | `docker compose up` levanta API + interfaz en un solo proceso | Quien ya usa contenedores |
-
-### 1-bis.1 Codespaces (lo más rápido)
-
-1. Abre el repositorio en GitHub → botón verde **Code** → **Codespaces** → **Create codespace on main**.
-2. Espera a que termine `postCreate` (crea el venv, instala dependencias y compila la interfaz).
-3. Abre el puerto **8000** en la pestaña *Ports* → se abre LifeAgente AI en el navegador.
-
-El `.devcontainer/devcontainer.json` ya trae Python 3.12, Node 20, y reenvía los puertos
-8000 y 5173.
-
-### 1-bis.2 Pages (interfaz) + Render (API)
-
-- **Interfaz (Pages)**: el workflow `.github/workflows/deploy-pages.yml` compila el frontend
-  y lo publica en GitHub Pages. Se activa en *Settings → Pages → Source → GitHub Actions*.
-  URL pública de este despliegue: **https://brayanortiz906-lab.github.io/LifeSync-AI/**
-  (repositorio canónico: `brayanortiz906-lab/LifeSync-AI`).
-- **API (Render)**: el `render.yaml` del repo es un *Blueprint*: al abrirlo en Render se crea
-  un servicio con Dockerfile, disco persistente en `/data` y healthcheck en `/api/health`.
-- **Conectar una y otra**: hay dos formas, sin tocar el código:
-  1. Define la variable de repositorio `VITE_API_URL` con la URL de tu API y el workflow de
-     Pages la inyecta al compilar:
-
-     ```bash
-     gh variable set VITE_API_URL --body "https://<tu-api>/api" --repo brayanortiz906-lab/LifeSync-AI
-     ```
-
-  2. O ábrela en caliente desde la interfaz: *Conectar IA → Dirección de la API*. Se guarda en
-     tu navegador y no requiere recompilar nada.
-
-### 1-bis.3 Docker
-
+### 1. Configurar Supabase
 ```bash
-docker compose up --build          # http://localhost:8000
+# En Supabase Dashboard:
+# 1. Crear proyecto "lifeagente"
+# 2. SQL Editor → Ejecutar migraciones (ver backend/migrations/)
+# 3. Storage → New bucket "backups" (Private) + políticas RLS
+# 4. Auth → Providers → Habilitar Email + Google OAuth
+# 5. Settings → API → Copiar URL, anon key, service_role key
 ```
 
-El `Dockerfile` es multi-stage: compila la interfaz con Node 20 y la sirve desde la misma
-imagen de Python 3.12 que corre la API. La base SQLite vive en el volumen `/data`.
+### 2. Backend
+```bash
+cd backend
+cp .env.example .env
+# Editar .env con tus credenciales Supabase
+# ENCRYPTION_KEY: genera con: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 
-### 1-bis.4 Automatización (CI)
+pip install -r requirements.txt
+python run.py  # http://localhost:8000/docs
+```
 
-`.github/workflows/ci.yml` corre en cada push: levanta la API, ejecuta los **167  casos** de
-`backend/smoke.py` (que incluyen el chat multi-intención, las cascadas, el sistema responsable,
-el centro de conexiones y los permisos con piloto automático) y compila el frontend con
-`tsc -b && vite build`. La insignia de arriba refleja el estado real del último push.
+### 3. Frontend
+```bash
+cd frontend
+cp .env.example .env
+# Editar .env con VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY
+
+npm install
+npm run dev  # http://localhost:5173
+```
+
+### 4. Usuario: añadir Gemini API Key
+1. Ir a **Ajustes > IA (BYOK)**
+2. Click "Obtener key" → [Google AI Studio](https://aistudio.google.com/apikey)
+3. Pegar key → "Probar" → "Guardar"
+4. Ir a **Chat** → Empezar a conversar
 
 ---
 
-## 2. Estructura del proyecto
+## 📦 Despliegue Gratis (Plan Free Tier)
+
+| Servicio | Plan | Límites | Uso |
+|----------|------|---------|-----|
+| **Supabase** | Free | 500MB DB, 1GB Storage, 50K MAU | Auth + DB + Storage + Realtime |
+| **Render/Railway** | Free | 512MB RAM, sleep 15min | FastAPI Backend |
+| **Vercel/Netlify** | Free | 100GB bandwidth | React Frontend |
+| **Gemini API** | Free | 1500 req/día, 1M tokens/min | IA Chat |
+
+**Total: $0/mes** ✅
+
+### Render (Backend)
+```bash
+# Conectar repo → New Web Service
+# Build: pip install -r backend/requirements.txt
+# Start: python -m uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port $PORT
+# Env vars: todas las de backend/.env
+```
+
+### Vercel (Frontend)
+```bash
+# Importar repo → Framework: Vite
+# Build: npm run build
+# Output: dist
+# Env vars: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, VITE_API_URL
+```
+
+---
+
+## 🔐 Características Principales
+
+### Autenticación (Supabase Auth)
+- ✅ Email/Password con confirmación
+- ✅ Magic Links (login sin password)
+- ✅ OAuth: Google, GitHub, GitLab
+- ✅ JWT tokens con refresh automático
+- ✅ Reset password seguro
+
+### Base de Datos (PostgreSQL + RLS)
+- ✅ Aislamiento total por usuario (`usuario_id` en todas las tablas)
+- ✅ Políticas RLS a nivel de base de datos (imposible de bypassear)
+- ✅ UUID v4 como PK en todas las tablas
+- ✅ Migraciones versionadas
+
+### Almacenamiento (Supabase Storage)
+- ✅ Backups encriptados y comprimidos (gzip)
+- ✅ Bucket privado con políticas RLS por usuario
+- ✅ URLs firmadas para descarga segura (1h)
+
+### IA (Gemini BYOK)
+- ✅ Cada usuario usa SU propia API key (encriptada con Fernet)
+- ✅ Streaming SSE para respuestas en tiempo real
+- ✅ Function Calling: crear eventos, tareas, buscar notas
+- ✅ Modelos: gemini-1.5-flash, gemini-1.5-pro, gemini-1.5-flash-8b
+- ✅ System prompts personalizables por chat
+
+### Frontend (React 19 + Vite)
+- ✅ Zustand para estado global (auth, chat, UI)
+- ✅ TanStack Query para cacheo de datos
+- ✅ Tailwind CSS para estilos
+- ✅ PWA instalable
+- ✅ Rutas protegidas con Supabase Auth
+
+---
+
+## 📁 Estructura del Proyecto
 
 ```
-.
-├── .github/workflows/
-│   ├── ci.yml                   ← CI: 167  casos del smoke test + build del frontend
-│   ├── daily.yml                ← Tarea diaria (respaldo + resumen por correo)
-│   └── deploy-pages.yml         ← Publica la interfaz en GitHub Pages
-├── .devcontainer/               ← Codespaces: Python 3.12 + Node 20 preinstalados
-├── Dockerfile                   ← Multi-stage: Node 20 compila, Python 3.12 sirve
-├── docker-compose.yml           ← `docker compose up` y listo
-├── render.yaml                  ← Blueprint para desplegar la API en Render
-├── shared/
-│   └── system_prompt.txt        ← FUENTE DE VERDAD del System Prompt (la usa el backend)
+lifeagente/
 ├── backend/
 │   ├── app/
-│   │   ├── main.py              ← FastAPI + CORS + sirve el build del frontend
-│   │   ├── config.py            ← Settings (pydantic-settings)
-│   │   ├── database.py          ← SQLAlchemy 2.0 + SQLite (+ migración de esquema)
-│   │   ├── models.py            ← Event, Task, LogEntry, Maintenance, ChatMessage,
-│   │   │                           AppSettings, PolicySettings, AuditLog, ApprovalRequest,
-│   │   │                           PermisosCuenta (permisos de la cuenta)
-│   │   ├── schemas.py           ← Pydantic v2 (API + contrato del agente)
-│   │   ├── providers.py         ← Adaptadores OpenAI / Gemini / Anthropic / Ollama /
-│   │   │                           OpenAI-compatible + motor por reglas (demo)
-│   │   ├── planner.py           ← Planificador determinista (sin solapes)
-│   │   ├── agent.py             ← Orquestador: contexto → LLM → política → acciones
-│   │   ├── policy.py            ← Motor de gobierno: reglas, riesgo, PII, auditoría
-│   │   ├── permisos.py           ← Permisos de la cuenta + piloto automático
-│   │   ├── paneles.py          ← Paneles del usuario, miembros y niveles (ver/editar)
-│   │   │   ├── connections.py       ← Catálogo de proveedores, motores locales, verificación
-│   │   ├── security.py          ← Cifrado Fernet de las credenciales
-│   │   ├── seed.py              ← Datos de demostración
-│   │   └── routers/
-│   │       ├── crud.py          ← /api/events, /tasks, /logbook, /maintenance, /dashboard
-│   │       ├── agent.py         ← /api/agent/chat, /ingest, /settings
-│   │       ├── conexiones.py    ← /api/conexiones/* (catálogo, locales, activar, verificar)
-│   │       ├── permisos.py      ← /api/permisos/* (autorizar, piloto, respaldo, calendario)
-│   │       ├── inicio.py        ← /api/inicio: todo en UNA peticion (la app abre rapido)
-│   │   │       ├── paneles.py       ← /api/paneles/* (crear, compartir, miembros, datos)
-│   │       └── responsabilidad.py ← /api/responsabilidad/* (política, auditoría,
-│   │                                 aprobaciones, redacción, cumplimiento)
+│   │   ├── auth/           # Supabase Auth integration
+│   │   ├── services/       # Gemini, Storage, Backup
+│   │   ├── routers/        # auth, chat, accounts, events, tasks, panels, backups
+│   │   ├── config.py       # Settings (pydantic-settings)
+│   │   ├── database.py     # asyncpg + SQLAlchemy 2.0 + RLS context
+│   │   ├── models.py       # 10 modelos UUID + relaciones
+│   │   ├── crypto.py       # Fernet encrypt/decrypt
+│   │   ├── supabase_client.py
+│   │   └── main.py         # FastAPI app + CORS + lifespan
 │   ├── requirements.txt
-│   ├── run.py
-│   └── smoke.py                 ← 140 verificaciones end-to-end contra la BD real
+│   ├── Dockerfile
+│   └── .env
 ├── frontend/
-│   └── src/
-│       ├── App.tsx              ← Layout: agenda (vista inicial) + responsabilidad +
-│       │                           permisos + ajustes
-│       ├── store/useLifeAgente.ts ← Estado global (Zustand) + tema y ajustes
-│       ├── lib/api.ts           ← Cliente HTTP + manejo de la API Key local
-│       ├── lib/format.ts        ← Fechas, moneda, duraciones (es-CO)
-│       ├── lib/useMediaQuery.ts ← Cortes de pantalla (escritorio 1024 px)
-│       └── components/
-│           ├── TopBar.tsx       ← Marca, navegación de fecha, KPIs, conexiones
-│           ├── ResumenMovil.tsx ← Las 3 líneas de resumen (pantallas pequeñas)
-│           ├── MenuMovil.tsx    ← Hoja desplegable con lo que no cabe (móvil)
-│           ├── ChatFlotante.tsx ← Chat flotante móvil (burbuja arrastrable → panel → pantalla completa)
-│           ├── ChatBody.tsx    ← Burbujas, ficha del agente, input, sugerencias
-│           ├── ContextoLateral.tsx ← Resumen lateral (hoy, entregas, mes)
-│           ├── CalendarPanel.tsx← Agenda día/semana/mes por franjas + filtros y orden
-│           ├── ConexionesPanel.tsx ← Centro de Conexiones (4 caminos + Google, sin jerga)
-│           ├── AcademicPanel.tsx← Tareas y resúmenes (derecha, ordenable)
-│           ├── LogbookPanel.tsx ← Gastos y mantenimiento (derecha, ordenable)
-│           ├── AjustesPanel.tsx  ← Ajustes (temas, órdenes, etiquetas) + bienvenida inicial
-│           ├── PermisosPanel.tsx ← Permisos de la cuenta + piloto automático
-│           ├── ResponsibilityPanel.tsx ← Aprobaciones, auditoría, política, cumplimiento
-│           └── ui.tsx           ← Atomos visuales (Modal con portal)
-└── docs/
-    ├── 01-ARQUITECTURA.md
-    ├── 02-SYSTEM-PROMPT.md
-    ├── 03-INTEGRACION-API-KEY.md
-    ├── 05-RESPONSABILIDAD.md
-    ├── 06-CONE-XIONES.md
-    ├── 07-AJUSTES.md
-    ├── 08-SISTEMA-VISUAL.md
-    ├── 09-CUENTAS.md
-    ├── 10-DESPLIEGUE.md
-    ├── 11-AUTENTICACION.md
-    ├── 12-PERMISOS-Y-NUBE.md
-    ├── 13-MOTOR-LOCAL.md
-    ├── 14-RESPONSIVE.md
-    ├── 15-CUENTAS-Y-PANELES.md
-    ├── 16-RESPALDO-Y-NUBE.md
-    ├── 17-INSTALADOR-LOCAL.md
-    ├── 18-IA-LIGERA-Y-ACCESO.md
-    ├── 19-RENDIMIENTO.md
-    └── 20-CORREO-Y-RENDIMIENTO.md
-├── desktop/                  ← el instalador de Windows
-│   ├── launcher.py           ← ventana: requisitos, instalar, iniciar, guardar y apagar
-│   ├── LifeAgente.spec       ← receta de PyInstaller (empaqueta API + interfaz)
-│   ├── build.ps1             ← compila el .exe (siempre recompila la interfaz)
-│   └── LEEME.txt             ← instrucciones para quien instala
-├── VERSION                   ← el numero de version, en un solo archivo
-└── CHANGELOG.md              ← que hay en cada version
+│   ├── src/
+│   │   ├── lib/            # supabase.ts, api.ts
+│   │   ├── store/          # useAuthStore.ts
+│   │   ├── hooks/          # useSupabaseAuth.ts, useGeminiChat.ts
+│   │   ├── components/     # ChatInterface, UI components
+│   │   ├── pages/          # Login, Register, Dashboard, Settings, AuthCallback
+│   │   ├── App.tsx         # Routing + providers
+│   │   └── index.css       # Global styles + theme variables
+│   ├── package.json
+│   ├── vite.config.ts
+│   ├── tailwind.config.js
+│   └── .env
+├── docker-compose.yml
+├── Dockerfile
+└── README.md
 ```
 
 ---
 
-## 3. Documentación
-
-> 📚 **[Índice completo de la documentación](docs/00-INDICE.md)** — qué leer según lo que quieras hacer.
-> 🖥️ **[Manual del sistema](MANUAL-LOCAL.md)** — cómo tenerlo en tu equipo y **qué hace cada archivo**.
-
-| Documento | Contenido |
-|---|---|
-| [MANUAL-LOCAL.md](MANUAL-LOCAL.md) | **El manual del sistema**: 5 formas de correrlo, dónde están los datos y mapa de cada archivo |
-| [LEEME.txt](LEEME.txt) | Arranque rápido en texto plano (2 minutos) |
-| [docs/00-INDICE.md](docs/00-INDICE.md) | Índice de todos los documentos, por lo que quieres hacer |
-| [docs/01-ARQUITECTURA.md](docs/01-ARQUITECTURA.md) | Stack recomendado, diagrama, capas, modelo de datos, decisiones (ADR) |
-| [docs/02-SYSTEM-PROMPT.md](docs/02-SYSTEM-PROMPT.md) | El System Prompt completo, el contrato JSON y cómo extenderlo |
-| [docs/03-INTEGRACION-API-KEY.md](docs/03-INTEGRACION-API-KEY.md) | Paso a paso para conectar OpenAI / Gemini, seguridad, costos |
-| [docs/05-RESPONSABILIDAD.md](docs/05-RESPONSABILIDAD.md) | Motor de política, reglas, PII, auditoría, aprobaciones y marco normativo |
-| [docs/06-CONE-XIONES.md](docs/06-CONE-XIONES.md) | Centro de Conexiones: cualquier IA, sin claves, con IA local |
-| [docs/07-AJUSTES.md](docs/07-AJUSTES.md) | Formulario inicial, temas, órdenes de cada bloque y etiquetas |
-| [docs/08-SISTEMA-VISUAL.md](docs/08-SISTEMA-VISUAL.md) | Sistema visual: separación, tarjetas, formularios, modales y reglas de espaciado |
-| [docs/09-CUENTAS.md](docs/09-CUENTAS.md) | Cuentas de usuario: alta con código, aislamiento de datos y respaldo |
-| [docs/10-DESPLIEGUE.md](docs/10-DESPLIEGUE.md) | Publicar la app (Codespaces, Pages + Render, Docker) y quién hace qué |
-| [docs/11-AUTENTICACION.md](docs/11-AUTENTICACION.md) | Acceso con un clic: Google/Outlook/GitHub y sistemas alojados (Firebase, Supabase) |
-| [docs/12-PERMISOS-Y-NUBE.md](docs/12-PERMISOS-Y-NUBE.md) | Permisos de la cuenta, piloto automático y cómo trabaja sin que abras la app |
-| [docs/13-MOTOR-LOCAL.md](docs/13-MOTOR-LOCAL.md) | El motor de reglas: la app funciona sin IA, sin claves y sin servidor |
-| [docs/14-RESPONSIVE.md](docs/14-RESPONSIVE.md) | Diseño responsivo: 3 columnas en pantallas grandes, menu desplegable en el móvil y un solo scroll |
-| [docs/15-CUENTAS-Y-PANELES.md](docs/15-CUENTAS-Y-PANELES.md) | Cuentas que siempre funcionan (correo + contraseña) y paneles con permiso de acceso |
-| [docs/16-RESPALDO-Y-NUBE.md](docs/16-RESPALDO-Y-NUBE.md) | El error 500 explicado y arreglado, el código de verificación y Drive como almacén real |
-| [docs/17-INSTALADOR-LOCAL.md](docs/17-INSTALADOR-LOCAL.md) | El instalador `.exe` de Windows: qué lleva dentro, dónde viven los datos y cómo se compila |
-| [docs/18-IA-LIGERA-Y-ACCESO.md](docs/18-IA-LIGERA-Y-ACCESO.md) | Credenciales públicas (acceso en un clic) y descarga de una IA super ligera |
-| [docs/19-RENDIMIENTO.md](docs/19-RENDIMIENTO.md) | Por qué la app no se siente lenta: mediciones antes/después y los 5 arreglos |
-| [docs/20-CORREO-Y-RENDIMIENTO.md]
-| [docs/22-CORREO-Y-AGENTES.md](docs/22-CORREO-Y-AGENTES.md) | Correo con una sola clave (Brevo/Resend), 18 motores de IA detectados y conexion manual por URL |(docs/20-CORREO-Y-RENDIMIENTO.md) | El código de verificación que sí llega, la app en 1 sola petición y el correo como almacén |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Cómo contribuir: reglas del proyecto, qué comprobar antes de un PR y dónde tocar cada cosa |
-| [SECURITY.md](SECURITY.md) | Política de seguridad: qué datos se cifran, qué **no** pegar en un issue y cómo reportar un problema |
-
----
-
-## 4. Flujos clave
-
-### 4.1 Reorganización automática de agenda
-1. El usuario escribe: *«Tengo una cita hoy a las 3 PM»*.
-2. El agente clasifica → `[CALENDARIO]` y emite `crear_evento` (inamovible) +
-   `replanificar_dia`.
-3. `planner.py` calcula los huecos reales: los bloques **inamovibles** no se mueven, los
-   flexibles (estudio, descanso) se recolocan minimizando el desplazamiento.
-4. La UI se actualiza al instante y el chat muestra *«2 bloques reubicados»*.
-
-### 4.2 Gasto en lenguaje natural
-*«Hoy tanqueé la moto por $20.000»* → `[BITACORA_GASTO]` → se registra el gasto, se
-categoriza como `combustible` y se actualiza el acumulado del mes.
-
-### 4.3 Material académico
-Panel derecho → **Importar** → se pega el contenido → el agente lo resume, genera
-preguntas de estudio y agenda un bloque de práctica en el calendario.
-
-### 4.4 Registro automático en cascada
-El agente no solo ejecuta lo que pide: el **código** encadena las consecuencias y las
-deja escritas en la base de datos.
-
-| Disparo | Cascada automática |
-|---|---|
-| `crear_tarea` con fecha de entrega | `programar_estudio`: bloque de estudio en un hueco libre antes de la entrega |
-| `registrar_gasto` de categoría `mantenimiento` | `registrar_mantenimiento`: recalcula la próxima fecha (intervalo) y avisa |
-| `crear_evento` nuevo | `replanificar_dia`: reorganiza el resto del día sin solapes (una vez por fecha) |
-| `resumir_material` | `crear_tarea` + `programar_estudio` |
-
-Cada paso queda anotado en `resumen_estado.registros_detallados` y la interfaz lo
-muestra en el bloque **«Registrado automáticamente (N)»**, de modo que el usuario ve
-exactamente qué se guardó, sin tener que leer la base de datos.
-
-### 4.5 Multi-intención (una frase, varios registros)
-1. El usuario escribe: *«Mañana tengo una reunión de proyecto a las 9 AM, además entrego
-   el informe de metodología el jueves y me toca revisar los frenos de la moto»*.
-2. `providers.py` segmenta el mensaje por conectores (`además`, `y`, `,`, `;`…) y
-   clasifica **cada fragmento** por separado.
-3. Se acumulan las acciones de todas las categorías; `categoria` es la primaria y
-   `categorias` las lista todas.
-4. El agente responde con las 3 cosas hechas y la interfaz muestra 3 chips de categoría
-   y 5 registros automáticos.
-
-### 4.6 Decisión gobernada (IA responsable)
-1. El usuario escribe: *«Pagué el refrigerador nuevo por 2 millones»*.
-2. `providers.py` emite la intención `registrar_gasto` con su motivo.
-3. `policy.py` la evalúa contra las 7 reglas → **REQUIERE_APROBACION** (regla
-   `gasto_sobre_umbral`: 2.000.000 > 100.000). Se crea un `ApprovalRequest` y se audita.
-4. El chat responde: *«Necesito tu confirmación para 1 acción(es)…»* con el bloque ámbar
-   **«Requiere tu aprobación (1)»**.
-5. En *Responsabilidad → Aprobaciones* el usuario pulsa **Aprobar y ejecutar**: la acción
-   se ejecuta con `aprobada_por_usuario=True` y queda auditada como
-   `ejecucion_aprobada`.
-
-Si el mensaje trae datos personales, `policy.redactar_pii` los enmascara **antes** de
-que salgan del servidor (cédula, teléfono, correo, tarjeta, clave, dirección) y la
-operación se audita sin guardar los valores.
-
----
-
-## 5. Producción (qué falta para desplegar)
-
-- [ ] Cambiar `DATABASE_URL` a PostgreSQL y migrar a Alembic.
-- [ ] Guardar la API Key en un gestor de secretos (no en el `.env` del servidor).
-- [ ] Autenticación de usuarios (`/api` hoy es multiusuario sin login).
-- [ ] RATE limiting y cuotas por usuario.
-- [ ] Webhooks de Google Classroom / Notion (OAuth 2.0) para importar en segundo plano.
-- [ ] Cola de tareas (Celery / arq) para resúmenes largos de PDF.
-- [ ] Observabilidad: trazas por request + costo de tokens por usuario.
-- [ ] **Autenticación y roles**: la auditoría marca el actor como `usuario` genérico; falta
-  saber *quién* aprobó (y mantener la separación de responsabilidades).
-- [ ] **Firma criptográfica** de `audit_log` para que sea *tamper-evident*.
-- [ ] **Notificaciones** de aprobaciones fuera de la sesión (correo/push).
-- [ ] **DPIA** (Ley 1581) firmada por el responsable del tratamiento.
-
-### Cuentas de usuario: usa LifeAgente en tu equipo o con tu cuenta
-
-| Camino | Como | Donde quedan los datos |
-|---|---|---|
-| **Local** (sin cuenta) | abres la app y listo | en tu computador, en `backend/lifesync.db`. Nada se sube a ningun servidor |
-| **Con correo** | *Acceder > Entrar con mi correo* y escribes el codigo de 6 digitos que te llega | en el servidor, en un espacio solo tuyo |
-| **Con Google** | *Acceder > Entrar con Google* (reutiliza la cuenta que ya conectaste) | en el servidor, en un espacio solo tuyo |
-
-Cada persona ve **solo sus datos**: el aislamiento lo aplica el servidor
-automaticamente (`usuario_id` en todas las tablas + filtro de sesion), asi que
-nadie mas puede ver tus citas, tareas ni gastos.
-
-Con cuenta ademas puedes **descargar un respaldo** en JSON o **guardarlo en tu
-Google Drive** desde *Acceder > Guardar en mi Drive*.
-
-Detalles completos en `docs/09-CUENTAS.md`.
-
-### Publicar con datos reales (API en la nube + cuentas por persona)
-
-| Paso | Qué haces | Dónde |
-|---|---|---|
-| 1 | Despliega el servicio con el `render.yaml` del repo | [render.com](https://render.com) -> *New > Blueprint* -> elige el repo -> *Apply* |
-| 2 | La app completa (interfaz + API) queda en `https://lifesync-ai.onrender.com` | el mismo servicio sirve las dos cosas |
-| 3 | Conecta la pagina de Pages con esa API | `gh variable set VITE_API_URL --body "https://lifesync-ai.onrender.com/api" --repo brayanortiz906-lab/LifeSync-AI` y luego *Publicar la interfaz* |
-| 4 | Activa el envio real del codigo de verificacion | en Render: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_DESDE` |
-| 5 | Activa "Entrar con Google" | en Render: `GOOGLE_CLIENT_ID` (crealo en https://console.cloud.google.com/apis/credentials) |
-
-Cada persona entra con **su cuenta** (correo verificado o Google) y sus datos
-quedan **aislados**: el servidor anade `usuario_id` a todas las consultas, asi
-que nadie ve lo de nadie. Ademas puede bajar un respaldo en JSON o guardarlo
-en su Google Drive.
-
-Guia completa: `docs/10-DESPLIEGUE.md`.
-
-### Entrar en un clic: la persona pone su cuenta y entra
-
-| Quien | Que hace |
-|---|---|
-| **Quien usa LifeAgente** | `Acceder > Continuar con Google` -> autoriza en su navegador -> listo (2 clics) |
-| **Quien instala LifeAgente** (una vez) | pega su ID de cliente OAuth en `GOOGLE_CLIENT_ID` (variables del despliegue) |
-
-La configuracion tecnica **nunca** se le pide a quien usa la app: vive en el
-despliegue. Si tu copia todavia no la tiene, la app lo dice y ofrece entrar
-con tu correo (codigo de 6 digitos) o seguir en el equipo (modo local).
-
-Comparativa de servicios de autenticacion ya existentes (Firebase, Supabase,
-Clerk) y por que el sistema propio sigue siendo la mejor opcion aqui:
-`docs/11-AUTENTICACION.md`.
-
-### Entra con tu correo y tu contrasena (funciona siempre)
-
-El mensaje que antes decia *"esta copia no tiene el acceso con esa cuenta
-configurado"* **ya no aparece**. Ahora hay una via que **siempre** funciona, sin
-que nadie tenga que configurar nada:
-
-| Como entras | Que necesitas |
-|---|---|
-| **Correo + contrasena** | nada mas: escribes tu correo y tu contrasena |
-| Codigo de un solo uso | un servidor de correo (SMTP) en el despliegue |
-| Google / Outlook / GitHub | un ID de cliente OAuth (lo activa quien instala) |
-| Sin cuenta | nada: modo local en tu navegador |
-
-Tu contrasena **nunca** se guarda en claro (PBKDF2 con 120.000 iteraciones y sal
-por usuario) y la cuenta se crea **pendiente de confirmar** con un codigo (si no
-hay SMTP, el codigo se ve en pantalla, para que nadie quede con una cuenta sin
-verificar).
-
-**El apartado de cuentas (v24)** muestra ahora las cuatro vias, cada una con su
-estado real (lo que el servidor tiene activado, sin prometer lo que no hay):
-
-| Opcion en pantalla | Que es | Estado |
-|---|---|---|
-| **Google** | Gmail, Google Workspace, cuentas escolares | «Listo, un clic» si esta activado, si no «No disponible aqui» |
-| **Outlook / Hotmail** | Hotmail, Outlook, Microsoft 365, cuentas escolares | igual |
-| **GitHub** | cualquier cuenta de GitHub | igual |
-| **Cualquier correo** | Google, Hotmail, Yahoo, iCloud... con contrasena o con un codigo de 6 digitos | **siempre disponible** |
-| **Seguir en este equipo** | modo local: nada sale de tu computador | siempre disponible |
-
-El estado lo dice el propio servidor: `GET /api/cuentas/proveedores` devuelve
-`{ok, proveedores:[{id, nombre, detalle, icono, disponible, mensaje,
-url_registro, instrucciones}], correo, local}`. Si pulsas una cuenta que no esta
-activada, la pantalla te lo explica y te ofrece las dos salidas: activarlo (si
-eres quien instala) o entrar con tu correo.
-
-Ademas, desde la misma pantalla de cuenta puedes pulsar **"Pedir todos los
-permisos de una vez"** (Drive + Calendar + correo en un solo paso).
-
-### Paneles: cada espacio con su propia puerta
-
-Un **panel** es un espacio de trabajo ("Universidad", "Mi trabajo", "La casa") con
-su propia agenda y **su lista de acceso**. Tu eliges a quien le abres la puerta:
-
-| Accion | Quien puede |
-|---|---|
-| Ver el contenido | el dueno y los miembros con permiso |
-| Compartir por correo (nivel "solo ver" o "editar") | solo el dueno |
-| Quitar el acceso | solo el dueno |
-| Borrar el panel | solo el dueno |
-
-Si alguien intenta abrir un panel ajeno sin permiso, la API responde **403** con
-un mensaje claro (no un error raro ni una pantalla vacia). En la interfaz hay una
-pestana **Paneles** y un selector de panel en la barra superior (tus paneles y los
-compartidos, marcados con "(compartido)").
-
-Detalle tecnico: `docs/15-CUENTAS-Y-PANELES.md`.
-
-### Tu cuenta, tus datos y el sistema que trabaja solo
-
-En la pestaña **Permisos** la persona concede, **una sola vez**, todo lo que
-LifeAgente necesita para trabajar sin que nadie tenga que abrir la app:
-
-| Permiso | Que le deja hacer al sistema | Por que lo pide |
-|---|---|---|
-| `perfil` | saber quien eres | sin esto no hay forma de saber que datos son tuyos |
-| `drive` | guardar un respaldo de tu vida en tu Drive | si se borra el equipo, tus datos siguen intactos |
-| `calendario` | leer tu Google Calendar | tu agenda real entra al agente y se reorganiza sola |
-| `correo` | avisarte por correo | no dependes de tener la app abierta para enterarte |
-
-Con el **piloto automatico** encendido, el servidor hace el trabajo cada 30
-minutos: respaldo en tu Drive e importacion de tu agenda. Puedes ejecutarlo
-tambien a mano (`Ejecutar ahora`). Los tokens van cifrados y se renuevan
-solos, asi que no hay que volver a autorizar nada.
-
-Donde vive cada cosa:
-
-| Como lo usas | Donde estan tus datos | Quien trabaja |
-|---|---|---|
-| En tu equipo (sin descargar nada, con la IA local) | en tu computador (SQLite) | tu equipo |
-| En la nube (Render) | en el servidor, aislados por `usuario_id` | el servidor, con tu cuenta |
-| Con una cuenta de Google | en el servidor + copia en tu Drive | el servidor, con tus permisos |
-
-Detalle tecnico (endpoints, scopes, renovacion del token, tabla
-`permisos_cuenta`): `docs/12-PERMISOS-Y-NUBE.md`.
-
-### Tu Drive es el almacen real: al entrar de nuevo, todo vuelve
-
-El servidor puede reiniciarse (los planes gratuitos lo hacen). Por eso el
-**respaldo completo** vive tambien en tu **Google Drive**, y al entrar con tu
-cuenta LifeAgente lo recupera solo:
-
-| Cuando | Que pasa |
-|---|---|
-| Entras con tu cuenta | si el servidor esta vacio, se descarga el ultimo respaldo de Drive y se restaura |
-| Cada 12 horas (piloto automatico) | se sube un respaldo nuevo con fecha: `lifeagente-respaldo-AAAAMM-DD-HHMM.json` |
-| Quieres hacerlo a mano | boton **«Recuperar de Drive»** en la pestaña Permisos |
-
-Ademas, el **codigo de verificacion** se manda por correo y **una cuenta sin
-confirmar no puede guardar contenido** (la API responde 403 con el mensaje
-claro). Si el servidor no tiene SMTP, el codigo se muestra en pantalla para
-poder probarlo.
-
-Y para diagnosticar tu despliegue sin mirar logs: `GET /api/diagnostico` te dice
-que tablas hay, si falta alguna y si el SMTP y Google estan configurados.
-
-Detalle tecnico (el error 500 explicado, el flujo de verificacion y el ciclo
-Drive): `docs/16-RESPALDO-Y-NUBE.md`.
-
-### Guarda cuando dejas de escribir, no cada X horas
-
-El respaldo no dispara mientras estas escribiendo: el sistema **marca** que
-cambiaste algo y espera a que pares.
-
-| Pieza | Como funciona |
-|---|---|
-| **Marcado de cambios** | cualquier escritura (agenda, tareas, gastos, mantenimiento, paneles) marca la cuenta como «cambios pendientes» |
-| **Espera de 45 s** | cuando pasan 45 segundos sin cambios, se sube el respaldo a Drive y se limpia la marca |
-| **Contador visible** | la pestaña Permisos muestra «Todo guardado» o «Guarda en 14s», y se refresca solo cada 15 s |
-| **Boton «Guardar ahora»** | si quieres que se guarde en el acto |
-| **Tarea diaria (GitHub Actions)** | `.github/workflows/daily.yml` despierta la API a las 6:00, respalda y manda el resumen por correo |
-
-Asi no se guardan estados a medio escribir, no se crean tres respaldos por
-minuto y el Drive siempre queda con la version buena.
-
-Al **entrar** con tu cuenta, ademas, la restauracion **fusiona**: compara el
-Drive con el servidor y mete **solo lo que falte** (sin duplicar y sin
-resucitar lo que borraste). Si tu contenido del servidor es mas nuevo que el
-respaldo, no toca nada.
-
-| Variable en el repo / Render | Para que |
-|---|---|
-| `API_URL` (variable del repo) | saber a que API despertar en la tarea diaria |
-| `CRON_TOKEN` (secreto) | autorizar la llamada de la tarea diaria |
-
-Detalle tecnico: `docs/16-RESPALDO-Y-NUBE.md`, seccion «Guardado con retardo».
-
----
-
-## > **Y todo eso esta tambien en la pagina normal**: la tarjeta **«Cosas de local»**
-> (columna 2 de «Mi agenda») te dice si tu IA del computador ya esta conectada,
-> te deja cambiar de IA, trae los **5 organizadores** con un clic y una caja para
-> **pegar la informacion de otro chat**. El calendario vacio tambien te ofrece
-> los organizadores, y el banner de arriba ofrece cambiar de modo.
-
-La app funciona aunque no haya ninguna IA conectada
-
-LifeAgente trae un **motor local de reglas** (`frontend/src/lib/motorLocal.ts`):
-no necesita modelo, ni clave, ni servidor. Reconoce **palabras clave, fechas,
-horas y montos**, y registra lo que le digas.
-
-| Modo | Donde viven los datos | Limite | Como se entra |
-|---|---|---|---|
-| **Modo de prueba** | solo en memoria | 6 bloques, 4 tareas, 6 gastos | botón «Modo de prueba» de la pantalla de bienvenida |
-| **Modo local** | en el navegador (`localStorage`) | ninguno | botón «Sin cuenta, en este equipo», o **solo** si la API no responde |
-| **Con cuenta** | en el servidor, aislado por `usuario_id` | ninguno | Google, Outlook, GitHub o tu correo |
-
-Ademas, la pantalla de bienvenida trae **5 organizadores preestablecidos**
-(Estudiante, Trabajo de oficina, Emprendedor, Moto y mantenimiento, Semana
-simple) y una caja para **pegar informacion de otro chat**: el motor la
-descompone y la registra sola.
-
-```
-"Mañana tengo una cita a las 3 PM y además gasté 25 mil en gasolina"
--> Agende "Cita" (2026-10-22 15:00) · Registre 25.000 en combustible
+## 🧪 Desarrollo
+
+### Backend
+```bash
+cd backend
+pip install -r requirements.txt
+# Tests: pytest (cuando se añadan)
+python run.py
 ```
 
-Detalle tecnico: `docs/13-MOTOR-LOCAL.md`.
+### Frontend
+```bash
+cd frontend
+npm install
+npm run dev      # Desarrollo
+npm run build    # Producción (genera dist/)
+npm run preview  # Preview build
+```
+
+### Docker (todo en uno)
+```bash
+docker build -t lifeagente .
+docker run -p 8000:8000 --env-file backend/.env lifeagente
+```
 
 ---
 
-## 6. Qué hay en este repositorio
+## 📋 Roadmap v2.x
 
-| Pieza | Dónde | Qué hace |
-|---|---|---|
-| **CI** | `.github/workflows/ci.yml` | en cada push: levanta la API, corre los **167  casos** del smoke test, valida el System Prompt y compila la interfaz |
-| **Publicación de la web** | `.github/workflows/deploy-pages.yml` | compila la interfaz y la publica en la rama `gh-pages` (que es la que sirve GitHub Pages) |
-| **Tarea diaria** | `.github/workflows/daily.yml` | despierta la API, guarda el respaldo en Drive y manda el resumen por correo |
-| **Instalador** | `.github/workflows/build-installer.yml` | compila el `.exe` de Windows y lo publica como descarga en cada release |
-| **Plantillas de issues** | `.github/ISSUE_TEMPLATE/` | *Reportar un error* (pide el diagnóstico) e *Idear o proponer* |
-| **Codespaces** | `.devcontainer/` | entorno listo (Python 3.12 + Node 20) con `postCreate` que instala todo |
-| **Seguridad** | `SECURITY.md` | qué se cifra, qué no pegar nunca y cómo reportar un problema |
-| **Contribuir** | `CONTRIBUTING.md` | reglas del proyecto, qué comprobar y dónde tocar cada cosa |
-| **Manual del sistema** | `MANUAL-LOCAL.md` · `LEEME.txt` | cómo tenerlo en tu equipo y qué hace cada archivo |
-| **Empaquetado** | `empaquetar.ps1` | un ZIP con todo el sistema, listo para llevar a otro equipo |
-| **Publicar** | `publicar.ps1` | **un solo comando** para subir una mejora del PC a GitHub y que Render la despliegue |
-
-### Ramas y releases
-
-| Rama/etiqueta | Para qué |
-|---|---|
-| `main` | el código (todo lo que se desarrolla) |
-| `gh-pages` | la interfaz compilada que sirve la web |
-| `v1.0.0` | release: `LifeAgente.exe` (instalador) y `LifeAgente-AI-sistema.zip` (código completo) |
-
-### Estado de los workflows
-
-| Workflow | Cuándo se dispara | Qué hace |
-|---|---|---|
-| `CI` | push y pull request en `main` | 167  comprobaciones + build de TypeScript |
-| `Publicar la interfaz` | push en `main` | publica en GitHub Pages |
-| `Instalador de Windows` | a mano o al crear un tag `v*` | compila el `.exe` y lo sube al release |
-| `Tarea diaria` | todos los días a las 06:00 (Colombia) | respaldo + resumen por correo |
+- [ ] Tests automatizados (pytest + vitest + playwright)
+- [ ] Notificaciones push (Supabase Realtime + Service Workers)
+- [ ] Google Calendar sync (opcional, OAuth)
+- [ ] Búsqueda semántica con embeddings (Gemini + pgvector)
+- [ ] Modo offline completo (IndexedDB + sync)
+- [ ] App móvil (Capacitor) / Desktop (Tauri)
+- [ ] Multi-idioma (i18n)
 
 ---
 
-## Cuentas seguras: el codigo viaja hasheado y nadie se auto-nombra admin
+## 🤝 Contribuir
 
-| Riesgo | Como esta resuelto |
-|---|---|
-| Robar el codigo de la base de datos | se guarda **hasheado** (SHA-256), se borra al usarlo y expira en 15 min |
-| Probar codigos hasta acertar | maximo 5 intentos (el codigo se invalida) y 60 s entre peticiones (429) |
-| Ver el codigo en pantalla | con `APP_ENTORNO=produccion` **deja de mostrarse** (ni pantalla ni log) |
-| Crear una cuenta admin | el rol **nunca** se elige al registrarse: solo los correos de `ADMIN_EMAILS` |
-| Tocar la seccion de administracion | pide administrador, responde 403 y **queda auditado** |
-
-**Correo de verdad:** con `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` y `SMTP_DESDE` el codigo llega al buzon (texto + HTML). Sin eso, la persona entra con contrasena o con Google.
-
-Detalle: [`docs/09-CUENTAS.md`](docs/09-CUENTAS.md) · [`docs/10-DESPLIEGUE.md`](docs/10-DESPLIEGUE.md)
+1. Fork del repo
+2. Crear rama: `git checkout -b feature/nueva-funcion`
+3. Commit: `git commit -m "feat: nueva función"`
+4. Push: `git push origin feature/nueva-funcion`
+5. Abrir Pull Request
 
 ---
 
-## Entrar es un solo boton
+## 📄 Licencia
 
-Olvidate de las pestanas "ya tengo cuenta" / "crear cuenta":
-
-1. Escribes tu **correo** y tu **contrasena**.
-2. Le das a **"Entrar o crear mi cuenta"**.
-3. Listo: si la cuenta no existia, se crea y te llega el codigo por correo; si
-   existia, entras directo; si aun no la has confirmado, te pide el codigo de 6
-   digitos.
-
-La contrasena equivocada no crea cuentas nuevas y no revela si un correo esta
-registrado. La sesion se recuerda 30 dias.
-
-Detalle: [`docs/09-CUENTAS.md`](docs/09-CUENTAS.md)
-
-
-### Correo con una sola clave (Brevo o Resend)
-
-Para que el **codigo de verificacion llegue de verdad** no hace falta montar un servidor de
-correo: dos servicios lo hacen con **una clave de API** y funcionan aunque el hosting
-bloquee los puertos de SMTP (como el plan gratis de Render).
-
-| Camino | Que pegas | Plan gratis | Donde |
-|---|---|---|---|
-| **Brevo** (recomendado) | la clave `xkeysib-...` | **300 correos/dia** | [app.brevo.com/settings/keys/api](https://app.brevo.com/settings/keys/api) |
-| **Resend** | la clave `re_...` | **3.000 correos/mes** | [resend.com/api-keys](https://resend.com/api-keys) |
-| SMTP clasico | host, puerto, usuario y clave de aplicacion | depende | el correo que uses |
-
-**Como se activa (3 pasos, desde la app):**
-1. Abre **Conectar IA > Ajustes tecnicos > Envio de correo** (solo administradores).
-2. Elige Brevo o Resend, pega la clave y escribe el remitente.
-3. Pulsa **Mandar un correo de prueba**. Si llega, el codigo de verificacion sale solo.
-
-La clave se guarda **cifrada** y la API nunca la devuelve. Si el proveedor falla, se prueba
-otro que este listo; y en produccion el codigo **nunca** se muestra en pantalla.
-
-Detalle en `docs/22-CORREO-Y-AGENTES.md`.
-
-### Conecta tu propio sistema de IA o de agentes con su URL
-
-LifeAgente detecta **18 sistemas** de IA y de agentes en tu computador, todos a la vez
-(~20 ms): Ollama, LM Studio, Jan, GPT4All, llama.cpp/LocalAI, text-generation-webui,
-KoboldCpp, vLLM, TabbyAPI, LiteLLM, Open WebUI, AnythingLLM, Flowise, Dify, Msty y
-cualquier servidor compatible con OpenAI.
-
-Y si el tuyo vive en otro puerto (o es un agente tuyo), **pides la direccion a mano**:
-
-1. **Conectar IA > 2. Usa la IA de tu computador** -> *¿Tienes otro sistema de IA o de
-   agentes? Conéctalo con su URL*.
-2. Pega `http://127.0.0.1:4000` (y la clave, si la pide) -> **Probar esta direccion**.
-3. LifeAgente **averigua solo como hablarle** (Ollama, compatible con OpenAI o compatible
-   con Anthropic), te muestra los modelos que tiene y pulsas **Guardar conexion**.
-
-Tambien puedes pegar la URL desde la **agenda**, en la tarjeta **Cosas de local**.
+MIT License - ver [LICENSE](LICENSE)
 
 ---
 
-### 🔔 Avisos del celular y el APK de Android
+## 🙏 Agradecimientos
 
-| Pieza | Que hace |
-|---|---|
-| **Avisos del celular** | Panel en la agenda para encender las notificaciones, ver y quitar las alarmas |
-| **La campana del calendario** | al tocar un bloque, un clic programa el aviso (al empezar, 10 min, 30 min, 1 h o 1 dia antes) |
-| **Las alarmas sobreviven** | se guardan en el navegador y se vuelven a armar al abrir la app |
-| **APK de Android** | se instala y ya funciona: la direccion de la API va dentro, no hay que configurar nada |
-| **PWA** | en el celular: *Chrome -> menu -> Anadir a pantalla de inicio* |
-
-Las pendientes por prioridad (lo que falta y quien lo resuelve) estan en
-[`docs/25-AVISOS-Y-APK.md`](docs/25-AVISOS-Y-APK.md).
+- [Supabase](https://supabase.com) - Backend-as-a-Service increíble
+- [Google AI Studio](https://aistudio.google.com) - Gemini API gratis
+- [Render](https://render.com) / [Vercel](https://vercel.com) - Hosting gratis
+- [FastAPI](https://fastapi.tiangolo.com) / [React](https://react.dev) - Frameworks base
