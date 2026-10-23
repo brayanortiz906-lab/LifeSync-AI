@@ -8,6 +8,22 @@ La app, el instalador `.exe` y las Releases de GitHub muestran la misma.
 
 ---
 
+## v2.0.1 - Instalador .exe automático + CI/CD completo (23 oct 2026)
+
+### Automatización total de releases
+
+- **GitHub Actions workflows** completos: `release.yml` (build .exe + source ZIP en tag push) y `ci.yml` (tests + build check en push/PR).
+- **Instalador .exe actualizado** (`desktop/LifeAgente.spec`) con todos los módulos v2.0: Supabase Auth, Gemini BYOK, routers nuevos, asyncpg, cryptography.
+- **Release automático**: al pushear tag `v*`, compila .exe en Windows runner, crea source ZIP, publica Release en GitHub con ambos archivos y body del CHANGELOG.
+- **CI en cada push**: tests backend (smoke + imports v2.0), build frontend (Vite + TypeScript), lint opcional.
+
+### Correcciones y mejoras
+
+- `.spec` limpio: eliminados módulos v1.x obsoletos (`app.cuentas`, `app.permisos`, `app.ia_local`, `app.routers.cuentas`, etc.), añadidos v2.0 (`app.auth.*`, `app.services.*`, `app.routers.*`, `supabase`, `google.generativeai`, `asyncpg`).
+- Workflows listos para plan gratuito: runners ubuntu-latest + windows-latest, timeouts ajustados, artifacts con retención 90 días.
+
+---
+
 ## v2.0.0 - Migración completa a Supabase + Gemini BYOK (23 oct 2026)
 
 ### Cambio de arquitectura total: $0/mes en plan gratuito
