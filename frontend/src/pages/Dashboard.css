@@ -7,6 +7,53 @@
   color: var(--text-primary, #f1f5f9);
 }
 
+/* Trial Mode Banner */
+.trial-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  z-index: 1000;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.trial-content {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1.5rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.trial-content span {
+  flex: 1;
+  font-weight: 500;
+}
+
+.trial-close {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  padding: 0.375rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.trial-close:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Adjust dashboard when trial banner is active */
+.dashboard:has(.trial-banner) .main-content,
+.dashboard:has(.trial-banner) .sidebar {
+  margin-top: 56px;
+}
+
 .dashboard-loading {
   display: flex;
   align-items: center;

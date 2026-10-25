@@ -1,6 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
 import { Dashboard } from './pages/Dashboard';
+import { Landing } from './pages/Landing';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { AuthCallback } from './pages/AuthCallback';
@@ -45,9 +47,21 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-// Rutas protegidas (requieren auth)
+// Rutas protegidas (requieren auth o modo demo)
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
+  const [trialMode, setTrialMode] = useState(false);
+  
+  useEffect(() => {
+    const isDemo = sessionStorage.getItem('trial_mode') === 'true';
+    const expires = sessionStorage.getItem('trial_expires');
+    if (isDemo && expires && Date.now() < parseInt(expires)) {
+      setTrialMode(true);
+    } else {
+      sessionStorage.removeItem('trial_mode');
+      sessionStorage.removeItem('trial_expires');
+    }
+  }, []);
   
   if (loading) {
     return (
@@ -57,8 +71,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     );
   }
   
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+  if (!isAuthenticated && !trialMode) {
+    return <Navigate to="/" replace />;
   }
   
   return <>{children}</>;
@@ -70,7 +84,10 @@ function App() {
       <BrowserRouter>
         <CookieConsentProvider>
           <Routes>
-            {/* Rutas públicas */}
+            {/* Landing page - Nueva entrada unificada */}
+            <Route path="/" element={<Landing />} />
+            
+            {/* Rutas de autenticación */}
             <Route element={<PublicRoute><Login /></PublicRoute>}>
               <Route path="/login" element={<Login />} />
             </Route>
@@ -99,8 +116,7 @@ function App() {
             </Route>
             
             {/* Redirects */}
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </CookieConsentProvider>
       </BrowserRouter>

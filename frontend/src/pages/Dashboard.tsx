@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Outlet } from 'react-router-dom';
-import { LayoutDashboard, Settings, MessageSquare, Kanban, Database, Brain, LogOut, User, Bell, Key, Palette, Share2 } from 'lucide-react';
+import { LayoutDashboard, Settings, MessageSquare, Kanban, Database, Brain, LogOut, User, Bell, Key, Palette, Share2, Sparkles } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { api } from '@/lib/api';
 import './Dashboard.css';
@@ -19,12 +19,23 @@ export function Dashboard() {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [trialMode, setTrialMode] = useState(false);
 
   useEffect(() => {
-    if (!loading && !isAuthenticated) {
+    // Verificar modo demo
+    const isDemo = sessionStorage.getItem('trial_mode') === 'true';
+    const expires = sessionStorage.getItem('trial_expires');
+    if (isDemo && expires && Date.now() < parseInt(expires)) {
+      setTrialMode(true);
+    } else {
+      sessionStorage.removeItem('trial_mode');
+      sessionStorage.removeItem('trial_expires');
+    }
+
+    if (!loading && !isAuthenticated && !trialMode) {
       navigate('/login', { replace: true });
     }
-  }, [isAuthenticated, loading, navigate]);
+  }, [isAuthenticated, loading, navigate, trialMode]);
 
   if (loading) {
     return (
@@ -36,7 +47,25 @@ export function Dashboard() {
 
   return (
     <div className="dashboard">
-      {/* Sidebar */}
+      {/* Trial Mode Banner */}
+      {trialMode && (
+        <div className="trial-banner">
+          <div className="trial-content">
+            <Sparkles size={20} />
+            <span>Modo demo activo - Prueba limitada (30 minutos)</span>
+            <button 
+              onClick={() => {
+                sessionStorage.removeItem('trial_mode');
+                sessionStorage.removeItem('trial_expires');
+                navigate('/');
+              }}
+              className="trial-close"
+            >
+              Salir de demo
+            </button>
+          </div>
+        </div>
+      )}
       <aside className={`sidebar ${sidebarOpen ? 'open' : 'collapsed'}`}>
         <div className="sidebar-header">
           <h1 className={sidebarOpen ? '' : 'hidden'}>LifeAgente</h1>
