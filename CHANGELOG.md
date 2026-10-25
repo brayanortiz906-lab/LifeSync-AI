@@ -8,6 +8,34 @@ La app, el instalador `.exe` y las Releases de GitHub muestran la misma.
 
 ---
 
+## v2.1.2 - Release binarios automáticos + Correcciones deploy (24 oct 2026)
+
+### 📦 Binarios generados automáticamente por GitHub Actions
+- **Windows `.exe`**: PyInstaller + spec actualizado (hiddenimports v2.x)
+- **Android `.apk`**: Capacitor 6.1 + Gradle assembleRelease
+- **Source `.zip`**: Código completo versionado
+
+### 🔧 Correcciones y mejoras
+- `backend/app/config.py`: Validación estricta `ENCRYPTION_KEY` (32 bytes base64)
+- `backend/app/crypto.py`: Manejo robusto claves Fernet + logging seguro
+- `frontend/capacitor.config.json`: Permisos notificaciones + vibración Android 13+
+- `.github/workflows/release.yml`: Matrix Windows/Ubuntu, artifact retention 90 días
+
+### 📋 Pendientes (requieren acción manual)
+| Acción | Dónde | Estado |
+|--------|-------|--------|
+| Configurar env vars Render | Dashboard Render → Environment | ❌ Pendiente |
+| Configurar env vars Vercel | Dashboard Vercel → Environment | ❌ Pendiente |
+| Google OAuth Client ID/Secret | Google Cloud Console | ❌ Pendiente |
+| Brevo/Resend API Key | Dashboard proveedor email | ❌ Pendiente |
+| Revocar tokens GitHub expuestos | GitHub → Settings → Tokens | ⚠️ Urgente |
+
+### 🐛 Errores conocidos / Rotos
+- **Tokens GitHub expuestos** en historial: revocar y rotar `GITHUB_TOKEN` / PATs
+- **Render/Vercel sin deploy**: Faltan variables de entorno → health checks fallan
+
+---
+
 ## v2.1.1 - Configuración completa deploy + CI/CD + Migraciones (23 oct 2026)
 
 ### 🚀 Deploy automatizado end-to-end ($0/mes)
