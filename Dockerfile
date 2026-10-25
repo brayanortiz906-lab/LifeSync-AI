@@ -6,7 +6,7 @@
 FROM node:20-alpine AS web
 WORKDIR /web
 COPY frontend/package.json frontend/package-lock.json ./
-RUN npm ci
+RUN npm install --legacy-peer-deps
 COPY frontend/ ./
 ARG VITE_API_URL=""
 ARG VITE_SUPABASE_URL=""
