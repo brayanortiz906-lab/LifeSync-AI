@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom'
 
 export function Panel({
   titulo, sub, icono, acciones, children, className = '', cuerpoClass = '',
+  variant = 'glass',
 }: {
   titulo?: ReactNode
   /** Texto corto que explica de que va el panel (una sola linea). */
@@ -13,10 +14,19 @@ export function Panel({
   children: ReactNode
   className?: string
   cuerpoClass?: string
+  /** Variante visual: 'default' | 'elevated' | 'glass' | 'glass-light' */
+  variant?: 'default' | 'elevated' | 'glass' | 'glass-light'
 }) {
+  const variantClasses = {
+    default: 'bg-slate-900/60 border-white/8 shadow-xl shadow-black/30 backdrop-blur',
+    elevated: 'bg-slate-900/70 border-white/10 shadow-2xl shadow-black/40 backdrop-blur-md',
+    glass: 'glass-panel',
+    'glass-light': 'glass-panel-light',
+  }
+  
   return (
     <section
-      className={`flex min-h-0 flex-col overflow-hidden rounded-2xl border border-white/8 bg-slate-900/60 shadow-xl shadow-black/30 backdrop-blur ${className}`}
+      className={`flex min-h-0 flex-col overflow-hidden rounded-2xl border ${variantClasses[variant]} ${className}`}
     >
       {(titulo || acciones) && (
         <header className="flex shrink-0 items-start justify-between gap-3 border-b border-white/8 px-5 py-3.5">
@@ -40,17 +50,29 @@ export function Panel({
 
 export function Chip({
   children, className = '', onClick, title,
+  variant = 'default',
 }: {
   children: ReactNode
   className?: string
   onClick?: () => void
   title?: string
+  variant?: 'default' | 'success' | 'warning' | 'danger' | 'info' | 'accent' | 'active'
 }) {
+  const variantClasses = {
+    default: 'glass-chip',
+    active: 'glass-chip active',
+    accent: 'glass-chip glass-chip-accent',
+    success: 'glass-chip active',
+    warning: 'glass-chip glass-chip-accent',
+    danger: 'glass-chip glass-chip-accent',
+    info: 'glass-chip glass-chip-accent',
+  }
+  
   const base =
-    'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset whitespace-nowrap'
+    'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap'
   const Tag = onClick ? 'button' : 'span'
   return (
-    <Tag title={title} onClick={onClick} className={`${base} ${className}`}>
+    <Tag title={title} onClick={onClick} className={`${base} ${variantClasses[variant]} ${className}`}>
       {children}
     </Tag>
   )
@@ -68,12 +90,10 @@ export function Boton({
   titulo?: string
 }) {
   const estilos: Record<string, string> = {
-    primario:
-      'bg-indigo-500 text-white hover:bg-indigo-400 disabled:bg-indigo-500/40 shadow-lg shadow-indigo-500/20',
-    secundario:
-      'bg-white/8 text-slate-200 hover:bg-white/14 border border-white/10 disabled:opacity-40',
-    fantasma: 'text-slate-400 hover:text-slate-100 hover:bg-white/8',
-    peligro: 'bg-rose-500/15 text-rose-300 hover:bg-rose-500/25 ring-1 ring-rose-500/30',
+    primario: 'glass-button',
+    secundario: 'glass-button-secondary',
+    fantasma: 'glass-button-ghost',
+    peligro: 'glass-button-danger',
   }
   return (
     <button
@@ -115,7 +135,7 @@ export function Stat({
     rose: 'text-rose-300',
   }
   return (
-    <div className="rounded-xl border border-white/8 bg-white/4 px-4 py-3">
+    <div className="glass-panel rounded-xl p-4">
       <div className={`text-base font-bold tabular-nums ${tonos[tono]}`}>{valor}</div>
       <div className="text-[10px] font-medium uppercase tracking-wider text-slate-500">{etiqueta}</div>
       {sub && <div className="mt-0.5 text-[10px] text-slate-500">{sub}</div>}
@@ -146,7 +166,7 @@ export function Modal({
       onClick={onCerrar}
     >
       <div
-        className={`ls-fade-up flex max-h-[88vh] w-full ${ancho} flex-col overflow-hidden rounded-3xl border border-white/10 bg-slate-900 shadow-2xl`}
+        className={`ls-fade-up flex max-h-[88vh] w-full ${ancho} flex-col overflow-hidden rounded-3xl glass-panel`}
         onClick={(e) => e.stopPropagation()}
       >
         <header className="flex shrink-0 items-start justify-between gap-4 border-b border-white/8 px-6 py-4">
@@ -184,12 +204,20 @@ export function Modal({
 
 export function Tarjeta({
   children, className = '', apretado = false,
+  variant = 'glass',
 }: {
   children: ReactNode
   className?: string
   apretado?: boolean
+  /** Variante visual: 'default' | 'glass' | 'glass-light' */
+  variant?: 'default' | 'glass' | 'glass-light'
 }) {
-  return <div className={`ls-card ${apretado ? 'ls-card-apretado' : ''} ${className}`}>{children}</div>
+  const variantClasses = {
+    default: 'bg-slate-900/60 border border-white/8 shadow-xl shadow-black/30 backdrop-blur rounded-2xl',
+    glass: 'glass-panel rounded-2xl',
+    'glass-light': 'glass-panel-light rounded-2xl',
+  }
+  return <div className={`${variantClasses[variant]} ${apretado ? 'p-3' : 'p-4'} ${className}`}>{children}</div>
 }
 
 export function Seccion({
@@ -236,13 +264,13 @@ export function Aviso({
   children: ReactNode
 }) {
   const estilos: Record<string, string> = {
-    info: 'border-indigo-500/25 bg-indigo-500/8 text-indigo-100',
-    ok: 'border-emerald-500/25 bg-emerald-500/8 text-emerald-200',
-    error: 'border-rose-500/30 bg-rose-500/8 text-rose-200',
-    aviso: 'border-amber-500/30 bg-amber-500/8 text-amber-200',
+    info: 'glass-panel border-indigo-500/30',
+    ok: 'glass-panel border-emerald-500/30',
+    error: 'glass-panel border-rose-500/30',
+    aviso: 'glass-panel border-amber-500/30',
   }
   return (
-    <div className={`rounded-xl border px-3.5 py-3 text-[11px] leading-relaxed ${estilos[tono]}`}>
+    <div className={`rounded-xl px-3.5 py-3 text-[11px] leading-relaxed ${estilos[tono]}`}>
       {titulo && <div className="mb-1 text-xs font-bold">{titulo}</div>}
       {children}
     </div>

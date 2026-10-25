@@ -72,7 +72,7 @@ export default function Bienvenida({
     if (!abierto) return
     void cuentas
       .proveedores()
-      .then((r) => setInfo(r))
+      .then((r: { proveedores: any[] }) => setInfo({ ok: true, proveedores: r.proveedores, correo: { disponible: true, mensaje: '' }, local: { disponible: true, mensaje: '' } }))
       .catch(() => setInfo(null))
   }, [abierto])
 
@@ -82,7 +82,7 @@ export default function Bienvenida({
     setOcupado(true)
     setEstado(null)
     try {
-      const r = await cuentas.iniciarAccesoGoogle(proveedor)
+      const r = await cuentas.iniciarAccesoGoogle(proveedor) as { user_code: string; verification_uri: string; device_code: string }
       setPendiente({
         proveedor,
         user_code: r.user_code,
@@ -101,7 +101,7 @@ export default function Bienvenida({
     setOcupado(true)
     setEstado(null)
     try {
-      const r = await cuentas.terminarAccesoGoogle(pendiente.device_code, pendiente.proveedor)
+      const r = await cuentas.terminarAccesoGoogle(pendiente.device_code, pendiente.proveedor) as { ok: boolean; token?: string; usuario?: any; mensaje?: string }
       if (r.ok && r.token && r.usuario) {
         guardarToken(r.token)
         onSesion(r.token, r.usuario)

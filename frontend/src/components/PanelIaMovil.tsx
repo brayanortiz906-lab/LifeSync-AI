@@ -111,7 +111,7 @@ export function PanelIaMovil() {
     
     try {
       // Usar backend para descargar con progreso SSE
-      const response = await fetch(`${api.baseURL}/ia-movil/descargar`, {
+      const response = await fetch(`${api.getBaseURL()}/ia-movil/descargar`, {
         method: 'POST',
         headers: api.getHeaders(),
         body: JSON.stringify({ modelo, motor }),

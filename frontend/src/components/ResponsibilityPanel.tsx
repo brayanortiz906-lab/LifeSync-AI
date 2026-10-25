@@ -10,6 +10,26 @@ import { useLifeAgente } from '../store/useLifeAgente'
 import type { EntradaAuditoria, Politica } from '../types'
 import { Boton, Chip, Panel, Stat, Vacio } from './ui'
 
+interface CategoriaDato {
+  categoria: string
+  dato: string
+  finalidad: string
+  base_legal: string
+}
+
+interface Tercero {
+  nombre: string
+  dato: string
+  proposito: string
+  control: string
+}
+
+interface InventarioResponsabilidad {
+  categorias_datos: CategoriaDato[]
+  terceros: Tercero[]
+  derechos: Record<string, string>
+}
+
 type SubPanel = 'aprobaciones' | 'auditoria' | 'politica' | 'cumplimiento'
 
 const COLOR_RIESGO: Record<string, string> = {
@@ -83,7 +103,7 @@ export default function ResponsibilityPanel() {
     texto_redactado: string
     categorias: string[]
   } | null>(null)
-  const [inventario, setInventario] = useState<Awaited<ReturnType<typeof api.inventario>> | null>(null)
+  const [inventario, setInventario] = useState<InventarioResponsabilidad | null>(null)
 
   useEffect(() => {
     void cargarResponsable()

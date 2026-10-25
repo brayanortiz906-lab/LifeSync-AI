@@ -26,6 +26,7 @@ interface AlarmaFormData {
   hora: string;
   repetir: Alarma['repetir'];
   sonido: string;
+  activa?: boolean;
 }
 
 const SONIDOS = [

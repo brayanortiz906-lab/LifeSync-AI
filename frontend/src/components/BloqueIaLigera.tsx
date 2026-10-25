@@ -63,7 +63,7 @@ export function BloqueIaLigera() {
     setExito(null);
 
     try {
-      const response = await fetch(`${api.baseURL}/ia-gratis/descargar`, {
+      const response = await fetch(`${api.getBaseURL()}/ia-gratis/descargar`, {
         method: 'POST',
         headers: api.getHeaders(),
         body: JSON.stringify({ modelo: modelo.id, motor: modelo.motor }),

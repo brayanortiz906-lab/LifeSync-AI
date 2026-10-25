@@ -1,7 +1,7 @@
 /** Barra superior: marca, navegación de fecha, KPIs y conexiones de IA. */
 import { useState } from 'react'
 import { CalendarDays, ChevronLeft, ChevronRight, LayoutGrid, Menu, MessageSquare, Plug, Sparkles, Trash2, User } from 'lucide-react'
-import BotonInstalar from './BotonInstalar'
+import { BotonInstalar } from './BotonInstalar'
 import { useLifeAgente } from '../store/useLifeAgente'
 import { duracionLegible, etiquetaDia, monto } from '../lib/format'
 import { Boton, Chip } from './ui'

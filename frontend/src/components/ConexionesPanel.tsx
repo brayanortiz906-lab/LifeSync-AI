@@ -15,7 +15,7 @@ import {
   Mail, MonitorSmartphone, Plug, RefreshCw, Search, Server, Settings, ShieldCheck, Sparkles,
   KeyRound, Trash2, Wifi, Wrench,
 } from 'lucide-react'
-import PanelIaMovil from './PanelIaMovil'
+import { PanelIaMovil } from './PanelIaMovil'
 import { detectarRecursosMovil } from '../lib/iaMovil'
 import { api, apiGuardadaEsEstatica, cuentas, guardarUrlApi, leerUrlApi, urlApiEnUso } from '../lib/api'
 import type {
@@ -25,7 +25,7 @@ import type {
 } from '../types'
 import { useLifeAgente } from '../store/useLifeAgente'
 import { Aviso, Boton, Campo, Chip, Modal } from './ui'
-import BloqueIaLigera from './BloqueIaLigera'
+import { BloqueIaLigera } from './BloqueIaLigera'
 
 /** Los 4 caminos, ordenados de mas facil a mas avanzado. */
 const CAMINOS: Array<{ id: string; titulo: string; texto: string; icono: string; modo: string }> = [
@@ -233,7 +233,7 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
 
   const cargarClientes = async () => {
     try {
-      const r = await cuentas.clientesServidor()
+      const r = await cuentas.clientesServidor() as { google?: string; outlook?: string; github?: string }
       setClientes({ google: r.google ?? '', outlook: r.outlook ?? '', github: r.github ?? '' })
     } catch {
       /* no es el administrador: no puede verlos */
@@ -245,7 +245,7 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
     setProbandoCliente(clave)
     try {
       const proveedor = clave === 'google' ? 'google_cuenta' : clave === 'outlook' ? 'outlook_cuenta' : 'github_cuenta'
-      const r = await cuentas.probarClienteServidor(proveedor, clientes[clave].trim())
+      const r = await api.post(`/cuentas/clientes-servidor/${proveedor}/probar`, { client_id: clientes[clave].trim() }) as { ok: boolean; mensaje: string }
       setPruebaClientes((p) => ({ ...p, [clave]: { ok: r.ok, texto: r.mensaje } }))
     } catch (e) {
       setPruebaClientes((p) => ({
@@ -259,7 +259,7 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
 
   const guardarClientes = async () => {
     try {
-      const r = await cuentas.guardarClientesServidor(clientes)
+      const r = await cuentas.guardarClientesServidor(clientes) as { mensaje?: string }
       setEstadoClientes({ ok: true, texto: r.mensaje ?? 'Guardado.' })
       void cargar()
     } catch (e) {
@@ -274,7 +274,7 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
     try {
       const [cat, cons, loc, google, diag, gratis, ag] = await Promise.all([
         api.catalogoConexiones(),
-        api.conexiones(),
+        api.conexiones.get(),
         api.detectarLocales(),
         api.estadoGoogle(),
         api.diagnostico().catch(() => null),
@@ -285,7 +285,7 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
       setAgentes(ag.agentes ?? [])
       setDiagnostico(diag)
       setCatalogo(cat.proveedores)
-      setConexiones(cons)
+      setConexiones(cons as unknown as Conexion[])
       setMotores(loc.motores)
       setAutoconectado(loc.autoconectado ?? null)
       setGoogleInfo(google)
@@ -329,7 +329,7 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
   const cargarModelos = async (proveedor: string) => {
     setCargandoModelos(true)
     try {
-      const cat: CatalogoModelos = await api.modelosDisponibles(proveedor)
+      const cat: CatalogoModelos = await api.get<CatalogoModelos>(`/conexiones/modelos?proveedor=${encodeURIComponent(proveedor)}`)
       setModelos(cat.modelos)
       setFamilias(cat.familias)
     } catch {
@@ -347,10 +347,10 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
     setOcupado(true)
     setEstado(null)
     try {
-      const inicio = await api.iniciarCuenta({
+      const inicio = await api.post('/cuentas/iniciar', {
         proveedor: objetivo.id,
         client_id: clientId.trim(),
-      })
+      }) as AutorizacionCuenta
       setAutorizacion(inicio)
       setEsperando(true)
       await consultarAutorizacion(objetivo, inicio)
@@ -374,13 +374,15 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
     if (!objetivo || !actual) return
     setEsperando(true)
     try {
-      const res = await api.terminarCuenta({
+      const clientId = actual.client_id
+      const deviceCode = actual.device_code
+      const res = await api.post('/cuentas/terminar', {
         proveedor: objetivo.id,
-        client_id: actual.client_id,
-        device_code: actual.device_code,
-      })
+        client_id: clientId,
+        device_code: deviceCode,
+      }) as { ok: boolean; mensaje?: string }
       if (res.ok) {
-        setEstado({ ok: true, texto: res.mensaje })
+        setEstado({ ok: true, texto: res.mensaje ?? 'Autorizado correctamente' })
         setEsperando(false)
         setAutorizacion(null)
         await cargar()
@@ -391,7 +393,7 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
           setPaso('inicio')
         }
       } else {
-        setEstado({ ok: false, texto: res.mensaje })
+        setEstado({ ok: false, texto: res.mensaje ?? 'Error en la autorización' })
         setEsperando(false)
       }
     } catch (e) {
@@ -486,7 +488,7 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
     }
   }
 
-  const eliminarConexion = async (id: number) => {
+  const eliminarConexion = async (id: string) => {
     await api.eliminarConexion(id)
     await cargar()
   }
@@ -502,7 +504,7 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
     setEstado(null)
     setEstiloUrl(null)
     try {
-      const info = await api.probarUrl(url, claveManual.trim() || undefined)
+      const info = await api.post('/conexiones/probar-url', { url, api_key: claveManual.trim() || undefined }) as InfoEstiloUrl
       setEstiloUrl(info)
       setEstado({ ok: info.ok, texto: info.mensaje })
     } catch (e) {
@@ -836,7 +838,7 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
               </div>
 
               {esMovil && (
-            <PanelIaMovil alCambiar={() => void cargar()} />
+            <PanelIaMovil />
           )}
           {motoresDisponibles.length > 0 ? (
                 <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/8 p-3">
@@ -873,7 +875,7 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
                   </div>
                 </div>
               ) : (
-                <BloqueIaLigera alCambiar={() => void cargar()} />
+                <BloqueIaLigera />
               )}
 
               {/* Conexion manual por URL (v40): cualquier IA o agente. */}
@@ -1019,7 +1021,7 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
                         <Chip className="bg-emerald-500/15 text-emerald-300 ring-emerald-500/30">activa</Chip>
                       )}
                       <button
-                        onClick={() => void eliminarConexion(c.id)}
+                        onClick={() => void eliminarConexion(String(c.id))}
                         className="text-slate-500 hover:text-rose-400"
                         title="Eliminar conexión"
                       >
@@ -1299,7 +1301,16 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
                         setVerCorreo(abierto)
                         if (abierto) {
                           try {
-                            const info = await cuentas.smtp()
+                            const info = await cuentas.smtp() as {
+                              ok: boolean;
+                              configurado: boolean;
+                              origen: string;
+                              host?: string;
+                              puerto?: number;
+                              usuario?: string;
+                              desde?: string;
+                              mensaje?: string;
+                            }
                             setSmtpInfo(info)
                             setSmtpForm({
                               host: info.host ?? '',
@@ -1378,8 +1389,8 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
                                   usuario: smtpForm.usuario,
                                   password: smtpForm.clave || undefined,
                                   desde: smtpForm.desde,
-                                })
-                                setEstado({ ok: r.ok, texto: r.mensaje })
+                                }) as { ok: boolean; mensaje?: string }
+                                setEstado({ ok: r.ok, texto: r.mensaje ?? 'Guardado' })
                                 if (r.ok) setSmtpInfo({ ...(smtpInfo ?? ({} as never)), ok: true, configurado: true, origen: 'app' })
                               } catch (e) {
                                 setEstado({ ok: false, texto: (e as Error).message })
@@ -1396,8 +1407,8 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
                             onClick={async () => {
                               setOcupado(true)
                               try {
-                                const r = await cuentas.probarSmtp()
-                                setEstado({ ok: r.ok, texto: r.mensaje })
+                                const r = await cuentas.probarSmtp() as { ok: boolean; mensaje?: string }
+                                setEstado({ ok: r.ok, texto: r.mensaje ?? 'Prueba completada' })
                               } catch (e) {
                                 setEstado({ ok: false, texto: (e as Error).message })
                               } finally {
@@ -1585,7 +1596,7 @@ export default function ConexionesPanel({ abierto, onCerrar }: { abierto: boolea
                     ligero y usarlo sin claves ni cuentas.
                   </p>
                 </div>
-                <BloqueIaLigera alCambiar={() => void cargar()} />
+                <BloqueIaLigera />
               </div>
             )}
 

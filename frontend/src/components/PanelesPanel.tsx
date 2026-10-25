@@ -41,7 +41,7 @@ export default function PanelesPanel() {
   const [nombre, setNombre] = useState('')
   const [tipo, setTipo] = useState('agenda')
   const [mover, setMover] = useState(true)
-  const [compartiendo, setCompartiendo] = useState<number | null>(null)
+  const [compartiendo, setCompartiendo] = useState<string | null>(null)
   const [correo, setCorreo] = useState('')
   const [nivel, setNivel] = useState<'ver' | 'editar'>('ver')
   const [miembros, setMiembros] = useState<MiembroPanel[]>([])
@@ -53,11 +53,11 @@ export default function PanelesPanel() {
   }, [cargarPaneles])
 
   const abrirMiembros = async (id: number) => {
-    setCompartiendo(compartiendo === id ? null : id)
+    setCompartiendo(compartiendo === String(id) ? null : String(id))
     setMiembros([])
-    if (compartiendo === id) return
+    if (compartiendo === String(id)) return
     try {
-      const r = await apiPaneles.miembros(id)
+      const r = await apiPaneles.miembros(String(id)) as { miembros: MiembroPanel[] }
       setMiembros(r.miembros)
     } catch (e) {
       setMensaje({ ok: false, texto: (e as Error).message })
@@ -73,13 +73,13 @@ export default function PanelesPanel() {
     setMensaje({ ok: true, texto: 'Panel creado. Ya puedes abrirlo desde la barra superior.' })
   }
 
-  const compartir = async (id: number) => {
+  const compartir = async (id: string) => {
     setOcupado(true)
     setMensaje(null)
     try {
-      await apiPaneles.compartir(id, correo, nivel)
+      await apiPaneles.compartir(id, { correo, nivel })
       setCorreo('')
-      const r = await apiPaneles.miembros(id)
+      const r = await apiPaneles.miembros(id) as { miembros: MiembroPanel[] }
       setMiembros(r.miembros)
       setMensaje({ ok: true, texto: `Listo: ${correo} ya puede ver este panel.` })
     } catch (e) {
@@ -172,7 +172,7 @@ export default function PanelesPanel() {
                       {m.nivel === 'editar' ? 'puede editar' : 'solo ver'}
                     </span>
                     <button
-                      onClick={() => void quitarAcceso(compartiendo, m.usuario_id)}
+                      onClick={() => void quitarAcceso(Number(compartiendo), m.usuario_id)}
                       className="text-[10px] font-semibold text-rose-300 hover:text-rose-200"
                     >
                       quitar

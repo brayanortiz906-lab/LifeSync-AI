@@ -22,7 +22,7 @@ interface UseGeminiChatReturn {
   updateChat: (chatId: string, data: Partial<{titulo: string; modelo: string; system_prompt: string}>) => Promise<void>;
   
   // Messaging
-  sendMessage: (content: string, options?: {stream?: boolean}) => Promise<void>;
+  sendMessage: (content: string, options?: {stream: boolean}) => Promise<void>;
   stopStreaming: () => void;
 }
 
@@ -114,46 +114,20 @@ export function useGeminiChat(): UseGeminiChatReturn {
     
     try {
       if (options.stream) {
-        const reader = await api.sendMessage(chatId, content, true);
-        if (!reader) throw new Error('No se pudo iniciar streaming');
+        const onChunk = (text: string) => {
+          setCurrentChat(prev => prev ? {
+            ...prev,
+            mensajes: [
+              ...prev.mensajes.filter(m => m.id !== 'streaming'),
+              {id: 'streaming', chat_id: chatId, rol: 'assistant' as const, contenido: text, creado_at: new Date().toISOString(), tokens_entrada: 0, tokens_salida: 0, modelo: ''}
+            ]
+          } : null);
+        };
         
-        readerRef.current = reader;
-        const decoder = new TextDecoder();
-        let buffer = '';
-        let assistantMessage = '';
-        
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          
-          buffer += decoder.decode(value, {stream: true});
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || '';
-          
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              try {
-                const data = JSON.parse(line.slice(6));
-                if (data.chunk) {
-                  assistantMessage += data.chunk;
-                  setCurrentChat(prev => prev ? {
-                    ...prev,
-                    mensajes: [
-                      ...prev.mensajes.filter(m => m.id !== 'streaming'),
-                      {id: 'streaming', rol: 'assistant', contenido: assistantMessage, creado_at: new Date().toISOString(), tokens_entrada: 0, tokens_salida: 0, modelo: ''}
-                    ]
-                  } : null);
-                } else if (data.done) {
-                  await loadChat(chatId);
-                }
-              } catch {
-                // Ignore parse errors
-              }
-            }
-          }
-        }
+        await api.sendMessageStream(chatId, content, onChunk);
+        await loadChat(chatId);
       } else {
-        await api.sendMessage(chatId, content, false);
+        await api.sendMessage(chatId, content);
         await loadChat(chatId);
       }
     } catch (e: any) {

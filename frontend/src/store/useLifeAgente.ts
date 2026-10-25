@@ -1,6 +1,7 @@
 /** Estado global de LifeAgente AI (Zustand). */
 import { create } from 'zustand'
 import { api, cuentas as apiCuentas, guardarApiKeyLocal, leerApiKeyLocal, paneles as apiPaneles } from '../lib/api'
+import type { PanelItem } from '../lib/api'
 import { aIso } from '../lib/format'
 import { analizarLocal } from '../lib/motorLocal'
 import type { DatoLocal } from '../lib/motorLocal'
@@ -314,7 +315,7 @@ export const useLifeAgente = create<Estado>((set, get) => ({
   mensajes: [],
   proveedor: 'mock',
   modelo: 'gpt-4o-mini',
-  apiKey: leerApiKeyLocal(),
+  apiKey: leerApiKeyLocal() ?? '',
   ultimoPlan: null,
   ajustes: null,
   politica: null,
@@ -349,25 +350,25 @@ export const useLifeAgente = create<Estado>((set, get) => ({
 
   async cargarPaneles() {
     try {
-      const r = await apiPaneles.lista()
-      set({ paneles: r.paneles })
+      const r = await apiPaneles.lista() as PanelItem[]
+      set({ paneles: r as unknown as Panel[] })
     } catch {
       /* sin paneles (o sin API): la app sigue igual */
     }
   },
 
-  async seleccionarPanel(id) {
+  async seleccionarPanel(id: number | null) {
     set({ panelId: id })
     const panel = get().paneles.find((p) => p.id === id)
     if (id && panel && !panel.es_propio) {
       // Panel compartido: el contenido lo da el dueño (403 si no hay permiso).
       try {
-        const d = await apiPaneles.datos(id)
+        const d = await apiPaneles.datos(String(id)) as { eventos: Evento[]; tareas: Tarea[]; registros: Registro[]; mantenimiento: Mantenimiento[] }
         set({
-          eventos: d.eventos as Evento[],
-          tareas: d.tareas as Tarea[],
-          registros: d.registros as Registro[],
-          mantenimiento: d.mantenimiento as Mantenimiento[],
+          eventos: d.eventos,
+          tareas: d.tareas,
+          registros: d.registros,
+          mantenimiento: d.mantenimiento,
           dashboard: null,
           error: null,
         })
@@ -389,27 +390,27 @@ export const useLifeAgente = create<Estado>((set, get) => ({
     }
   },
 
-  async compartirPanel(id, correo, nivel) {
+  async compartirPanel(id: number, correo: string, nivel: 'ver' | 'editar') {
     try {
-      await apiPaneles.compartir(id, correo, nivel)
+      await apiPaneles.compartir(String(id), { correo, nivel })
       await get().cargarPaneles()
     } catch (e) {
       set({ error: (e as Error).message })
     }
   },
 
-  async quitarAcceso(id, usuarioId) {
+  async quitarAcceso(id: number, usuarioId: number) {
     try {
-      await apiPaneles.quitarAcceso(id, usuarioId)
+      await apiPaneles.quitarAcceso(String(id), String(usuarioId))
       await get().cargarPaneles()
     } catch (e) {
       set({ error: (e as Error).message })
     }
   },
 
-  async borrarPanel(id) {
+  async borrarPanel(id: number) {
     try {
-      await apiPaneles.borrar(id)
+      await apiPaneles.borrar(String(id))
       if (get().panelId === id) set({ panelId: null })
       await get().cargarPaneles()
       await get().cargarTodo()
@@ -510,7 +511,7 @@ export const useLifeAgente = create<Estado>((set, get) => ({
         resumenAuditoria: inicio.resumen_auditoria,
         cumplimiento: inicio.cumplimiento,
         aprobaciones: inicio.aprobaciones ?? get().aprobaciones,
-        mensajes: historial.map((h) => {
+        mensajes: historial.map((h: { id: string; rol: string; contenido: string; categoria?: string; payload?: { resumen_estado?: { plan?: Record<string, unknown> } } & Record<string, unknown> }) => {
           const plan = (h.payload?.resumen_estado?.plan as Record<string, unknown>) ?? undefined
           return {
             id: `srv-${h.id}`,
@@ -611,8 +612,8 @@ export const useLifeAgente = create<Estado>((set, get) => ({
     set({ eventos, dashboard })
   },
 
-  async completarTarea(id) {
-    await api.completarTarea(id)
+  async completarTarea(id: number) {
+    await api.completarTarea(String(id))
     const tareas = await api.tareas()
     set({ tareas })
   },
@@ -624,14 +625,14 @@ export const useLifeAgente = create<Estado>((set, get) => ({
     set({ registros, dashboard })
   },
 
-  async completarMantenimiento(id) {
-    await api.completarMantenimiento(id)
+  async completarMantenimiento(id: number) {
+    await api.completarMantenimiento(String(id))
     const mantenimiento = await api.mantenimiento()
     set({ mantenimiento })
   },
 
-  async eliminarEvento(id) {
-    await api.eliminarEvento(id)
+  async eliminarEvento(id: number) {
+    await api.eliminarEvento(String(id))
     await get().refrescarEventos()
   },
 
@@ -684,8 +685,8 @@ export const useLifeAgente = create<Estado>((set, get) => ({
     await get().cargarResponsable()
   },
 
-  async decidirAprobacion(id, aprobar, nota) {
-    await api.decidirAprobacion(id, aprobar, nota)
+  async decidirAprobacion(id: number, aprobar: boolean, nota?: string) {
+    await api.decidirAprobacion(String(id), aprobar, nota)
     await get().cargarResponsable()
     await get().cargarTodo()
   },

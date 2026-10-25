@@ -2,10 +2,16 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   User, Brain, Bell, Palette, Key, Loader2, Save, CheckCircle, AlertCircle, 
-  Eye, EyeOff, Trash2, Plus, TestTube2, Shield, Moon, Sun, Monitor
+  Eye, EyeOff, Trash2, Plus, TestTube2, Shield, Moon, Sun, Monitor,
+  Scale, Cookie, Database, Cpu, FileText, Shield as ShieldIcon
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { api } from '@/lib/api';
+import { SDKAudit } from '@/components/SDKAudit';
+import { ConsentManager } from '@/components/ConsentManager';
+import { ParentalConsent } from '@/components/ParentalConsent';
+import { deleteMyData, exportMyData, getDataSummary } from '@/lib/api';
+import { Panel } from '@/components/ui';
 import './Settings.css';
 
 const tabs = [
@@ -14,6 +20,9 @@ const tabs = [
   { id: 'notifications', label: 'Notificaciones', icon: Bell },
   { id: 'appearance', label: 'Apariencia', icon: Palette },
   { id: 'security', label: 'Seguridad', icon: Shield },
+  { id: 'privacy', label: 'Privacidad y Legal', icon: Scale },
+  { id: 'sdk-audit', label: 'Auditoría SDKs', icon: Database },
+  { id: 'consents', label: 'Consentimientos', icon: Cookie },
 ];
 
 export function Settings() {
@@ -529,9 +538,159 @@ export function Settings() {
             </button>
           </div>
         );
-      
+
+      case 'privacy':
+        return (
+          <div className="settings-section space-y-6">
+            <h2>Privacidad y Legal</h2>
+            <p className="text-slate-400">Controla tus datos, exporta todo o elimina tu cuenta permanentemente (GDPR/CCPA).</p>
+
+            <Panel icono={<FileText className="h-5 w-5 text-indigo-400" />} titulo="Tus derechos" sub="GDPR Art. 15-22 · CCPA Sec. 1798.100-199">
+              <div className="grid gap-4 md:grid-cols-3">
+                <button className="p-4 rounded-xl bg-white/5 border border-white/10 hover:border-indigo-500/50 transition-all text-left" onClick={() => window.open('/privacy-policy', '_blank')}>
+                  <FileText className="h-6 w-6 text-indigo-400 mb-2" />
+                  <h4 className="font-semibold text-slate-100">Política de Privacidad</h4>
+                  <p className="text-sm text-slate-400 mt-1">Qué datos recopilamos, cómo los usamos y tus derechos</p>
+                </button>
+                <button className="p-4 rounded-xl bg-white/5 border border-white/10 hover:border-violet-500/50 transition-all text-left" onClick={() => window.open('/terms', '_blank')}>
+                  <Scale className="h-6 w-6 text-violet-400 mb-2" />
+                  <h4 className="font-semibold text-slate-100">Términos y Condiciones</h4>
+                  <p className="text-sm text-slate-400 mt-1">Reglas de uso, BYOK, responsabilidad, jurisdicción</p>
+                </button>
+                <button className="p-4 rounded-xl bg-white/5 border border-white/10 hover:border-emerald-500/50 transition-all text-left" onClick={() => window.open('/refund-policy', '_blank')}>
+                  <ShieldIcon className="h-6 w-6 text-emerald-400 mb-2" />
+                  <h4 className="font-semibold text-slate-100">Política de Reembolsos</h4>
+                  <p className="text-sm text-slate-400 mt-1">Modelo $0/mes, sin cargos ocultos, FAQ</p>
+                </button>
+              </div>
+            </Panel>
+
+            <Panel icono={<Cookie className="h-5 w-5 text-amber-400" />} titulo="Cookies y Consentimientos" sub="Gestiona qué cookies aceptas y revoca consentimientos">
+              <div className="space-y-3">
+                <button className="w-full p-3 rounded-xl bg-white/5 border border-white/10 hover:border-amber-500/50 transition-all text-left flex items-center justify-between" onClick={() => window.open('/cookie-policy', '_blank')}>
+                  <span className="flex items-center gap-3">
+                    <Cookie className="h-5 w-5 text-amber-400" />
+                    <div>
+                      <h4 className="font-semibold text-slate-100">Política de Cookies</h4>
+                      <p className="text-sm text-slate-400">Categorías, terceros, cómo gestionar</p>
+                    </div>
+                  </span>
+                </button>
+                <button className="w-full p-3 rounded-xl bg-white/5 border border-white/10 hover:border-indigo-500/50 transition-all text-left flex items-center justify-between" onClick={() => window.open('/settings?tab=consents', '_self')}>
+                  <span className="flex items-center gap-3">
+                    <Cpu className="h-5 w-5 text-indigo-400" />
+                    <div>
+                      <h4 className="font-semibold text-slate-100">Gestionar Consentimientos</h4>
+                      <p className="text-sm text-slate-400">Ver y revocar consentimientos de formularios</p>
+                    </div>
+                  </span>
+                </button>
+              </div>
+            </Panel>
+
+            <Panel icono={<ShieldIcon className="h-5 w-5 text-rose-400" />} titulo="Zona de peligro" sub="Acciones irreversibles" className="border-rose-500/20 bg-rose-500/5">
+              <div className="space-y-4">
+                <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20">
+                  <h4 className="font-semibold text-rose-300 mb-2 flex items-center gap-2">
+                    <Trash2 className="h-5 w-5" /> Eliminar mi cuenta y TODOS mis datos
+                  </h4>
+                  <p className="text-sm text-slate-400 mb-4">
+                    Borra permanentemente: eventos, tareas, notas, gastos, paneles, chats, claves API encriptadas, preferencias, backups, tokens OAuth. 
+                    <strong>No se puede deshacer.</strong> (GDPR Art. 17)
+                  </p>
+                  <button
+                    onClick={handleDeleteAccount}
+                    disabled={deletingAccount}
+                    className="px-4 py-2 bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition-colors disabled:opacity-50"
+                  >
+                    {deletingAccount ? 'Eliminando...' : 'Eliminar mi cuenta'}
+                  </button>
+                </div>
+
+                <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                  <h4 className="font-semibold text-amber-300 mb-2 flex items-center gap-2">
+                    <FileText className="h-5 w-5" /> Exportar todos mis datos (JSON)
+                  </h4>
+                  <p className="text-sm text-slate-400 mb-4">
+                    Descarga un archivo JSON con todo: perfil, eventos, tareas, paneles, chats, mensajes, backups, permisos.
+                    (GDPR Art. 20 - Derecho a la portabilidad)
+                  </p>
+                  <button
+                    onClick={handleExportData}
+                    disabled={exportingData}
+                    className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50"
+                  >
+                    {exportingData ? 'Exportando...' : 'Exportar datos'}
+                  </button>
+                </div>
+              </div>
+            </Panel>
+          </div>
+        );
+
+      case 'sdk-audit':
+        return (
+          <div className="settings-section">
+            <SDKAudit />
+          </div>
+        );
+
+      case 'consents':
+        return (
+          <div className="settings-section">
+            <ConsentManager 
+              title="Consentimientos de Formularios"
+              subtitle="Revisa y gestiona los consentimientos que has dado en formularios de la app"
+            />
+            <ParentalConsent
+              onConsentGranted={() => {}}
+              onConsentDenied={() => {}}
+            />
+          </div>
+        );
+
       default:
         return null;
+    }
+  };
+
+  // New state for privacy tab
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [exportingData, setExportingData] = useState(false);
+
+  const handleDeleteAccount = async () => {
+    if (!confirm('¿Estás ABSOLUTAMENTE SEGURO? Esta acción es IRREVERSIBLE. Se eliminarán TODOS tus datos permanentemente.')) return;
+    if (!confirm('Confirmación final: ¿Eliminar mi cuenta y todos mis datos para siempre?')) return;
+    
+    setDeletingAccount(true);
+    try {
+      await deleteMyData();
+      // Auth store will handle sign out
+      const { signOut } = useAuthStore.getState();
+      await signOut();
+      navigate('/login');
+    } catch (e: any) {
+      showMessage('error', e.message || 'Error eliminando cuenta');
+    } finally {
+      setDeletingAccount(false);
+    }
+  };
+
+  const handleExportData = async () => {
+    setExportingData(true);
+    try {
+      const blob = await exportMyData();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `lifeagente_export_${Date.now()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showMessage('success', 'Datos exportados correctamente');
+    } catch (e: any) {
+      showMessage('error', e.message || 'Error exportando datos');
+    } finally {
+      setExportingData(false);
     }
   };
 

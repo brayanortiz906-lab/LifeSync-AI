@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, Outlet } from 'react-router-dom';
 import { LayoutDashboard, Settings, MessageSquare, Kanban, Database, Brain, LogOut, User, Bell, Key, Palette, Share2 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -142,5 +142,3 @@ function getPageTitle() {
   if (path.startsWith('/settings')) return 'Ajustes';
   return 'LifeAgente';
 }
-
-import { useState } from 'react';

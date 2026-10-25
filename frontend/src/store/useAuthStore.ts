@@ -1,7 +1,8 @@
 // Auth Store con Zustand + Supabase
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { supabase, User, Session } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
+import type { User, Session } from '@/lib/supabase';
 import { api } from '@/lib/api';
 
 interface AuthState {
@@ -9,6 +10,7 @@ interface AuthState {
   session: Session | null;
   loading: boolean;
   initialized: boolean;
+  isAuthenticated: boolean;
   
   // Actions
   init: () => Promise<void>;
@@ -30,6 +32,7 @@ export const useAuthStore = create<AuthState>()(
       session: null,
       loading: true,
       initialized: false,
+      isAuthenticated: false,
 
       init: async () => {
         const { data: { session } } = await supabase.auth.getSession();
@@ -37,7 +40,8 @@ export const useAuthStore = create<AuthState>()(
           session, 
           user: session?.user ?? null, 
           loading: false, 
-          initialized: true 
+          initialized: true,
+          isAuthenticated: !!session?.user
         });
         
         if (session?.access_token) {
@@ -46,7 +50,7 @@ export const useAuthStore = create<AuthState>()(
         
         // Escuchar cambios de auth
         supabase.auth.onAuthStateChange((_event, session) => {
-          set({ session, user: session?.user ?? null, loading: false });
+          set({ session, user: session?.user ?? null, loading: false, isAuthenticated: !!session?.user });
           if (session?.access_token) {
             api.setToken(session.access_token);
           } else {

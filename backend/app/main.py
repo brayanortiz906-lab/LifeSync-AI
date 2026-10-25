@@ -23,6 +23,8 @@ from app.routers import events as events_router
 from app.routers import tasks as tasks_router
 from app.routers import panels as panels_router
 from app.routers import backups as backups_router
+from app.routers import data as data_router
+from app.routers import parental as parental_router
 
 
 @asynccontextmanager
@@ -89,6 +91,8 @@ app.include_router(events_router.router, prefix=settings.API_V1_PREFIX)
 app.include_router(tasks_router.router, prefix=settings.API_V1_PREFIX)
 app.include_router(panels_router.router, prefix=settings.API_V1_PREFIX)
 app.include_router(backups_router.router, prefix=settings.API_V1_PREFIX)
+app.include_router(data_router.router, prefix=settings.API_V1_PREFIX)
+app.include_router(parental_router.router, prefix=settings.API_V1_PREFIX)
 
 
 @app.middleware("http")

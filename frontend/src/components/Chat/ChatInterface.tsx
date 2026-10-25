@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useGeminiChat } from '@/hooks/useGeminiChat';
-import { Send, Stop, Plus, Trash2, Loader2, MessageSquare } from 'lucide-react';
+import { Send, X, Plus, Trash2, Loader2, MessageSquare } from 'lucide-react';
 import './ChatInterface.css';
 
 export function ChatInterface() {
@@ -183,7 +183,7 @@ export function ChatInterface() {
               >
                 {streaming ? (
                   <>
-                    <Stop size={20} />
+                    <X size={20} />
                     <span>Detener</span>
                   </>
                 ) : (

@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/store/useAuthStore';
 
 export function useAuth() {
-  const { user, session, loading, initialized, init, signOut, ...actions } = useAuthStore();
+  const { user, session, loading, initialized, init, signOut, isAuthenticated: _, ...actions } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
 

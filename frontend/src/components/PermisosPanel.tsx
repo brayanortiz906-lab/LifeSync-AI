@@ -13,7 +13,7 @@
 import { useEffect, useState } from 'react'
 import { Check, CloudUpload, Download, KeyRound, Loader2, Mail, RefreshCw, Sparkles, X } from 'lucide-react'
 import { useLifeAgente } from '../store/useLifeAgente'
-import { cuentas, permisos as apiPermisos } from '../lib/api'
+import { permisos as apiPermisos } from '../lib/api'
 import type { EstadoPermisos } from '../types'
 import { Aviso, Boton, Panel, Stat } from './ui'
 
@@ -37,7 +37,8 @@ export default function PermisosPanel() {
 
   const cargar = async () => {
     try {
-      setEstado(await apiPermisos.estado())
+      const r = await apiPermisos.estado() as EstadoPermisos
+      setEstado(r)
     } catch (e) {
       setAviso({ ok: false, texto: (e as Error).message })
     }
@@ -57,12 +58,8 @@ export default function PermisosPanel() {
     setOcupado(true)
     setAviso(null)
     try {
-      const r = await apiPermisos.autorizar()
-      setPendiente({
-        user_code: r.user_code,
-        verification_uri: r.verification_uri,
-        device_code: r.device_code,
-      })
+      const r = await apiPermisos.autorizar() as { user_code: string; verification_uri: string; device_code: string }
+      setPendiente(r)
     } catch (e) {
       setAviso({ ok: false, texto: (e as Error).message })
     } finally {
@@ -74,7 +71,7 @@ export default function PermisosPanel() {
     if (!pendiente) return
     setOcupado(true)
     try {
-      const r = await apiPermisos.terminar(pendiente.device_code)
+      const r = await apiPermisos.terminar() as { ok: boolean; mensaje?: string }
       if (!r.ok) {
         setAviso({ ok: false, texto: r.mensaje || 'Todavia falta que autorices en el navegador.' })
         return
@@ -89,16 +86,12 @@ export default function PermisosPanel() {
     }
   }
 
-  const cambiarAutopiloto = async (datos: {
-    activo: boolean
-    respaldo_auto: boolean
-    importar_calendario: boolean
-    resumen_diario: boolean
-  }) => {
+  const cambiarAutopiloto = async (activo: boolean) => {
     setOcupado(true)
     try {
-      setEstado(await apiPermisos.autopiloto(datos))
-      setAviso({ ok: true, texto: datos.activo ? 'Piloto automatico encendido.' : 'Piloto automatico apagado.' })
+      const r = await apiPermisos.autopiloto(activo) as EstadoPermisos
+      setEstado(r)
+      setAviso({ ok: true, texto: activo ? 'Piloto automatico encendido.' : 'Piloto automatico apagado.' })
     } catch (e) {
       setAviso({ ok: false, texto: (e as Error).message })
     } finally {
@@ -111,7 +104,7 @@ export default function PermisosPanel() {
     setOcupado(true)
     setAviso(null)
     try {
-      const r = await apiPermisos.guardar()
+      const r = await apiPermisos.guardar({}) as { guardado: boolean; mensaje?: string }
       setAviso(
         r.guardado
           ? { ok: true, texto: 'Guardado en tu Drive.' }
@@ -130,7 +123,7 @@ export default function PermisosPanel() {
     setOcupado(true)
     setAviso(null)
     try {
-      const r = await apiPermisos.correoResumen()
+      const r = await apiPermisos.correoResumen({}) as { ok: boolean; mensaje?: string }
       setAviso(
         r.ok
           ? { ok: true, texto: r.mensaje || 'Resumen enviado.' }
@@ -147,7 +140,7 @@ export default function PermisosPanel() {
     setOcupado(true)
     setAviso(null)
     try {
-      const r = await apiPermisos.ejecutar()
+      const r = await apiPermisos.ejecutar() as { ok: boolean; mensaje?: string; resumen?: { respaldo?: { ok: boolean; mensaje?: string }; calendario?: { ok: boolean; importados?: number; mensaje?: string } } }
       if (!r.ok) {
         setAviso({ ok: false, texto: r.mensaje || 'El piloto automatico esta apagado.' })
         return
@@ -175,7 +168,7 @@ export default function PermisosPanel() {
     setOcupado(true)
     setAviso(null)
     try {
-      const r = await apiPermisos.respaldar()
+      const r = await apiPermisos.respaldar() as { ok: boolean; archivo?: string; mensaje?: string }
       setAviso(
         r.ok
           ? { ok: true, texto: `Respaldo guardado: ${r.archivo ?? 'lifesync-respaldo.json'}` }
@@ -193,7 +186,7 @@ export default function PermisosPanel() {
     setOcupado(true)
     setAviso(null)
     try {
-      const r = await apiPermisos.respaldoCorreo()
+      const r = await apiPermisos.respaldoCorreo({}) as { ok: boolean; mensaje?: string }
       setAviso(
         r.ok
           ? { ok: true, texto: r.mensaje ?? 'Te mandamos el respaldo a tu correo.' }
@@ -210,7 +203,7 @@ export default function PermisosPanel() {
     setOcupado(true)
     setAviso(null)
     try {
-      const r = await cuentas.restaurarDrive()
+      const r = await apiPermisos.restaurarDrive() as { restaurados?: Record<string, number> }
       const n = r.restaurados ?? {}
       const total = Object.values(n).reduce((a, b) => a + Number(b ?? 0), 0)
       setAviso({
@@ -229,7 +222,7 @@ export default function PermisosPanel() {
     setOcupado(true)
     setAviso(null)
     try {
-      const r = await apiPermisos.importarCalendario()
+      const r = await apiPermisos.importarCalendario() as { ok: boolean; importados?: number; mensaje?: string }
       setAviso(
         r.ok
           ? { ok: true, texto: `${r.importados ?? 0} evento(s) importados de tu Google Calendar.` }
@@ -431,12 +424,7 @@ export default function PermisosPanel() {
               ayuda="Que el sistema trabaje solo, sin que abras la app."
               activo={pilot?.activo ?? false}
               onChange={(v) =>
-                void cambiarAutopiloto({
-                  activo: v,
-                  respaldo_auto: pilot?.respaldo_auto ?? true,
-                  importar_calendario: pilot?.importar_calendario ?? true,
-                  resumen_diario: pilot?.resumen_diario ?? false,
-                })
+                void cambiarAutopiloto(v)
               }
             />
             <Interruptor
@@ -444,12 +432,7 @@ export default function PermisosPanel() {
               ayuda="Una copia de agenda, tareas y gastos: al parar de escribir y cada 12 horas."
               activo={pilot?.respaldo_auto ?? false}
               onChange={(v) =>
-                void cambiarAutopiloto({
-                  activo: pilot?.activo ?? false,
-                  respaldo_auto: v,
-                  importar_calendario: pilot?.importar_calendario ?? true,
-                  resumen_diario: pilot?.resumen_diario ?? false,
-                })
+                void cambiarAutopiloto(v)
               }
             />
             <Interruptor
@@ -457,12 +440,7 @@ export default function PermisosPanel() {
               ayuda="Trae tus eventos para que el agente no te pida lo mismo dos veces."
               activo={pilot?.importar_calendario ?? false}
               onChange={(v) =>
-                void cambiarAutopiloto({
-                  activo: pilot?.activo ?? false,
-                  respaldo_auto: pilot?.respaldo_auto ?? true,
-                  importar_calendario: v,
-                  resumen_diario: pilot?.resumen_diario ?? false,
-                })
+                void cambiarAutopiloto(v)
               }
             />
             <Interruptor
@@ -470,12 +448,7 @@ export default function PermisosPanel() {
               ayuda="Cada dia te llega un correo con tu agenda de manana, tareas y gastos de ayer."
               activo={pilot?.resumen_diario ?? false}
               onChange={(v) =>
-                void cambiarAutopiloto({
-                  activo: pilot?.activo ?? false,
-                  respaldo_auto: pilot?.respaldo_auto ?? true,
-                  importar_calendario: pilot?.importar_calendario ?? true,
-                  resumen_diario: v,
-                })
+                void cambiarAutopiloto(v)
               }
             />
           </div>

@@ -75,12 +75,12 @@ export default function AccesoPanel({
       // ¿El servidor tiene el acceso con Google listo? (para no mostrar un error)
       void cuentas
         .googleDisponible()
-        .then((r) => setGoogleDisponible(r.disponible))
+        .then((r: { disponible: boolean }) => setGoogleDisponible(r.disponible))
         .catch(() => setGoogleDisponible(null))
       // Que cuentas se pueden usar para entrar y cuales estan activadas aqui.
       void cuentas
         .proveedores()
-        .then((r) => setInfo(r))
+        .then((r: { proveedores: any[] }) => setInfo({ ok: true, proveedores: r.proveedores, correo: { disponible: true, mensaje: '' }, local: { disponible: true, mensaje: '' } }))
         .catch(() => setInfo(null))
     }
   }, [abierto])
@@ -99,7 +99,7 @@ export default function AccesoPanel({
     setOcupado(true)
     setEstado(null)
     try {
-      const r = await cuentas.iniciarAccesoGoogle(proveedor)
+      const r = await cuentas.iniciarAccesoGoogle(proveedor) as { user_code: string; verification_uri: string; device_code: string }
       setGoogleAuth({ user_code: r.user_code, verification_uri: r.verification_uri, device_code: r.device_code })
       setProveedorActivo(proveedor)
       setPaso('google')
@@ -125,7 +125,7 @@ export default function AccesoPanel({
     setOcupado(true)
     setEstado(null)
     try {
-      const r = await cuentas.terminarAccesoGoogle(googleAuth.device_code, proveedorActivo ?? 'google_cuenta')
+      const r = await cuentas.terminarAccesoGoogle(googleAuth.device_code, proveedorActivo ?? 'google_cuenta') as { ok: boolean; token?: string; usuario?: any; mensaje?: string }
       if (r.ok && r.token && r.usuario) {
         entrar(r.token, r.usuario)
         setGoogleAuth(null)
@@ -143,7 +143,7 @@ export default function AccesoPanel({
     setOcupado(true)
     setEstado(null)
     try {
-      const r = await cuentas.pedirCodigo(correo, nombre)
+      const r = await cuentas.pedirCodigo(correo) as { mensaje: string; codigo?: string; modo?: string }
       setEstado({ ok: true, texto: r.mensaje })
       if (r.codigo) setCodigoDePrueba(r.codigo)
       setModoEnvio(r.modo || '')
@@ -160,7 +160,7 @@ export default function AccesoPanel({
     setOcupado(true)
     setEstado(null)
     try {
-      const r = await cuentas.registrar(correo, nombre, password)
+      const r = await cuentas.registrar({ correo, nombre, password }) as { mensaje: string; codigo?: string; modo?: string }
       setEstado({ ok: true, texto: r.mensaje })
       if (r.codigo) setCodigoDePrueba(r.codigo)
       setModoEnvio(r.modo || '')
@@ -177,7 +177,7 @@ export default function AccesoPanel({
     setOcupado(true)
     setEstado(null)
     try {
-      const r = await cuentas.reenviarCodigo(correo)
+      const r = await cuentas.reenviarCodigo(correo) as { mensaje?: string; codigo?: string; modo?: string }
       if (r.codigo) setCodigoDePrueba(r.codigo)
       setModoEnvio(r.modo || '')
       setEstado({ ok: true, texto: r.mensaje || 'Te mandamos un codigo nuevo.' })
@@ -193,7 +193,7 @@ export default function AccesoPanel({
     setOcupado(true)
     setEstado(null)
     try {
-      const r = await cuentas.entrar(correo, password)
+      const r = await cuentas.entrar({ correo, password }) as { token: string; usuario: any }
       entrar(r.token, r.usuario)
     } catch (e) {
       const texto = (e as Error).message
@@ -216,7 +216,7 @@ export default function AccesoPanel({
     setOcupado(true)
     setEstado(null)
     try {
-      const r = await cuentas.entrarOCrear(correo, password, nombre)
+      const r = await cuentas.entrarOCrear({ correo, password, nombre }) as { accion: string; token?: string; usuario?: any; verificacion_pendiente?: boolean; mensaje?: string; codigo?: string; modo?: string }
       if (r.accion === 'entrar' && r.token) {
         entrar(r.token, r.usuario)
         if (r.verificacion_pendiente) {
@@ -245,7 +245,7 @@ export default function AccesoPanel({
     setOcupado(true)
     setEstado(null)
     try {
-      const r = await apiPermisos.autorizar('google_cuenta')
+      const r = await apiPermisos.autorizar() as { user_code: string; verification_uri: string; device_code: string }
       setPermisosAuth({
         user_code: r.user_code,
         verification_uri: r.verification_uri,
@@ -267,7 +267,7 @@ export default function AccesoPanel({
     setOcupado(true)
     setEstado(null)
     try {
-      const r = await apiPermisos.terminar(permisosAuth.device_code)
+      const r = await apiPermisos.terminar() as { ok: boolean; mensaje?: string }
       if (r.ok) {
         setPermisosAuth(null)
         setEstado({
@@ -288,7 +288,7 @@ export default function AccesoPanel({
     setOcupado(true)
     setEstado(null)
     try {
-      const r = await cuentas.verificarCodigo(correo, codigo)
+      const r = await cuentas.verificarCodigo(correo, codigo) as { token: string; usuario: any }
       entrar(r.token, r.usuario)
     } catch (e) {
       setEstado({ ok: false, texto: (e as Error).message })
@@ -333,7 +333,7 @@ export default function AccesoPanel({
     setEstado(null)
     setDriveSinAutorizar(false)
     try {
-      const r = await cuentas.respaldoDriveDesdeConexion()
+      const r = await cuentas.respaldoDriveDesdeConexion() as { archivo: string }
       setEstado({ ok: true, texto: `Respaldo guardado en tu Drive: ${r.archivo}.` })
     } catch (e) {
       const msg = (e as Error).message
