@@ -1,0 +1,205 @@
+name: Web App Release v2.x
+
+on:
+  push:
+    tags:
+      - 'v2.*'
+
+permissions:
+  contents: write
+
+jobs:
+  create-web-release:
+    name: Create Web App Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Extract version
+        id: version
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Tag: $TAG, Version: $VERSION"
+
+      - name: Install dependencies
+        run: |
+          cd frontend
+          npm install --legacy-peer-deps
+
+      - name: Build frontend
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || '' }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || '' }}
+          VITE_API_URL: ${{ secrets.VITE_API_URL || '' }}
+        run: |
+          cd frontend
+          npm run build
+
+      - name: Verify build
+        run: |
+          if [ ! -d "frontend/dist" ]; then
+            echo "❌ Build failed - frontend/dist not found"
+            exit 1
+          fi
+          echo "✅ Frontend built successfully"
+
+      - name: Create release notes
+        id: release_notes
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="v$VERSION"
+          
+          # Extract section for this version from CHANGELOG.md
+          awk -v ver="$VERSION" '
+            /^## v/ { 
+              if (found) exit; 
+              if ($0 ~ "v" ver) found=1 
+            }
+            found { 
+              print $0 
+            }
+          ' CHANGELOG.md > release-notes.md || echo "## Release Notes" > release-notes.md
+          
+          # Create web-specific release header
+          cat > web-release-notes.md << EOF
+          # 🌐 LifeAgente AI v$VERSION - Web App
+          
+          **Arquitectura Web-Primero** | Supabase + Render + Vercel + Gemini BYOK
+          
+          ---
+          
+          ## 🚀 ¿Cómo usar?
+          
+          ### 🌐 Web App (Recomendado)
+          1. Visita: https://lifeagente.vercel.app
+          2. Entra con Supabase Auth (Google / Email)
+          3. Activa tu Gemini API key en Ajustes → IA (BYOK)
+          
+          ### 📱 Mobile PWA
+          1. Abre la web en tu navegador móvil
+          2. Instala la PWA (añadir a inicio)
+          
+          ### 🖥️ Desktop
+          - **Opción 1**: Abre la web en tu navegador (recomendado)
+          - **Opción 2**: Desktop .exe disponible en releases anteriores (v1.x)
+          
+          ---
+          
+          ## 🔧 Configuración Producción
+          
+          ### Backend (Render)
+          - SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
+          - DATABASE_URL (PostgreSQL pooler)
+          - ENCRYPTION_KEY (Fernet 32-byte base64)
+          - CORS_ORIGINS (Vercel domains)
+          - CRON_TOKEN
+          - GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET
+          - BREVO_API_KEY
+          
+          ### Frontend (Vercel)
+          - VITE_SUPABASE_URL
+          - VITE_SUPABASE_ANON_KEY
+          - VITE_API_URL (Render URL)
+          - VITE_GOOGLE_CLIENT_ID
+          
+          ### Supabase
+          Ejecutar migraciones: 001_schema.sql → 002_rls.sql → 003_storage.sql → 004_triggers.sql
+          
+          ---
+          
+          ## ✨ Nuevas funcionalidades v$VERSION
+          
+          $(cat release-notes.md)
+          
+          ---
+          
+          ## 📋 Checklist Deploy
+          
+          - [ ] Variables de entorno configuradas en Render
+          - [ ] Variables de entorno configuradas en Vercel
+          - [ ] Google OAuth configurado
+          - [ ] Brevo/Resend API Key configurada
+          - [ ] Migraciones Supabase ejecutadas
+          - [ ] RLS policies activas
+          - [ ] HTTPS y CORS verificados
+          
+          ---
+          
+          📚 **Documentación completa**: Ver CHANGELOG.md
+          🐛 **Reportar issues**: https://github.com/brayanortiz906-lab/LifeSync-AI/issues
+          
+          [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+          EOF
+          
+          echo "✅ Release notes created"
+          
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: "LifeAgente AI v${{ steps.version.outputs.version }} - Web App"
+          body_path: ./web-release-notes.md
+          draft: false
+          prerelease: false
+          files: |
+            frontend/dist/**
+          generate_release_notes: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create Source Release Archive
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          # Create source archive excluding build artifacts
+          zip -r "LifeAgente-AI-source-v$VERSION.zip" . \
+            -x ".git/*" \
+            -x "node_modules/*" \
+            -x ".venv*/*" \
+            -x "__pycache__/*" \
+            -x "*.db*" \
+            -x ".env*" \
+            -x "*.pyc" \
+            -x "frontend/dist/*" \
+            -x ".github/*" \
+            -x "*.log" \
+            -x ".idea/*" \
+            -x ".vscode/*" \
+            -x "*.zip" \
+            -x "*.apk" \
+            -x "*.exe"
+          
+          echo "✅ Source archive created"
+
+      - name: Upload Source Archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-code-v${{ steps.version.outputs.version }}
+          path: LifeAgente-AI-source-*.zip
+          retention-days: 90
+
+      - name: Announce Release
+        run: |
+          echo "🎉 Release v${{ steps.version.outputs.version }} publicada"
+          echo "📍 https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}"
+          echo ""
+          echo "🌐 Web App: https://lifeagente.vercel.app"
+          echo "📚 Docs: https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md"

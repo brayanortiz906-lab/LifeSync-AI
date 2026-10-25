@@ -1,67 +1,16 @@
-name: Release v2.0+
+name: Release v2.x Web App
 
 on:
   push:
     tags:
-      - 'v*'
+      - 'v2.*'
 
 permissions:
   contents: write
 
 jobs:
-  build-exe:
-    name: Build Windows .exe
-    runs-on: windows-latest
-    timeout-minutes: 30
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-          cache: 'pip'
-
-      - name: Install system dependencies
-        run: |
-          # Python packages for PyInstaller
-          pip install --upgrade pip
-          pip install -r backend/requirements.txt
-          pip install pyinstaller
-
-      - name: Build Frontend
-        working-directory: ./frontend
-        run: |
-          npm install --legacy-peer-deps
-          npm run build
-
-      - name: Build .exe with PyInstaller
-        working-directory: ./desktop
-        run: |
-          pyinstaller LifeAgente.spec --noconfirm --clean --distpath dist --workpath build
-
-      - name: Verify .exe exists
-        run: |
-          $exe = "desktop\dist\LifeAgente.exe"
-          if (-not (Test-Path $exe)) {
-            Write-Error "No se generó el ejecutable: $exe"
-            exit 1
-          }
-          $peso = [math]::Round((Get-Item $exe).Length / 1MB, 1)
-          Write-Host "✅ Ejecutable generado: $peso MB"
-
-      - name: Upload .exe artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: LifeAgente.exe
-          path: desktop/dist/LifeAgente.exe
-          retention-days: 90
-
-  build-source-zip:
-    name: Build Source ZIP
+  build-frontend:
+    name: Build Frontend
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -70,79 +19,129 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Create source ZIP
-        run: |
-          # Exclude build artifacts, node_modules, venvs, etc.
-          zip -r LifeAgente-AI-sistema.zip . \
-            -x ".git/*" \
-            -x "node_modules/*" \
-            -x ".venv*/*" \
-            -x "__pycache__/*" \
-            -x "*.db*" \
-            -x ".env*" \
-            -x "*.pyc" \
-            -x "*.zip" \
-            -x "desktop/build/*" \
-            -x "desktop/dist/*" \
-            -x "frontend/dist/*" \
-            -x "frontend/node_modules/*" \
-            -x ".github/*" \
-            -x "*.log" \
-            -x ".idea/*" \
-            -x ".vscode/*"
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
 
-      - name: Upload source ZIP artifact
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm install --legacy-peer-deps
+
+      - name: Build frontend
+        working-directory: ./frontend
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'http://localhost:54321' }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'dummy' }}
+          VITE_API_URL: ${{ secrets.VITE_API_URL || 'http://localhost:8000/api/v1' }}
+        run: npm run build
+
+      - name: Verify build
+        run: |
+          if [ ! -d "frontend/dist" ]; then
+            echo "❌ Build failed"
+            exit 1
+          fi
+          echo "✅ Frontend built successfully"
+
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: LifeAgente-AI-sistema.zip
-          path: LifeAgente-AI-sistema.zip
+          name: frontend-dist
+          path: frontend/dist/
           retention-days: 90
 
   create-release:
     name: Create GitHub Release
-    needs: [build-exe, build-source-zip]
+    needs: build-frontend
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Download .exe artifact
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
-          name: LifeAgente.exe
-          path: ./release-assets
+          name: frontend-dist
+          path: ./build-artifacts
 
-      - name: Download source ZIP artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: LifeAgente-AI-sistema.zip
-          path: ./release-assets
-
-      - name: Verify assets
-        run: |
-          ls -la ./release-assets/
-          file ./release-assets/LifeAgente.exe
-          file ./release-assets/LifeAgente-AI-sistema.zip
-
-      - name: Extract changelog for this version
+      - name: Extract changelog
         id: changelog
         run: |
           TAG="${GITHUB_REF_NAME}"
           VERSION="${TAG#v}"
-          # Extract section for this version from CHANGELOG.md
           awk -v ver="$VERSION" '
             /^## v/ { if (found) exit; if ($0 ~ "v" ver) found=1 }
             found { print }
-          ' CHANGELOG.md > release-notes.md || echo "No changelog found" > release-notes.md
+          ' CHANGELOG.md > changelog-section.md || true
+
+      - name: Create release notes
+        run: |
+          VERSION="${{ github.ref_name }}"
+          cat > release-notes.md << EOF
+          # 🌐 LifeAgente AI $VERSION - Web App
+          
+          **Arquitectura Web-Primero** | Supabase + Render + Vercel + Gemini BYOK
+          
+          ---
+          
+          ## 🚀 ¿Cómo usar?
+          
+          ### 🌐 Web App (Recomendado)
+          1. Visita: https://lifeagente.vercel.app
+          2. Entra con Supabase Auth (Google / Email)
+          3. Activa tu Gemini API key en Ajustes → IA (BYOK)
+          
+          ### 📱 Mobile PWA
+          Abre la web en tu navegador móvil y añádela a inicio
+          
+          ---
+          
+          ## 🔧 Configuración Producción
+          
+          ### Backend (Render)
+          - SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
+          - DATABASE_URL (PostgreSQL pooler)
+          - ENCRYPTION_KEY (Fernet 32-byte base64)
+          - CORS_ORIGINS (Vercel domains)
+          - CRON_TOKEN, GOOGLE_CLIENT_ID, BREVO_API_KEY
+          
+          ### Frontend (Vercel)
+          - VITE_SUPABASE_URL
+          - VITE_SUPABASE_ANON_KEY
+          - VITE_API_URL (Render URL)
+          - VITE_GOOGLE_CLIENT_ID
+          
+          ### Supabase
+          Ejecutar migraciones: 001_schema.sql → 002_rls.sql → 003_storage.sql → 004_triggers.sql
+          
+          ---
+          
+          ## 📝 Cambios en esta versión
+          
+          $(cat changelog-section.md)
+          
+          ---
+          
+          📚 **Documentación**: Ver CHANGELOG.md
+          🐛 **Issues**: https://github.com/${{ github.repository }}/issues
+          
+          [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+          EOF
+          
           cat release-notes.md
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: LifeAgente AI ${{ github.ref_name }}
+          name: "LifeAgente AI ${{ github.ref_name }} - Web App"
           body_path: ./release-notes.md
-          files: |
-            ./release-assets/LifeAgente.exe
-            ./release-assets/LifeAgente-AI-sistema.zip
           draft: false
           prerelease: false
           generate_release_notes: false
